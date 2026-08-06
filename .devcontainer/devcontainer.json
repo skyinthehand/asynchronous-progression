@@ -1,7 +1,7 @@
 {
   "name": "asynchronous-progression",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
-  "postCreateCommand": "npm install -g @anthropic-ai/claude-code && npm install",
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y tig && npm install -g @anthropic-ai/claude-code && npm install",
   "customizations": {
     "vscode": {
       "extensions": [
