@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,5 +31,14 @@
 
 ## Notes
 
-- 3件の [NEEDS CLARIFICATION] が残っています(FR-010, FR-019, FR-032)。
-  ユーザーへの確認後に解消し、本チェックリストを再検証します。
+- 当初 FR-010, FR-019, FR-032(現FR-033)にあった3件の [NEEDS CLARIFICATION]
+  は、ユーザーへの確認を経てすべて解消済み(1端末=1プール専任、次戦は
+  対戦相手・卓番号まで具体的に表示、注意書きはstartgg側の説明欄相当に
+  暫定保存)。
+- 印刷レイアウト(User Story 7, FR-023〜FR-025)は、リポジトリ直下の
+  `impact_major_4_brackets.pdf`(startggの勝敗ブラケット形式プール印刷例、
+  IMPACT MAJOR#4 大会)を参考資料として具体化した。総当り形式など
+  ブラケット図を持たない形式のレイアウト詳細は `/speckit-plan` 以降で確定。
+- 注意書きの保存先(startgg側の説明欄相当への保存)は、ユーザー自身の申告に
+  よる暫定決定であり、今後変更される可能性がある。Assumptions section に
+  その旨を明記済み。
