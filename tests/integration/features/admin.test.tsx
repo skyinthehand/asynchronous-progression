@@ -4,23 +4,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { getDb } from "../../../src/infra/storage/db.js";
 
-const { managedPoolOption } = vi.hoisted(() => ({
-  managedPoolOption: {
-    tournamentSlug: "impact-major-4",
-    tournamentName: "IMPACT MAJOR #4",
-    eventId: "e1",
-    eventName: "Ultimate Singles",
-    phaseId: "p1",
-    phaseName: "予選プール",
-    poolId: "pool-1",
-    poolDisplayIdentifier: "Pool 1",
-    bracketType: "DOUBLE_ELIMINATION" as const,
-  },
-}));
-
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchTournamentRules: vi.fn().mockRejectedValue(new Error("offline")),
-  listManagedPools: vi.fn().mockResolvedValue([managedPoolOption]),
+  listMyTournaments: vi
+    .fn()
+    .mockResolvedValue([
+      { tournamentSlug: "impact-major-4", tournamentName: "IMPACT MAJOR #4" },
+    ]),
+  listTournamentEvents: vi.fn().mockResolvedValue([
+    {
+      eventId: "e1",
+      eventName: "Ultimate Singles",
+      phases: [{ phaseId: "p1", phaseName: "予選プール" }],
+    },
+  ]),
+  listPhasePools: vi.fn().mockResolvedValue([
+    {
+      poolId: "pool-1",
+      poolDisplayIdentifier: "Pool 1",
+      bracketType: "DOUBLE_ELIMINATION",
+    },
+  ]),
 }));
 
 async function resetDb() {
@@ -97,7 +101,10 @@ describe("Admin mode (User Story 5)", () => {
       screen.getByPlaceholderText("Personal Access Token"),
       "pat-123",
     );
+    await user.click(screen.getByRole("button", { name: "次へ" }));
     await user.click(screen.getByRole("button", { name: "大会一覧を取得" }));
+    await user.click(await screen.findByRole("button", { name: "選択" }));
+    await user.click(await screen.findByRole("button", { name: "選択" }));
     await user.click(
       await screen.findByRole("button", { name: "このプールを選択" }),
     );

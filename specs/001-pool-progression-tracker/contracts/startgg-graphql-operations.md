@@ -16,15 +16,28 @@
 (`StartggIntegrationConfig.syncToken`、または初期化「ログイン」時に一時的に
 入力されたトークン)。
 
-## Q1. 管理権限のあるトーナメント/イベント/フェーズ/プール一覧の取得
+## Q1. 管理権限のあるトーナメント/イベント/フェーズ/プールの取得(drill-down)
 
 - **用途**: 初期化(FR-027の(1)(2))。管理者が入力したPATで、自分が管理権限を
-  持つトーナメントとその配下のイベント/フェーズ/プール(PhaseGroup)を一覧
-  表示し、対象プールを選択させる。
-- **対象**: `currentUser` を起点に、管理権限のあるトーナメント
-  (`tournaments`相当のフィールド)→ `events` → `phases` → `phaseGroups`
-  (`PhaseGroup.id`, `displayIdentifier`, `bracketType`)を取得する。
-- **検証**: 応答はzodスキーマ`TournamentListResponseSchema`で検証する。
+  持つトーナメント/イベント/フェーズ/プール(PhaseGroup)を選択させる。
+- **⚠️ 実装時の変更**: 当初は`currentUser`起点で
+  トーナメント→events→phases→phaseGroupsを1クエリで一括取得する設計
+  だったが、実機検証でstart.gg APIの
+  「1リクエストあたり最大1000オブジェクト」というquery complexity上限に
+  抵触した(実測1470オブジェクトでエラー)。そのため、以下の3段階の
+  drill-down方式に変更した。
+  - **Q1a**(`listMyTournaments`): `currentUser.tournaments(query:
+    {perPage: 25})` でトーナメント本体(`id`, `name`, `slug`)のみを取得。
+  - **Q1b**(`listTournamentEvents`): 選択した1トーナメントの`slug`を
+    指定して `tournament(slug: $slug) { events { id name phases { id
+    name } } }` を取得(1トーナメントに範囲を絞ることでオブジェクト数を
+    抑える)。
+  - **Q1c**(`listPhasePools`): 選択した1フェーズの`id`を指定して
+    `phase(id: $phaseId) { phaseGroups(query: {perPage: 100}) { nodes {
+    id displayIdentifier bracketType } } }` を取得。
+  管理者はUI上でトーナメント→イベント/フェーズ→プールの順に選択し、
+  各段階でのみ次のクエリを発行する。
+- **検証**: 各段階の応答をそれぞれ対応するzodスキーマで検証する。
   管理権限を持つトーナメントが0件の場合はUIでその旨を案内する
   (spec.md Edge Cases関連)。
 

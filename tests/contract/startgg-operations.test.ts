@@ -4,7 +4,9 @@ import {
   fetchNextMatch,
   fetchPoolDetail,
   fetchTournamentRules,
-  listManagedPools,
+  listMyTournaments,
+  listPhasePools,
+  listTournamentEvents,
   reportMatchResult,
 } from "../../src/infra/startgg/operations.js";
 
@@ -20,53 +22,83 @@ function fakeClient(response: unknown): GraphQLClient {
   } as unknown as GraphQLClient;
 }
 
-describe("Q1: listManagedPools", () => {
-  it("flattens tournaments/events/phases/phaseGroups into pool options", async () => {
+describe("Q1a: listMyTournaments", () => {
+  it("returns a flat list of tournament summaries", async () => {
     const client = fakeClient({
       currentUser: {
         tournaments: {
+          nodes: [{ id: 1, name: "IMPACT MAJOR #4", slug: "impact-major-4" }],
+        },
+      },
+    });
+
+    const tournaments = await listMyTournaments(client);
+
+    expect(tournaments).toEqual([
+      { tournamentSlug: "impact-major-4", tournamentName: "IMPACT MAJOR #4" },
+    ]);
+  });
+
+  it("does not request a nested events/phases/phaseGroups tree", async () => {
+    const requestSpy = vi.fn().mockResolvedValue({
+      currentUser: { tournaments: { nodes: [] } },
+    });
+    const client = { request: requestSpy } as unknown as GraphQLClient;
+
+    await listMyTournaments(client);
+
+    const [query] = requestSpy.mock.calls[0];
+    expect(query).not.toContain("phaseGroups");
+    expect(query).not.toContain("phases");
+  });
+});
+
+describe("Q1b: listTournamentEvents", () => {
+  it("returns events with their nested phases for one tournament", async () => {
+    const client = fakeClient({
+      tournament: {
+        events: [
+          {
+            id: 10,
+            name: "Ultimate Singles",
+            phases: [{ id: 100, name: "予選プール" }],
+          },
+        ],
+      },
+    });
+
+    const events = await listTournamentEvents(client, "impact-major-4");
+
+    expect(events).toEqual([
+      {
+        eventId: "10",
+        eventName: "Ultimate Singles",
+        phases: [{ phaseId: "100", phaseName: "予選プール" }],
+      },
+    ]);
+  });
+});
+
+describe("Q1c: listPhasePools", () => {
+  it("returns the pools (PhaseGroups) for one phase", async () => {
+    const client = fakeClient({
+      phase: {
+        phaseGroups: {
           nodes: [
             {
-              id: 1,
-              name: "IMPACT MAJOR #4",
-              slug: "impact-major-4",
-              events: [
-                {
-                  id: 10,
-                  name: "Ultimate Singles",
-                  phases: [
-                    {
-                      id: 100,
-                      name: "予選プール",
-                      phaseGroups: {
-                        nodes: [
-                          {
-                            id: 1000,
-                            displayIdentifier: "Pool 1",
-                            bracketType: "DOUBLE_ELIMINATION",
-                          },
-                        ],
-                      },
-                    },
-                  ],
-                },
-              ],
+              id: 1000,
+              displayIdentifier: "Pool 1",
+              bracketType: "DOUBLE_ELIMINATION",
             },
           ],
         },
       },
     });
 
-    const options = await listManagedPools(client);
+    const pools = await listPhasePools(client, "100");
 
-    expect(options).toEqual([
+    expect(pools).toEqual([
       {
-        tournamentSlug: "impact-major-4",
-        tournamentName: "IMPACT MAJOR #4",
-        eventId: "10",
-        eventName: "Ultimate Singles",
-        phaseId: "100",
-        phaseName: "予選プール",
         poolId: "1000",
         poolDisplayIdentifier: "Pool 1",
         bracketType: "DOUBLE_ELIMINATION",
@@ -76,42 +108,17 @@ describe("Q1: listManagedPools", () => {
 
   it("falls back to OTHER for an unrecognized bracketType", async () => {
     const client = fakeClient({
-      currentUser: {
-        tournaments: {
+      phase: {
+        phaseGroups: {
           nodes: [
-            {
-              id: 1,
-              name: "T",
-              slug: "t",
-              events: [
-                {
-                  id: 10,
-                  name: "E",
-                  phases: [
-                    {
-                      id: 100,
-                      name: "P",
-                      phaseGroups: {
-                        nodes: [
-                          {
-                            id: 1000,
-                            displayIdentifier: "Pool 1",
-                            bracketType: "SWISS",
-                          },
-                        ],
-                      },
-                    },
-                  ],
-                },
-              ],
-            },
+            { id: 1000, displayIdentifier: "Pool 1", bracketType: "SWISS" },
           ],
         },
       },
     });
 
-    const [option] = await listManagedPools(client);
-    expect(option.bracketType).toBe("OTHER");
+    const [pool] = await listPhasePools(client, "100");
+    expect(pool.bracketType).toBe("OTHER");
   });
 });
 

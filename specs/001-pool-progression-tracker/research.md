@@ -156,7 +156,26 @@
 - **Alternatives considered**: Playwright等によるE2E自動化(将来的な拡張
   候補だが、MVPスコープでは投資対効果が見合わないため見送り)。
 
+## 10. (実装後の追記) startgg APIのquery complexity上限とQ1の再設計
+
+- **Decision**: 管理権限のあるトーナメント一覧取得(Q1)を、当初の
+  「トーナメント×イベント×フェーズ×プールを1クエリで一括取得」する設計
+  から、トーナメント→イベント/フェーズ→プールの3段階drill-downへ変更した
+  (詳細は`contracts/startgg-graphql-operations.md` Q1参照)。
+- **Rationale**: 実際にユーザーのstartggアカウントで動作させたところ、
+  「Your query complexity is too high. A maximum of 1000 objects may be
+  returned by each request. (actual: 1470)」というエラーが発生した。
+  start.gg APIはリクエストごとのオブジェクト数(ネストした全ノードの
+  合計)に上限があり、管理する大会数が多いアカウントでは一括取得が
+  現実的に破綻することが判明した。段階的な絞り込みは、この上限の回避に
+  加えて、管理者が実際に選ぶのは1トーナメントの1プールのみであるため、
+  UI/UXとしても自然である。
+- **Alternatives considered**: 各ネストレベルに`perPage`を絞ってページ
+  ネーションする(一括取得の構造は保つが、複数ページの往復が必要になり
+  drill-downと比べて実装が複雑になるため見送り)。
+
 ## 未解決事項
 
 なし。Technical Contextの`NEEDS CLARIFICATION`は全て上記の調査・
-ユーザー確認により解消済み。
+ユーザー確認により解消済み。上記10.は実装後に実機検証で判明した追加の
+技術的制約への対応であり、当初のPhase 0時点では想定していなかった。

@@ -14,86 +14,14 @@ import type { BracketType } from "../../domain/entities/pool.js";
  * as a clear validation error instead of a silent bad value.
  */
 
-// --- Q1: managed tournaments / events / phases / pools ---
-
-const PhaseGroupNodeSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(String),
-  displayIdentifier: z.string(),
-  bracketType: z.string().nullable(),
-});
-
-const PhaseNodeSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(String),
-  name: z.string(),
-  phaseGroups: z
-    .object({ nodes: z.array(PhaseGroupNodeSchema) })
-    .nullable()
-    .optional(),
-});
-
-const EventNodeSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(String),
-  name: z.string(),
-  phases: z.array(PhaseNodeSchema).nullable().optional(),
-});
-
-const TournamentNodeSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(String),
-  name: z.string(),
-  slug: z.string(),
-  events: z.array(EventNodeSchema).nullable().optional(),
-});
-
-const ManagedTournamentsResponseSchema = z.object({
-  currentUser: z
-    .object({
-      tournaments: z
-        .object({ nodes: z.array(TournamentNodeSchema) })
-        .nullable(),
-    })
-    .nullable(),
-});
-
-const MANAGED_TOURNAMENTS_QUERY = /* GraphQL */ `
-  query ManagedTournaments {
-    currentUser {
-      tournaments(query: { perPage: 100 }) {
-        nodes {
-          id
-          name
-          slug
-          events {
-            id
-            name
-            phases {
-              id
-              name
-              phaseGroups {
-                nodes {
-                  id
-                  displayIdentifier
-                  bracketType
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-`;
-
-export interface ManagedPoolOption {
-  tournamentSlug: string;
-  tournamentName: string;
-  eventId: string;
-  eventName: string;
-  phaseId: string;
-  phaseName: string;
-  poolId: string;
-  poolDisplayIdentifier: string;
-  bracketType: BracketType;
-}
+// --- Q1: managed tournaments / events & phases / pools (drill-down) ---
+//
+// NOTE: 当初は「管理権限のある全トーナメント×全イベント×全フェーズ×
+// 全プール」を1クエリで取得していたが、start.gg APIの
+// "query complexity" 上限(1リクエストあたり最大1000オブジェクト)に
+// 実運用で抵触した(1470オブジェクトでエラー)。そのため、管理者が
+// トーナメント→イベント/フェーズ→プールの順に絞り込んで取得する
+// drill-down方式に変更している。
 
 function normalizeBracketType(raw: string | null): BracketType {
   switch (raw) {
@@ -108,35 +36,178 @@ function normalizeBracketType(raw: string | null): BracketType {
   }
 }
 
-/** Q1: 管理権限のあるトーナメント/イベント/フェーズ/プール一覧の取得 */
-export async function listManagedPools(
-  client: GraphQLClient,
-): Promise<ManagedPoolOption[]> {
-  const raw = await client.request(MANAGED_TOURNAMENTS_QUERY);
-  const parsed = ManagedTournamentsResponseSchema.parse(raw);
-  const tournaments = parsed.currentUser?.tournaments?.nodes ?? [];
+const TOURNAMENTS_PER_PAGE = 25;
 
-  const options: ManagedPoolOption[] = [];
-  for (const tournament of tournaments) {
-    for (const event of tournament.events ?? []) {
-      for (const phase of event.phases ?? []) {
-        for (const group of phase.phaseGroups?.nodes ?? []) {
-          options.push({
-            tournamentSlug: tournament.slug,
-            tournamentName: tournament.name,
-            eventId: event.id,
-            eventName: event.name,
-            phaseId: phase.id,
-            phaseName: phase.name,
-            poolId: group.id,
-            poolDisplayIdentifier: group.displayIdentifier,
-            bracketType: normalizeBracketType(group.bracketType),
-          });
+const TournamentSummarySchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  name: z.string(),
+  slug: z.string(),
+});
+
+const MyTournamentsResponseSchema = z.object({
+  currentUser: z
+    .object({
+      tournaments: z
+        .object({ nodes: z.array(TournamentSummarySchema) })
+        .nullable(),
+    })
+    .nullable(),
+});
+
+const MY_TOURNAMENTS_QUERY = /* GraphQL */ `
+  query MyTournaments($perPage: Int!) {
+    currentUser {
+      tournaments(query: { perPage: $perPage }) {
+        nodes {
+          id
+          name
+          slug
         }
       }
     }
   }
-  return options;
+`;
+
+export interface TournamentOption {
+  tournamentSlug: string;
+  tournamentName: string;
+}
+
+/** Q1a: 管理権限のあるトーナメント一覧の取得(トーナメント本体のみ)。 */
+export async function listMyTournaments(
+  client: GraphQLClient,
+): Promise<TournamentOption[]> {
+  const raw = await client.request(MY_TOURNAMENTS_QUERY, {
+    perPage: TOURNAMENTS_PER_PAGE,
+  });
+  const parsed = MyTournamentsResponseSchema.parse(raw);
+  const tournaments = parsed.currentUser?.tournaments?.nodes ?? [];
+  return tournaments.map((tournament) => ({
+    tournamentSlug: tournament.slug,
+    tournamentName: tournament.name,
+  }));
+}
+
+const PhaseSummarySchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  name: z.string(),
+});
+
+const EventSummarySchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  name: z.string(),
+  phases: z.array(PhaseSummarySchema).nullable().optional(),
+});
+
+const TournamentEventsResponseSchema = z.object({
+  tournament: z
+    .object({ events: z.array(EventSummarySchema).nullable() })
+    .nullable(),
+});
+
+const TOURNAMENT_EVENTS_QUERY = /* GraphQL */ `
+  query TournamentEvents($slug: String!) {
+    tournament(slug: $slug) {
+      events {
+        id
+        name
+        phases {
+          id
+          name
+        }
+      }
+    }
+  }
+`;
+
+export interface EventOption {
+  eventId: string;
+  eventName: string;
+  phases: { phaseId: string; phaseName: string }[];
+}
+
+/** Q1b: 選択したトーナメント配下のイベント/フェーズ一覧の取得。 */
+export async function listTournamentEvents(
+  client: GraphQLClient,
+  tournamentSlug: string,
+): Promise<EventOption[]> {
+  const raw = await client.request(TOURNAMENT_EVENTS_QUERY, {
+    slug: tournamentSlug,
+  });
+  const parsed = TournamentEventsResponseSchema.parse(raw);
+  const events = parsed.tournament?.events ?? [];
+  return events.map((event) => ({
+    eventId: event.id,
+    eventName: event.name,
+    phases: (event.phases ?? []).map((phase) => ({
+      phaseId: phase.id,
+      phaseName: phase.name,
+    })),
+  }));
+}
+
+const PhaseGroupNodeSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  displayIdentifier: z.string(),
+  bracketType: z.string().nullable(),
+});
+
+const PhasePoolsResponseSchema = z.object({
+  phase: z
+    .object({
+      phaseGroups: z
+        .object({ nodes: z.array(PhaseGroupNodeSchema) })
+        .nullable(),
+    })
+    .nullable(),
+});
+
+const PHASE_POOLS_QUERY = /* GraphQL */ `
+  query PhasePools($phaseId: ID!) {
+    phase(id: $phaseId) {
+      phaseGroups(query: { perPage: 100 }) {
+        nodes {
+          id
+          displayIdentifier
+          bracketType
+        }
+      }
+    }
+  }
+`;
+
+export interface PoolOption {
+  poolId: string;
+  poolDisplayIdentifier: string;
+  bracketType: BracketType;
+}
+
+/** Q1c: 選択したフェーズ配下のプール(PhaseGroup)一覧の取得。 */
+export async function listPhasePools(
+  client: GraphQLClient,
+  phaseId: string,
+): Promise<PoolOption[]> {
+  const raw = await client.request(PHASE_POOLS_QUERY, { phaseId });
+  const parsed = PhasePoolsResponseSchema.parse(raw);
+  const groups = parsed.phase?.phaseGroups?.nodes ?? [];
+  return groups.map((group) => ({
+    poolId: group.id,
+    poolDisplayIdentifier: group.displayIdentifier,
+    bracketType: normalizeBracketType(group.bracketType),
+  }));
+}
+
+/** InitLogin/PoolSelectionが最終的に確定させる、選択済みプールの全情報。 */
+export interface ManagedPoolOption {
+  tournamentSlug: string;
+  tournamentName: string;
+  eventId: string;
+  eventName: string;
+  phaseId: string;
+  phaseName: string;
+  poolId: string;
+  poolDisplayIdentifier: string;
+  bracketType: BracketType;
 }
 
 // --- Q2: pool detail (match cards + entrants) ---
