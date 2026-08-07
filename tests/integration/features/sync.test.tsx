@@ -123,8 +123,9 @@ describe("Background sync and offline notification (User Story 3)", () => {
 
     render(<SyncStatusSnackbar />);
     expect(
-      await screen.findByText(/同期がしばらく成功していません/),
+      await screen.findByText(/初回同期にまだ成功していません/),
     ).toBeInTheDocument();
+    expect(screen.getByText(/詳細: network error/)).toBeInTheDocument();
 
     await db.put("syncStatus", {
       poolId: "pool-1",
@@ -138,7 +139,7 @@ describe("Background sync and offline notification (User Story 3)", () => {
     await waitFor(
       () =>
         expect(
-          screen.queryByText(/同期がしばらく成功していません/),
+          screen.queryByText(/初回同期にまだ成功していません/),
         ).not.toBeInTheDocument(),
       { timeout: 6000 },
     );

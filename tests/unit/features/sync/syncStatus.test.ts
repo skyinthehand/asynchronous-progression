@@ -36,4 +36,27 @@ describe("deriveIsStale", () => {
       true,
     );
   });
+
+  it("is stale immediately when the very first sync attempt fails, even with zero pending changes", () => {
+    // 選手データがまだ何も無い(pendingChangeCount: 0)新規プールで、
+    // 初回のデータ取得自体が失敗した場合をサイレントにしない(実際の
+    // バグ報告に基づく回帰テスト)。
+    expect(
+      deriveIsStale({
+        lastSuccessAt: null,
+        lastFailureAt: "2026-01-01T00:00:00.000Z",
+        pendingChangeCount: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("stays quiet before any sync has even been attempted", () => {
+    expect(
+      deriveIsStale({
+        lastSuccessAt: null,
+        lastFailureAt: null,
+        pendingChangeCount: 0,
+      }),
+    ).toBe(false);
+  });
 });

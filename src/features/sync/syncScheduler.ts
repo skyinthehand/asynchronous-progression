@@ -5,7 +5,9 @@ import { SYNC_INTERVAL_MS } from "./syncStatusRules.js";
  * オンライン復帰時にも即座に1回実行する。呼び出し元はクリーンアップ関数を
  * useEffect等で呼び出すこと。
  */
-export function startSyncScheduler(runSync: () => Promise<void>): () => void {
+export function startSyncScheduler(
+  runSync: () => Promise<unknown>,
+): () => void {
   const intervalId = setInterval(() => {
     if (navigator.onLine) {
       void runSync();

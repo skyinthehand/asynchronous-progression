@@ -174,6 +174,28 @@
   ネーションする(一括取得の構造は保つが、複数ページの往復が必要になり
   drill-downと比べて実装が複雑になるため見送り)。
 
+## 11. (実装後の追記) `currentUser.tournaments`の管理者以外混入と、非公開データの扱い
+
+- **Decision**: Q1a(`listMyTournaments`)の結果を、`Tournament.admins`
+  (「Admin-only view of admins for this tournament」)に`currentUser.id`
+  が含まれるものだけにクライアント側でフィルタする。また、非公開
+  (unpublished)なフェーズ/プールについては、追加のフィルタ処理は行わない
+  (PAT認証により自動的に取得できるため)。
+- **Rationale**: 実機確認により2点判明した。(1)
+  `currentUser.tournaments`は「主催 or 参加した」大会を両方返すため、
+  `admins`リストでの絞り込みが必要だった。(2)
+  `tournament(slug)`/`phase(id)`はPersonal Access Token(管理者本人)で
+  認証しているため、start.gg管理画面の「Settings > REPORTING」画面
+  (会場での結果報告に使う、非公開データも見える管理者専用画面)と同様に、
+  非公開・未確定のフェーズ/プールも取得できることをユーザー本人が実機で
+  確認した(2026-08-07)。公開Bracketsページのみが未公開データを除外する
+  未認証の一般公開ビューであり、認証済みAPI呼び出しには同様の制限が
+  無かったと考えられる。
+- **Alternatives considered**: `UserTournamentsPaginationFilter.tournamentView`
+  という(説明文非公開の)フィルタ引数を使う案もあったが、受理される値が
+  ドキュメントから確認できず、憶測での実装は避けた。`admins`フィールドは
+  スキーマ上に説明文があり確認可能だったため、こちらを採用した。
+
 ## 未解決事項
 
 なし。Technical Contextの`NEEDS CLARIFICATION`は全て上記の調査・

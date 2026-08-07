@@ -4,6 +4,7 @@ import {
   getStartggConfig,
   saveStartggConfig,
 } from "../../infra/storage/adminRepository.js";
+import { runSync } from "../sync/syncRunner.js";
 import { TournamentDrillDown } from "./TournamentDrillDown.js";
 import { ensurePoolFromOption } from "./poolBootstrap.js";
 
@@ -19,6 +20,9 @@ interface InitLoginProps {
 export function InitLogin({ onInitialized }: InitLoginProps) {
   const [token, setToken] = useState("");
   const [confirmedToken, setConfirmedToken] = useState<string | null>(null);
+  const [syncState, setSyncState] = useState<
+    "idle" | "syncing" | "done" | "error"
+  >("idle");
 
   async function handleSelect(option: ManagedPoolOption) {
     const existing = await getStartggConfig();
@@ -33,6 +37,14 @@ export function InitLogin({ onInitialized }: InitLoginProps) {
     });
     await ensurePoolFromOption(option);
     onInitialized();
+
+    // 定期同期(最大60秒間隔)を待たず、選択直後に一度同期を試みる。
+    // これにより「選択したのに一般モードに何も表示されない」という
+    // 体感的な待ち時間を無くす。失敗時はSyncStatusSnackbarが理由付きで
+    // 表示される(syncStatusRules.ts参照)。
+    setSyncState("syncing");
+    const result = await runSync();
+    setSyncState(result.success ? "done" : "error");
   }
 
   return (
@@ -62,6 +74,18 @@ export function InitLogin({ onInitialized }: InitLoginProps) {
           token={confirmedToken}
           onPoolSelected={handleSelect}
         />
+      )}
+      {syncState === "syncing" && <p>プールを選択しました。同期しています…</p>}
+      {syncState === "done" && (
+        <p>
+          プールを選択し、初回同期が完了しました。一般モードをご確認ください。
+        </p>
+      )}
+      {syncState === "error" && (
+        <p role="alert">
+          プールは選択されましたが、初回同期に失敗しました。詳細は画面下部の
+          通知をご確認ください。
+        </p>
       )}
     </section>
   );

@@ -55,15 +55,23 @@ function mergeEntrant(local: Entrant | undefined, remote: Entrant): Entrant {
   };
 }
 
+export interface SyncResult {
+  success: boolean;
+  /** 呼び出し元(初回同期のUI表示等)向けの失敗理由。成功時はundefined。 */
+  error?: string;
+}
+
 /**
  * FR-015/FR-017: 未反映のローカル結果をstartggへ送信し(M1)、対象プールの
  * 最新状態(Q2)と注意書き(Q4)を取得してローカルへ反映する。失敗しても
- * ローカルデータは一切変更せず、SyncStatusに失敗を記録するのみ。
+ * ローカルデータは一切変更せず、SyncStatusに失敗を記録するのみ(例外は
+ * 投げない。バックグラウンドスケジューラからの呼び出しでも安全なように、
+ * 成否は戻り値で判定できるようにする)。
  */
-export async function runSync(): Promise<void> {
+export async function runSync(): Promise<SyncResult> {
   const config = await getStartggConfig();
   if (!config?.poolId || !config.syncToken) {
-    return;
+    return { success: false, error: "対象プールまたはトークンが未設定です" };
   }
   const poolId = config.poolId;
 
@@ -153,19 +161,24 @@ export async function runSync(): Promise<void> {
       pendingChangeCount: 0,
       isStale: false,
     });
+    return { success: true };
   } catch (error) {
     const previous = await getSyncStatus(poolId);
     const pendingCount = (await getPendingMatchCards(poolId)).length;
+    const failureAt = new Date().toISOString();
+    const reason = error instanceof Error ? error.message : String(error);
     await saveSyncStatus({
       poolId,
       lastSuccessAt: previous?.lastSuccessAt ?? null,
-      lastFailureAt: new Date().toISOString(),
-      lastFailureReason: error instanceof Error ? error.message : String(error),
+      lastFailureAt: failureAt,
+      lastFailureReason: reason,
       pendingChangeCount: pendingCount,
       isStale: deriveIsStale({
         lastSuccessAt: previous?.lastSuccessAt ?? null,
+        lastFailureAt: failureAt,
         pendingChangeCount: pendingCount,
       }),
     });
+    return { success: false, error: reason };
   }
 }

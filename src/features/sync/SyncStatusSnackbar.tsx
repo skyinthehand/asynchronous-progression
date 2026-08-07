@@ -8,10 +8,20 @@ export function SyncStatusSnackbar() {
     return null;
   }
 
+  const notYetSynced = !status.lastSuccessAt;
+
   return (
     <output className="sync-status-snackbar no-print">
-      startggとの同期がしばらく成功していません(未反映
-      {status.pendingChangeCount}件)。ネットワーク接続をご確認ください。
+      {notYetSynced
+        ? "startggとの初回同期にまだ成功していません。"
+        : `startggとの同期がしばらく成功していません(未反映${status.pendingChangeCount}件)。`}
+      ネットワーク接続をご確認ください。
+      {status.lastFailureReason && (
+        <span className="sync-status-reason">
+          {" "}
+          詳細: {status.lastFailureReason}
+        </span>
+      )}
     </output>
   );
 }

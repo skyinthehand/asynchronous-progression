@@ -184,8 +184,13 @@ spec.md「同期状況」に対応。
 | pendingChangeCount | number | 未反映のローカル変更件数
   (MatchCardの`localOnly === true`件数から導出) | 0以上の整数 |
 | isStale | boolean | 同期不良スナックバー表示条件(FR-016)を満たすかの
-  導出値。`lastSuccessAt`から設定閾値以上経過、かつ`pendingChangeCount > 0`
-  またはオフライン状態が閾値以上継続、で真になる | 必須 |
+  導出値(`syncStatusRules.ts`の`deriveIsStale`)。(1) 一度も同期に
+  成功していない場合は、明示的な失敗履歴があるか未反映の変更がある時点で
+  即座に真(初回のデータ取得自体が失敗しても、ローカルに未反映の変更が
+  無いために警告が出ないままになる、というサイレント障害を防ぐため。
+  実運用で確認された不具合への対応)。(2) 一度でも成功している場合は、
+  `lastSuccessAt`から設定閾値以上経過し、かつ`pendingChangeCount > 0`で
+  真になる | 必須 |
 
 ## 9. エンティティ関連図(概念)
 
