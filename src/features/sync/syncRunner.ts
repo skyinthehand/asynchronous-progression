@@ -1,0 +1,171 @@
+import type { Entrant } from "../../domain/entities/entrant.js";
+import type { MatchCard } from "../../domain/entities/matchCard.js";
+import { computePoolFinished } from "../../domain/rules/poolFinished.js";
+import { createStartggClient } from "../../infra/startgg/client.js";
+import {
+  fetchNextMatch,
+  fetchPoolDetail,
+  reportMatchResult,
+} from "../../infra/startgg/operations.js";
+import {
+  getStartggConfig,
+  getSyncStatus,
+  saveSyncStatus,
+} from "../../infra/storage/adminRepository.js";
+import {
+  getEntrantsByPool,
+  saveEntrants,
+} from "../../infra/storage/entrantRepository.js";
+import {
+  getMatchCardsByPool,
+  getPendingMatchCards,
+  saveMatchCard,
+  saveMatchCards,
+} from "../../infra/storage/matchCardRepository.js";
+import { getPool, savePool } from "../../infra/storage/poolRepository.js";
+import { syncNotice } from "../notice/noticeSync.js";
+import { deriveIsStale } from "./syncStatusRules.js";
+
+function mergeMatchCard(
+  local: MatchCard | undefined,
+  remote: MatchCard,
+): MatchCard {
+  if (!local) return remote;
+  if (local.localOnly) {
+    // ローカルで未反映の結果がある場合は、ローカルを正としてstartgg側の
+    // 古い値で上書きしない(次回同期で改めてM1を送信する)。
+    return local;
+  }
+  return {
+    ...remote,
+    editHistory: local.editHistory,
+    isLocked: local.isLocked,
+  };
+}
+
+function mergeEntrant(local: Entrant | undefined, remote: Entrant): Entrant {
+  if (!local) return remote;
+  return {
+    ...remote,
+    attendance: local.attendance,
+    attendanceRecordedAt: local.attendanceRecordedAt,
+    awayPeriods: local.awayPeriods,
+    poolFinished: local.poolFinished,
+    nextMatch: local.nextMatch,
+  };
+}
+
+/**
+ * FR-015/FR-017: 未反映のローカル結果をstartggへ送信し(M1)、対象プールの
+ * 最新状態(Q2)と注意書き(Q4)を取得してローカルへ反映する。失敗しても
+ * ローカルデータは一切変更せず、SyncStatusに失敗を記録するのみ。
+ */
+export async function runSync(): Promise<void> {
+  const config = await getStartggConfig();
+  if (!config?.poolId || !config.syncToken) {
+    return;
+  }
+  const poolId = config.poolId;
+
+  try {
+    const client = createStartggClient(config.syncToken);
+
+    const pending = await getPendingMatchCards(poolId);
+    for (const card of pending) {
+      if (!card.winnerId) continue;
+      const outcome = await reportMatchResult(client, {
+        setId: card.id,
+        winnerId: card.winnerId,
+      });
+      await saveMatchCard({
+        ...card,
+        winnerId: outcome.winnerId ?? card.winnerId,
+        score: outcome.score ?? card.score,
+        status: outcome.status,
+        localOnly: false,
+      });
+    }
+
+    const detail = await fetchPoolDetail(client, poolId);
+    const [localEntrants, localCards] = await Promise.all([
+      getEntrantsByPool(poolId),
+      getMatchCardsByPool(poolId),
+    ]);
+    const localEntrantById = new Map(
+      localEntrants.map((entrant) => [entrant.id, entrant]),
+    );
+    const localCardById = new Map(localCards.map((card) => [card.id, card]));
+
+    const mergedCards = detail.matchCards.map((remote) =>
+      mergeMatchCard(localCardById.get(remote.id), remote),
+    );
+    const mergedEntrantsBeforeNextMatch = detail.entrants.map((remote) =>
+      mergeEntrant(localEntrantById.get(remote.id), remote),
+    );
+
+    // FR-018/FR-019: プールを終えた選手について、次戦(後続フェーズ配置)を
+    // Q3で取得しキャッシュしておく(オフライン時にも表示できるように)。
+    const mergedEntrants = await Promise.all(
+      mergedEntrantsBeforeNextMatch.map(async (entrant) => {
+        const poolFinished = computePoolFinished(entrant.id, mergedCards);
+        if (!poolFinished) {
+          return { ...entrant, poolFinished };
+        }
+        if (entrant.nextMatch?.confirmed) {
+          return { ...entrant, poolFinished };
+        }
+        try {
+          const nextMatch = await fetchNextMatch(client, entrant.id);
+          return { ...entrant, poolFinished, nextMatch };
+        } catch {
+          return { ...entrant, poolFinished };
+        }
+      }),
+    );
+
+    if (mergedEntrants.length > 0) {
+      await saveEntrants(mergedEntrants);
+    }
+    if (mergedCards.length > 0) {
+      await saveMatchCards(mergedCards);
+    }
+
+    const pool = await getPool(poolId);
+    if (pool) {
+      await savePool({
+        ...pool,
+        bracketType: detail.bracketType,
+        lastSyncedAt: new Date().toISOString(),
+      });
+    }
+
+    try {
+      await syncNotice();
+    } catch {
+      // 注意書き同期の失敗は対戦進行の同期を妨げない。
+    }
+
+    await saveSyncStatus({
+      poolId,
+      lastSuccessAt: new Date().toISOString(),
+      lastFailureAt: (await getSyncStatus(poolId))?.lastFailureAt ?? null,
+      lastFailureReason: null,
+      pendingChangeCount: 0,
+      isStale: false,
+    });
+  } catch (error) {
+    const previous = await getSyncStatus(poolId);
+    const pendingCount = (await getPendingMatchCards(poolId)).length;
+    await saveSyncStatus({
+      poolId,
+      lastSuccessAt: previous?.lastSuccessAt ?? null,
+      lastFailureAt: new Date().toISOString(),
+      lastFailureReason: error instanceof Error ? error.message : String(error),
+      pendingChangeCount: pendingCount,
+      isStale: deriveIsStale({
+        lastSuccessAt: previous?.lastSuccessAt ?? null,
+        pendingChangeCount: pendingCount,
+      }),
+    });
+  }
+}

@@ -113,3 +113,23 @@ npm test          # Vitest(実装後に追加されるテストスクリプト)
 
 これらは`tasks.md`(`/speckit-tasks`で生成)のFoundationalタスクとして
 pre-commit/GitHub Actionsにも組み込む(Constitution原則V)。
+
+## 実装時点での検証状況(Polish フェーズ, T065)
+
+`/speckit-implement` 実行時点で、以下は自動化された形で検証済み。
+
+- `npm run lint` / `npm run build` / `npm test`(46件の単体・結合・契約
+  テスト)がすべて通過。
+- `npm run dev` を実際に起動し、`curl` でエントリポイント
+  (`index.html`, `src/main.tsx`, `src/app/App.tsx`)がエラーなく配信・
+  トランスパイルされることを確認済み。
+
+一方、以下は実機ブラウザでの目視確認が必要であり、本セッションでは
+未実施(ブラウザ自動操作の手段がなかったため)。実際に大会で使用する前に、
+シナリオ1〜7を実ブラウザで一通り確認することを推奨する。
+
+- 実際のUIの見た目・操作感(FR-011)、印刷プレビュー/PDF出力の実見た目
+  (シナリオ7)
+- 実在のstartggトーナメント・Personal Access Tokenを用いたエンドツー
+  エンドの疎通(本実装のstartgg関連コードはすべてテストではモック化
+  されており、実APIとの実接続では未検証)

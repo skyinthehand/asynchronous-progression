@@ -1,0 +1,40 @@
+import { type ReactNode, useState } from "react";
+import { useNotice } from "./useNotice.js";
+
+interface NoticeGateProps {
+  children: ReactNode;
+}
+
+/**
+ * FR-001: 進行担当者がツールを開いた際に、他の操作より前に注意書きを
+ * 表示する。確認操作をするまで子要素(=それ以外の全画面)を描画しない。
+ */
+export function NoticeGate({ children }: NoticeGateProps) {
+  const { notice, loading } = useNotice();
+  const [acknowledged, setAcknowledged] = useState(false);
+
+  if (acknowledged) {
+    return <>{children}</>;
+  }
+
+  return (
+    <dialog open className="notice-gate" aria-modal="true">
+      <h2>注意事項</h2>
+      {notice ? (
+        <p className="notice-body">{notice.body}</p>
+      ) : loading ? (
+        <p className="notice-status">
+          注意事項を同期しています。しばらくお待ちください…
+        </p>
+      ) : (
+        <p className="notice-status">
+          注意事項をまだ取得できていません。管理画面で大会の初期化が
+          完了しているか、ネットワーク接続をご確認ください。
+        </p>
+      )}
+      <button type="button" onClick={() => setAcknowledged(true)}>
+        内容を確認しました
+      </button>
+    </dialog>
+  );
+}

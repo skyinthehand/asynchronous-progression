@@ -24,6 +24,10 @@ spec.md「予選プール」に対応。startggの `PhaseGroup` を1件、この
 | staffName | string \| null | 進行担当者記録の最新値のキャッシュ
   (正規のログは3. StaffAssignmentEntry) | - |
 | lastSyncedAt | string(ISO8601) \| null | startggとの最終同期成功日時 | - |
+| tournamentName | string \| null | 印刷ヘッダー表示用のトーナメント名
+  (実装時追加。管理画面の初期化/対象プール変更時にstartgg一覧取得結果から
+  保存) | - |
+| eventName | string \| null | 印刷ヘッダー表示用のイベント名(同上) | - |
 
 **状態遷移**: なし(Poolそのものはstartgg側の構成に追従するのみ)。
 
@@ -158,6 +162,9 @@ spec.md「startgg連携設定」に対応。FR-026〜FR-028の初期化内容を
   (FR-027の(3)) | 保存時に非空文字列であることを検証。値そのものは
   マスクして画面表示する |
 | tokenUpdatedAt | string(ISO8601) \| null | トークン最終更新日時 | - |
+| adminPasswordHash | string \| null | 管理画面パスワード(FR-026)のSHA-256
+  ハッシュ。未設定時に入力された値を初期パスワードとして登録する
+  (bootstrap) | 実装時に追加。平文は保持しない |
 
 **注記**: 「ログイン」ステップ(FR-027の(1))で入力するPATは、対象一覧取得の
 その場限りの用途であり、永続化対象は`syncToken`(FR-027の(3))のみ。両者が

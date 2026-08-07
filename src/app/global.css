@@ -1,0 +1,95 @@
+/*
+ * FR-011: 画面全体で一貫した見た目にするための最小限の共通スタイル。
+ * startggの一覧・テーブル中心のUIに合わせ、密度の高いテーブル表示と
+ * シンプルなフォーム部品で統一する。
+ */
+:root {
+  --border-color: #d0d0d0;
+  --accent-color: #1a5fb4;
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #1a1a1a;
+  background: #fafafa;
+}
+
+.app-content {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.app-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+section {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: #fff;
+}
+
+section h2,
+section h3 {
+  margin-top: 0;
+}
+
+.app-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.app-table th,
+.app-table td {
+  border: 1px solid var(--border-color);
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: #fff;
+  border-radius: 4px;
+  padding: 0.3rem 0.7rem;
+}
+
+button:hover {
+  background: #f0f0f0;
+}
+
+input {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+}
+
+.emergency-contact-warning,
+.sync-status-snackbar {
+  background: #fff3cd;
+  border: 1px solid #e0c26b;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.match-card-next {
+  outline: 2px solid var(--accent-color);
+}

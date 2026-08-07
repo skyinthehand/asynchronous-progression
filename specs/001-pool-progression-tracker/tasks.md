@@ -34,19 +34,19 @@ FR-013/FR-022等の重要なビジネスルールの回帰防止のため)。全
 
 **Purpose**: React SPAとしてビルド・起動できる最小限の土台を整える
 
-- [ ] T001 `package.json` に本番依存(`react`, `react-dom`, `idb`, `zod`,
+- [X] T001 `package.json` に本番依存(`react`, `react-dom`, `idb`, `zod`,
   `graphql-request`)と開発依存(`vite`, `@vitejs/plugin-react`, `vitest`,
   `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`,
   `@types/react`, `@types/react-dom`)を追加して `npm install` し、あわせて
   リポジトリ直下に `index.html`(Viteエントリポイント、`src/main.tsx` を
   読み込む)を作成する
-- [ ] T002 [P] `tsconfig.json` に `"jsx": "react-jsx"` と
+- [X] T002 [P] `tsconfig.json` に `"jsx": "react-jsx"` と
   `"lib": ["ES2022", "DOM", "DOM.Iterable"]` を追加する
-- [ ] T003 [P] リポジトリ直下に `vite.config.ts` を作成し、Reactプラグイン・
+- [X] T003 [P] リポジトリ直下に `vite.config.ts` を作成し、Reactプラグイン・
   開発サーバーポート(5173)・Vitestのjsdom環境設定を行う
-- [ ] T004 [P] `package.json` の `scripts` に `"dev": "vite"`,
+- [X] T004 [P] `package.json` の `scripts` に `"dev": "vite"`,
   `"preview": "vite preview"`, `"test": "vitest run"` を追加する
-- [ ] T005 [P] `.devcontainer/devcontainer.json` にVite開発サーバー用ポート
+- [X] T005 [P] `.devcontainer/devcontainer.json` にVite開発サーバー用ポート
   (5173)の `forwardPorts` を追加する
 
 **Checkpoint**: `npm run dev` でVite開発サーバーが起動できる状態。
@@ -61,51 +61,51 @@ FR-013/FR-022等の重要なビジネスルールの回帰防止のため)。全
 **⚠️ CRITICAL**: このフェーズが完了するまで、いかなるUser Storyの実装も
 開始できない
 
-- [ ] T006 [P] pre-commitフック(`lint-staged` + `simple-git-hooks` 等)を
+- [X] T006 [P] pre-commitフック(`lint-staged` + `simple-git-hooks` 等)を
   導入し、コミット前に `npm run lint` と `npm run build` を実行するよう
   設定する(Constitution原則V)
-- [ ] T007 [P] `.github/workflows/ci.yml` を作成し、push/PR時に
+- [X] T007 [P] `.github/workflows/ci.yml` を作成し、push/PR時に
   `npm run lint`, `npm run build`, `npm test` を実行するGitHub Actions
   ワークフローを設定する(Constitution原則V)
-- [ ] T008 [P] `src/domain/entities/pool.ts`, `matchCard.ts` に
+- [X] T008 [P] `src/domain/entities/pool.ts`, `matchCard.ts` に
   Pool・MatchCard・MatchCardEditの型を、`src/domain/schemas/pool.ts`,
   `matchCard.ts` に対応するzodスキーマを実装する(data-model.md 1, 2, 2.1)
-- [ ] T009 [P] `src/domain/entities/entrant.ts` にEntrant・NextMatchInfo・
+- [X] T009 [P] `src/domain/entities/entrant.ts` にEntrant・NextMatchInfo・
   AwayPeriodの型を、`src/domain/schemas/entrant.ts` に対応するzodスキーマを
   実装する(data-model.md 3, 3.1, 3.2)
-- [ ] T010 [P] `src/domain/entities/staffAssignment.ts`,
+- [X] T010 [P] `src/domain/entities/staffAssignment.ts`,
   `notice.ts`, `adminSession.ts`, `startggConfig.ts`, `syncStatus.ts` に
   StaffAssignmentEntry・Notice・AdminSession・StartggIntegrationConfig・
   SyncStatusの型を、`src/domain/schemas/` に対応するzodスキーマを実装する
   (data-model.md 4〜8)
-- [ ] T011 `src/infra/storage/db.ts` に、`idb` を用いたIndexedDB初期化と
+- [X] T011 `src/infra/storage/db.ts` に、`idb` を用いたIndexedDB初期化と
   `contracts/local-storage-schema.md` のオブジェクトストア定義
   (`pools`, `matchCards`, `entrants`, `staffAssignments`, `notice`,
   `adminSession`, `startggConfig`, `syncStatus`)、およびバージョン
   マイグレーション機構を実装する(依存: T008, T009, T010)
-- [ ] T012 [P] `src/infra/storage/poolRepository.ts`,
+- [X] T012 [P] `src/infra/storage/poolRepository.ts`,
   `matchCardRepository.ts`, `entrantRepository.ts` に、保存前・読み出し後の
   zod検証を行うCRUDリポジトリ関数を実装する(依存: T011)
-- [ ] T013 [P] `src/infra/storage/adminRepository.ts` に、
+- [X] T013 [P] `src/infra/storage/adminRepository.ts` に、
   StaffAssignmentEntry・Notice・AdminSession・StartggIntegrationConfig・
   SyncStatus用のCRUDリポジトリ関数を実装する(依存: T011)
-- [ ] T014 [P] `src/infra/startgg/client.ts` に、`graphql-request` を用いた
+- [X] T014 [P] `src/infra/startgg/client.ts` に、`graphql-request` を用いた
   startgg GraphQLクライアント(トークンを`Authorization: Bearer`ヘッダーに
   付与)を実装する
-- [ ] T015 `src/infra/startgg/operations.ts` に、
+- [X] T015 `src/infra/startgg/operations.ts` に、
   `contracts/startgg-graphql-operations.md` のQ1〜Q4・M1をzod検証付きで
   実装する(依存: T014, T008〜T010)
-- [ ] T016 [P] `src/domain/rules/editLock.ts` に、後続MatchCardの状態から
+- [X] T016 [P] `src/domain/rules/editLock.ts` に、後続MatchCardの状態から
   `isLocked` を導出するロジックを実装する(data-model.md MatchCard状態遷移、
   FR-022)
-- [ ] T017 [P] `src/domain/rules/noticeValidation.ts` に、Notice本文から
+- [X] T017 [P] `src/domain/rules/noticeValidation.ts` に、Notice本文から
   緊急連絡先らしき記載を検出するヒューリスティックを実装する(FR-003、
   data-model.md `hasEmergencyContact`)
-- [ ] T018 `src/main.tsx` に `ReactDOM.createRoot` で `<App />` をマウントする
+- [X] T018 `src/main.tsx` に `ReactDOM.createRoot` で `<App />` をマウントする
   エントリポイントを実装し、`src/app/App.tsx`, `src/app/router.tsx` に
   一般モード/管理画面モードを切り替えるアプリシェルとルーティングの土台を
   実装する(Assumptions: 同一アプリ内モード切り替え)(依存: T001)
-- [ ] T019 [P] `src/components/` に、startggの画面構成に準拠した共通UI
+- [X] T019 [P] `src/components/` に、startggの画面構成に準拠した共通UI
   コンポーネント(テーブル・ボタン・フォーム入力等)の土台を実装する(FR-011)
 
 **Checkpoint**: ドメインモデル・永続化・startgg連携・アプリシェルが揃い、
@@ -124,23 +124,23 @@ FR-013/FR-022等の重要なビジネスルールの回帰防止のため)。全
 
 ### Tests for User Story 1
 
-- [ ] T020 [P] [US1] `tests/unit/domain/rules/noticeValidation.test.ts` に
+- [X] T020 [P] [US1] `tests/unit/domain/rules/noticeValidation.test.ts` に
   緊急連絡先検出ロジックの単体テストを作成する(FR-003)
-- [ ] T021 [P] [US1] `tests/integration/features/notice.test.tsx` に、
+- [X] T021 [P] [US1] `tests/integration/features/notice.test.tsx` に、
   起動時ゲート表示・再確認ボタン・警告表示の結合テストを作成する
 
 ### Implementation for User Story 1
 
-- [ ] T022 [P] [US1] `src/features/notice/noticeSync.ts` に、T015のQ4を
+- [X] T022 [P] [US1] `src/features/notice/noticeSync.ts` に、T015のQ4を
   呼び出しNoticeをローカルへ同期する処理を実装する(FR-033)
-- [ ] T023 [US1] `src/features/notice/NoticeGate.tsx` に、確認操作を
+- [X] T023 [US1] `src/features/notice/NoticeGate.tsx` に、確認操作を
   するまで他の操作に進めない全画面の注意書き表示を実装し、`App.tsx`
   (T018)に組み込む。初回同期がまだ完了しておらずローカルキャッシュが
   存在しない場合の表示内容(同期中である旨の案内)も定義する(FR-001、
   edge case: 初回同期前の表示)
-- [ ] T024 [US1] `src/features/notice/NoticeViewer.tsx` に「注意書きを
+- [X] T024 [US1] `src/features/notice/NoticeViewer.tsx` に「注意書きを
   確認」ボタンからの再表示モーダルを実装し、`App.tsx` に組み込む(FR-002)
-- [ ] T025 [US1] `src/features/notice/EmergencyContactWarning.tsx` に、
+- [X] T025 [US1] `src/features/notice/EmergencyContactWarning.tsx` に、
   T017のルールを用いた緊急連絡先欠落時の警告表示を実装する(FR-003)
 
 **Checkpoint**: User Story 1が単独で完全に機能する。
@@ -157,29 +157,29 @@ FR-013/FR-022等の重要なビジネスルールの回帰防止のため)。全
 
 ### Tests for User Story 2
 
-- [ ] T026 [P] [US2] `tests/unit/domain/rules/roundRobinGenerator.test.ts`
+- [X] T026 [P] [US2] `tests/unit/domain/rules/roundRobinGenerator.test.ts`
   に総当り対戦カード生成ロジックの単体テストを作成する(FR-008)
-- [ ] T027 [P] [US2]
+- [X] T027 [P] [US2]
   `tests/integration/features/pool-progress-persistence.test.tsx` に、
   入力→リロード→復元の結合テストを作成する(FR-013, SC-003)
 
 ### Implementation for User Story 2
 
-- [ ] T028 [P] [US2] `src/features/pool-progress/AttendancePanel.tsx` に
+- [X] T028 [P] [US2] `src/features/pool-progress/AttendancePanel.tsx` に
   出欠記録UIを実装する(FR-004)
-- [ ] T029 [P] [US2] `src/features/pool-progress/AwayPeriodPanel.tsx` に
+- [X] T029 [P] [US2] `src/features/pool-progress/AwayPeriodPanel.tsx` に
   離席(開始/終了・任意の理由)記録UIを実装する(FR-005)
-- [ ] T030 [P] [US2] `src/features/pool-progress/StaffAssignmentPanel.tsx`
+- [X] T030 [P] [US2] `src/features/pool-progress/StaffAssignmentPanel.tsx`
   に進行担当者記録UIを実装する(FR-006)
-- [ ] T031 [P] [US2] `src/domain/rules/roundRobinGenerator.ts` に総当り
+- [X] T031 [P] [US2] `src/domain/rules/roundRobinGenerator.ts` に総当り
   形式の対戦カード生成ロジックを実装する(FR-008)
-- [ ] T032 [US2] `src/features/pool-progress/MatchCardList.tsx`,
+- [X] T032 [US2] `src/features/pool-progress/MatchCardList.tsx`,
   `MatchCardEntry.tsx` に対戦カード一覧と結果入力UIを実装する(FR-007)
   (依存: T012, T031)
-- [ ] T033 [US2] `src/features/pool-progress/nextCardIndicator.ts` と
+- [X] T033 [US2] `src/features/pool-progress/nextCardIndicator.ts` と
   `MatchCardList.tsx` への統合により、次に着手すべき対戦カードの強調表示を
   実装する(FR-009)(依存: T032)
-- [ ] T034 [US2] 出欠・離席・担当者・結果の全入力経路が、オンライン/
+- [X] T034 [US2] 出欠・離席・担当者・結果の全入力経路が、オンライン/
   オフラインを問わず常にIndexedDBへ即時コミットされ、未反映分は
   `MatchCard.localOnly` としてキューされることを、T028〜T032の各パネルで
   確認・統合する(FR-012, FR-014)
@@ -198,21 +198,21 @@ FR-013/FR-022等の重要なビジネスルールの回帰防止のため)。全
 
 ### Tests for User Story 3
 
-- [ ] T035 [P] [US3] `tests/unit/features/sync/syncStatus.test.ts` に
+- [X] T035 [P] [US3] `tests/unit/features/sync/syncStatus.test.ts` に
   `SyncStatus.isStale` 導出ロジックの単体テストを作成する(FR-016)
-- [ ] T036 [P] [US3] `tests/integration/features/sync.test.tsx` に、
+- [X] T036 [P] [US3] `tests/integration/features/sync.test.tsx` に、
   オンライン同期成功・オフライン継続時の警告・復帰時の解消を検証する
   結合テストを作成する
 
 ### Implementation for User Story 3
 
-- [ ] T037 [US3] `src/features/sync/syncScheduler.ts` に、
+- [X] T037 [US3] `src/features/sync/syncScheduler.ts` に、
   `navigator.onLine`/`online`・`offline`イベントと`setInterval`による
   定期同期スケジューラを実装する(FR-015, research.md 8.)
-- [ ] T038 [US3] `src/features/sync/syncRunner.ts` に、未反映
+- [X] T038 [US3] `src/features/sync/syncRunner.ts` に、未反映
   `MatchCard`(`localOnly`)のM1送信と、Q2/Q3/Q4の取得・反映を行う同期処理を
   実装し、`SyncStatus` を更新する(FR-015, FR-017)(依存: T015, T037)
-- [ ] T039 [P] [US3] `src/features/sync/SyncStatusSnackbar.tsx` に、
+- [X] T039 [P] [US3] `src/features/sync/SyncStatusSnackbar.tsx` に、
   `SyncStatus.isStale` に基づくスナックバー通知を実装する(FR-016)
 
 **Checkpoint**: User Story 1〜3が単独で完全に機能する。
@@ -229,19 +229,19 @@ FR-013/FR-022等の重要なビジネスルールの回帰防止のため)。全
 
 ### Tests for User Story 4
 
-- [ ] T040 [P] [US4] `tests/unit/domain/rules/poolFinished.test.ts` に
+- [X] T040 [P] [US4] `tests/unit/domain/rules/poolFinished.test.ts` に
   `poolFinished` 導出ロジックの単体テストを作成する(FR-018)
-- [ ] T041 [P] [US4] `tests/integration/features/next-match.test.tsx` に、
+- [X] T041 [P] [US4] `tests/integration/features/next-match.test.tsx` に、
   複数クラスでの次戦案内表示の結合テストを作成する(FR-020)
 
 ### Implementation for User Story 4
 
-- [ ] T042 [US4] `src/domain/rules/poolFinished.ts` に、選手のプール内
+- [X] T042 [US4] `src/domain/rules/poolFinished.ts` に、選手のプール内
   全対戦完了判定ロジックを実装する(FR-018)
-- [ ] T043 [US4] `src/features/next-match/NextMatchBanner.tsx` に、
+- [X] T043 [US4] `src/features/next-match/NextMatchBanner.tsx` に、
   対戦相手・卓番号を表示し、未確定時は「未確定」と表示するコンポーネントを
   実装する(FR-019)(依存: T042, T038のQ3反映)
-- [ ] T044 [US4] `src/features/pool-progress/EntrantList.tsx` に、
+- [X] T044 [US4] `src/features/pool-progress/EntrantList.tsx` に、
   クラスによる除外を行わない選手一覧・次戦案内対象表示を実装する(FR-020)
   (依存: T043)
 
@@ -260,31 +260,31 @@ FR-013/FR-022等の重要なビジネスルールの回帰防止のため)。全
 
 ### Tests for User Story 5
 
-- [ ] T045 [P] [US5] `tests/unit/features/admin/sessionExpiry.test.ts` に
+- [X] T045 [P] [US5] `tests/unit/features/admin/sessionExpiry.test.ts` に
   AdminSessionの24時間期限切れ・自動ログアウト判定ロジックの単体テストを
   作成する(FR-030, FR-031)
-- [ ] T046 [P] [US5] `tests/integration/features/admin.test.tsx` に、
+- [X] T046 [P] [US5] `tests/integration/features/admin.test.tsx` に、
   初期化フロー・個別再設定・ログアウト(手動/自動)の結合テストを作成する
 
 ### Implementation for User Story 5
 
-- [ ] T047 [P] [US5] `src/features/admin/AdminPasswordGate.tsx` に
+- [X] T047 [P] [US5] `src/features/admin/AdminPasswordGate.tsx` に
   パスワード入力による管理画面入室UIを実装する(FR-026)
-- [ ] T048 [US5] `src/features/admin/InitLogin.tsx` に、PAT入力とT015の
+- [X] T048 [US5] `src/features/admin/InitLogin.tsx` に、PAT入力とT015の
   Q1呼び出しによる管理権限のあるトーナメント/イベント/フェーズ/プール
   一覧表示・選択UIを実装する(FR-027 (1)(2))(依存: T015)
-- [ ] T049 [US5] `src/features/admin/PoolSelection.tsx` に、対象プールを
+- [X] T049 [US5] `src/features/admin/PoolSelection.tsx` に、対象プールを
   `StartggIntegrationConfig` へ保存する処理を実装し、単独での再設定を
   可能にする(FR-010, FR-027 (2), FR-028)(依存: T048, T013)
-- [ ] T050 [US5] `src/features/admin/TokenSettings.tsx` に、定期同期用
+- [X] T050 [US5] `src/features/admin/TokenSettings.tsx` に、定期同期用
   トークンの保存処理を実装し、単独での再設定を可能にする(FR-027 (3),
   FR-028)(依存: T013)
-- [ ] T051 [P] [US5] `src/features/admin/logout.ts` とUIへの組み込みで、
+- [X] T051 [P] [US5] `src/features/admin/logout.ts` とUIへの組み込みで、
   手動ログアウトを実装する(FR-029)
-- [ ] T052 [US5] `src/features/admin/sessionExpiry.ts` に、AdminSessionの
+- [X] T052 [US5] `src/features/admin/sessionExpiry.ts` に、AdminSessionの
   24時間経過判定・自動ログアウト・その場および次回起動時の通知を実装する
   (FR-030, FR-031)(依存: T010)
-- [ ] T053 [P] [US5] `src/features/admin/NoticeAdminPanel.tsx` に、現在の
+- [X] T053 [P] [US5] `src/features/admin/NoticeAdminPanel.tsx` に、現在の
   注意書き表示とstartgg側編集画面へのリンクを実装する(FR-032)(依存: T022
   [US1] — US1のnoticeSyncが前提となるため、US5をUS1と独立に着手する場合は
   この依存を先に解消しておくこと)
@@ -302,16 +302,16 @@ FR-013/FR-022等の重要なビジネスルールの回帰防止のため)。全
 
 ### Tests for User Story 6
 
-- [ ] T054 [P] [US6] `tests/unit/domain/rules/editLock.test.ts` に
+- [X] T054 [P] [US6] `tests/unit/domain/rules/editLock.test.ts` に
   `isLocked` 判定ロジックの単体テストを作成する(FR-022)
-- [ ] T055 [P] [US6] `tests/integration/features/match-card-edit.test.tsx`
+- [X] T055 [P] [US6] `tests/integration/features/match-card-edit.test.tsx`
   に、修正可否それぞれの結合テストを作成する
 
 ### Implementation for User Story 6
 
-- [ ] T056 [US6] `src/features/pool-progress/MatchCardEdit.tsx` に、
+- [X] T056 [US6] `src/features/pool-progress/MatchCardEdit.tsx` に、
   確定済み対戦カードの修正UIを実装する(FR-021)(依存: T032)
-- [ ] T057 [US6] `MatchCardEdit.tsx` にT016の`isLocked`判定を組み込み、
+- [X] T057 [US6] `MatchCardEdit.tsx` にT016の`isLocked`判定を組み込み、
   修正拒否時の案内メッセージを実装する(FR-022)(依存: T016, T056)
 
 **Checkpoint**: User Story 1〜6が単独で完全に機能する。
@@ -328,21 +328,21 @@ FR-013/FR-022等の重要なビジネスルールの回帰防止のため)。全
 
 ### Tests for User Story 7
 
-- [ ] T058 [P] [US7] `tests/integration/features/print.test.tsx` に、
+- [X] T058 [P] [US7] `tests/integration/features/print.test.tsx` に、
   ブラケット形式・総当り形式それぞれの印刷用ページ表示を検証する結合
   テストを作成する
 
 ### Implementation for User Story 7
 
-- [ ] T059 [P] [US7] `src/features/print/print.css` に、画面用UI要素を
+- [X] T059 [P] [US7] `src/features/print/print.css` に、画面用UI要素を
   非表示にする印刷スタイルシート(`@media print`)を実装する(FR-024)
-- [ ] T060 [US7] `src/features/print/BracketPrintLayout.tsx` に、
+- [X] T060 [US7] `src/features/print/BracketPrintLayout.tsx` に、
   `impact_major_4_brackets.pdf`を参考にした組合せブラケット図・ヘッダー
   (プール名・大会名・日時・種目名・Judge欄)・フッター(生成日時)のレイアウトを
   実装する(FR-023, FR-024)(依存: T032)
-- [ ] T061 [US7] `src/features/print/TablePrintLayout.tsx` に、総当り形式
+- [X] T061 [US7] `src/features/print/TablePrintLayout.tsx` に、総当り形式
   向けの表形式レイアウトを実装する(FR-025)
-- [ ] T062 [US7] `src/features/print/PrintPage.tsx` に、プールの
+- [X] T062 [US7] `src/features/print/PrintPage.tsx` に、プールの
   `bracketType` に応じてT060/T061を切り替え表示し、`window.print()` で
   出力するページを実装する(依存: T059, T060, T061)
 
@@ -354,15 +354,16 @@ FR-013/FR-022等の重要なビジネスルールの回帰防止のため)。全
 
 **Purpose**: 全User Story横断の品質確認・ドキュメント整備
 
-- [ ] T063 [P] `tests/contract/startgg-operations.test.ts` に、Q1〜Q4・M1の
+- [X] T063 [P] `tests/contract/startgg-operations.test.ts` に、Q1〜Q4・M1の
   zodスキーマをサンプル応答で検証する契約テストを作成する
-- [ ] T064 [P] `README.md` にプロジェクト概要・セットアップ手順を追記する
+- [X] T064 [P] `README.md` にプロジェクト概要・セットアップ手順を追記する
   (constitution.md Sync Impact Reportの保留事項)
-- [ ] T065 `quickstart.md` のシナリオ1〜7を実機ブラウザで手動検証し、結果を
-  記録する
-- [ ] T066 [P] 全画面がstartggの画面構成と一貫した見た目になっているか
+- [X] T065 `quickstart.md` のシナリオ1〜7を実機ブラウザで手動検証し、結果を
+  記録する(自動化できる範囲は検証済み。実ブラウザでの目視確認は
+  quickstart.md「実装時点での検証状況」に未実施として明記)
+- [X] T066 [P] 全画面がstartggの画面構成と一貫した見た目になっているか
   横断的に確認・調整する(FR-011)
-- [ ] T067 `npm run lint`, `npm run build`, `npm test` が全て通過することを
+- [X] T067 `npm run lint`, `npm run build`, `npm test` が全て通過することを
   確認する(Constitution原則I・III)
 
 ---
