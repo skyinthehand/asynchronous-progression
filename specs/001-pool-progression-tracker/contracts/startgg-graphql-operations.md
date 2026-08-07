@@ -27,7 +27,14 @@
   抵触した(実測1470オブジェクトでエラー)。そのため、以下の3段階の
   drill-down方式に変更した。
   - **Q1a**(`listMyTournaments`): `currentUser.tournaments(query:
-    {perPage: 25})` でトーナメント本体(`id`, `name`, `slug`)のみを取得。
+    {perPage: 25})` でトーナメント本体(`id`, `name`, `slug`, `admins {
+    id }`)を取得する。`currentUser.tournaments`は「自分が主催 or
+    参加した」大会を両方返す仕様であることが判明したため(User型の説明文
+    "Tournaments this user is organizing or competing in")、
+    `Tournament.admins`(説明文: "Admin-only view of admins for this
+    tournament")に`currentUser.id`が含まれる大会のみへクライアント側で
+    絞り込む。これにより、選手として参加しただけの大会が一覧に混ざる
+    問題を回避する。
   - **Q1b**(`listTournamentEvents`): 選択した1トーナメントの`slug`を
     指定して `tournament(slug: $slug) { events { id name phases { id
     name } } }` を取得(1トーナメントに範囲を絞ることでオブジェクト数を
@@ -37,6 +44,13 @@
     id displayIdentifier bracketType } } }` を取得。
   管理者はUI上でトーナメント→イベント/フェーズ→プールの順に選択し、
   各段階でのみ次のクエリを発行する。
+- **⚠️ 未確認事項(公開状態)**: `currentUser.tournaments`が非公開
+  (unpublished/draft)状態のトーナメントを含むかどうかは、公式ドキュメント
+  上に明記が無く未確認。ユーザー自身の実機確認でも、参加者としての大会は
+  含まれることは確認できたが、管理者大会の公開状態による除外有無は
+  未確認のまま。保険として、UIには一覧から選ぶ経路に加えて、大会スラッグを
+  直接入力してQ1bへ進む経路(`TournamentDrillDown`の手動入力欄)を用意して
+  いる。
 - **検証**: 各段階の応答をそれぞれ対応するzodスキーマで検証する。
   管理権限を持つトーナメントが0件の場合はUIでその旨を案内する
   (spec.md Edge Cases関連)。

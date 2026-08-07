@@ -39,6 +39,7 @@ export function TournamentDrillDown({
   >(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [manualSlug, setManualSlug] = useState("");
 
   async function withLoading<T>(fn: () => Promise<T>): Promise<T | undefined> {
     setLoading(true);
@@ -87,10 +88,37 @@ export function TournamentDrillDown({
 
   return (
     <div className="tournament-drill-down">
-      {tournaments === null && (
-        <button type="button" disabled={loading} onClick={loadTournaments}>
-          {loading ? "取得中…" : "大会一覧を取得"}
-        </button>
+      {!tournament && (
+        <div className="tournament-drill-down-lookup">
+          <button type="button" disabled={loading} onClick={loadTournaments}>
+            {loading ? "取得中…" : "大会一覧を取得"}
+          </button>
+          <p>
+            一覧に目的の大会が出ない場合(非公開の大会など)は、大会URLの
+            スラッグを直接入力してください。
+          </p>
+          <label>
+            大会スラッグ(例: start.gg/tournament/
+            <strong>impact-major-4</strong>/... の太字部分):
+            <input
+              value={manualSlug}
+              onChange={(event) => setManualSlug(event.target.value)}
+              placeholder="tournament-slug"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={loading || !manualSlug.trim()}
+            onClick={() =>
+              selectTournament({
+                tournamentSlug: manualSlug.trim(),
+                tournamentName: manualSlug.trim(),
+              })
+            }
+          >
+            このスラッグで進める
+          </button>
+        </div>
       )}
       {error && <p role="alert">取得に失敗しました: {error}</p>}
 

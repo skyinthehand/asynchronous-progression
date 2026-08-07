@@ -23,11 +23,52 @@ function fakeClient(response: unknown): GraphQLClient {
 }
 
 describe("Q1a: listMyTournaments", () => {
-  it("returns a flat list of tournament summaries", async () => {
+  it("returns tournaments where the current user is an admin", async () => {
     const client = fakeClient({
       currentUser: {
+        id: 42,
         tournaments: {
-          nodes: [{ id: 1, name: "IMPACT MAJOR #4", slug: "impact-major-4" }],
+          nodes: [
+            {
+              id: 1,
+              name: "IMPACT MAJOR #4",
+              slug: "impact-major-4",
+              admins: [{ id: 42 }],
+            },
+          ],
+        },
+      },
+    });
+
+    const tournaments = await listMyTournaments(client);
+
+    expect(tournaments).toEqual([
+      { tournamentSlug: "impact-major-4", tournamentName: "IMPACT MAJOR #4" },
+    ]);
+  });
+
+  it("excludes tournaments where the current user is only a competitor, not an admin", async () => {
+    // currentUser.tournaments returns tournaments the user is "organizing
+    // or competing in"; a tournament where the user merely entered as a
+    // player has an `admins` list that does not include their own id.
+    const client = fakeClient({
+      currentUser: {
+        id: 42,
+        tournaments: {
+          nodes: [
+            {
+              id: 1,
+              name: "IMPACT MAJOR #4",
+              slug: "impact-major-4",
+              admins: [{ id: 42 }],
+            },
+            {
+              id: 2,
+              name: "Some Other Player's Tournament",
+              slug: "other-tournament",
+              admins: [{ id: 99 }],
+            },
+          ],
         },
       },
     });
@@ -41,7 +82,7 @@ describe("Q1a: listMyTournaments", () => {
 
   it("does not request a nested events/phases/phaseGroups tree", async () => {
     const requestSpy = vi.fn().mockResolvedValue({
-      currentUser: { tournaments: { nodes: [] } },
+      currentUser: { id: 42, tournaments: { nodes: [] } },
     });
     const client = { request: requestSpy } as unknown as GraphQLClient;
 

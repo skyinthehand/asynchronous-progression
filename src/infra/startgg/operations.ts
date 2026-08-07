@@ -42,11 +42,22 @@ const TournamentSummarySchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   name: z.string(),
   slug: z.string(),
+  // Tournament.admins: "Admin-only view of admins for this tournament".
+  // 大会の管理者本人以外には見えない/空になるフィールドなので、これを
+  // 使って「自分が参加しただけの大会」を除外する(currentUser.tournaments
+  // は organizing or competing の両方を返すため)。
+  admins: z
+    .array(
+      z.object({ id: z.union([z.string(), z.number()]).transform(String) }),
+    )
+    .nullable()
+    .optional(),
 });
 
 const MyTournamentsResponseSchema = z.object({
   currentUser: z
     .object({
+      id: z.union([z.string(), z.number()]).transform(String),
       tournaments: z
         .object({ nodes: z.array(TournamentSummarySchema) })
         .nullable(),
@@ -57,11 +68,15 @@ const MyTournamentsResponseSchema = z.object({
 const MY_TOURNAMENTS_QUERY = /* GraphQL */ `
   query MyTournaments($perPage: Int!) {
     currentUser {
+      id
       tournaments(query: { perPage: $perPage }) {
         nodes {
           id
           name
           slug
+          admins {
+            id
+          }
         }
       }
     }
@@ -73,7 +88,12 @@ export interface TournamentOption {
   tournamentName: string;
 }
 
-/** Q1a: 管理権限のあるトーナメント一覧の取得(トーナメント本体のみ)。 */
+/**
+ * Q1a: 管理権限のあるトーナメント一覧の取得(トーナメント本体のみ)。
+ * `currentUser.tournaments`は「自分が主催 or 参加した」大会を両方返すため、
+ * `admins`に自分のユーザーIDが含まれる(=管理者本人に見える)大会のみに
+ * 絞り込む。
+ */
 export async function listMyTournaments(
   client: GraphQLClient,
 ): Promise<TournamentOption[]> {
@@ -81,11 +101,16 @@ export async function listMyTournaments(
     perPage: TOURNAMENTS_PER_PAGE,
   });
   const parsed = MyTournamentsResponseSchema.parse(raw);
+  const currentUserId = parsed.currentUser?.id;
   const tournaments = parsed.currentUser?.tournaments?.nodes ?? [];
-  return tournaments.map((tournament) => ({
-    tournamentSlug: tournament.slug,
-    tournamentName: tournament.name,
-  }));
+  return tournaments
+    .filter((tournament) =>
+      tournament.admins?.some((admin) => admin.id === currentUserId),
+    )
+    .map((tournament) => ({
+      tournamentSlug: tournament.slug,
+      tournamentName: tournament.name,
+    }));
 }
 
 const PhaseSummarySchema = z.object({
