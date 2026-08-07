@@ -22,6 +22,11 @@ async function acknowledgeNotice(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "内容を確認しました" }));
 }
 
+async function openEntrantListModal(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByText(/Alice vs Bob/).catch(() => undefined);
+  await user.click(screen.getByRole("button", { name: "選手一覧" }));
+}
+
 describe("Next-match guidance for finished entrants (User Story 4)", () => {
   beforeEach(async () => {
     await resetDb();
@@ -50,6 +55,7 @@ describe("Next-match guidance for finished entrants (User Story 4)", () => {
       bracketType: "ROUND_ROBIN",
       staffName: null,
       lastSyncedAt: null,
+      onboardingCompletedAt: new Date().toISOString(),
     });
     await db.put("entrants", {
       id: "finished-entrant",
@@ -91,6 +97,7 @@ describe("Next-match guidance for finished entrants (User Story 4)", () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
+    await openEntrantListModal(user);
 
     expect(
       await screen.findByText(/対戦相手 Dana \/ 卓 12/),
@@ -101,6 +108,7 @@ describe("Next-match guidance for finished entrants (User Story 4)", () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
+    await openEntrantListModal(user);
 
     expect(await screen.findByText(/次戦は未確定です/)).toBeInTheDocument();
   });
@@ -109,6 +117,7 @@ describe("Next-match guidance for finished entrants (User Story 4)", () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
+    await openEntrantListModal(user);
 
     await screen.findByText(/次戦は未確定です/);
     const banner = screen.getByText("予選通過・次戦案内").closest("section");

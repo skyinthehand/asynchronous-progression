@@ -22,5 +22,6 @@ export async function ensurePoolFromOption(
     lastSyncedAt: existing?.lastSyncedAt ?? null,
     tournamentName: option.tournamentName,
     eventName: option.eventName,
+    onboardingCompletedAt: existing?.onboardingCompletedAt ?? null,
   });
 }

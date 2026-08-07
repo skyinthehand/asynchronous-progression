@@ -14,7 +14,6 @@ interface EntrantListProps {
 export function EntrantList({ entrants }: EntrantListProps) {
   return (
     <section className="entrant-list">
-      <h2>選手一覧</h2>
       <Table
         rowKey={(entrant: Entrant) => entrant.id}
         rows={entrants}

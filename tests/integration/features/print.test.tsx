@@ -78,6 +78,7 @@ describe("Print page (User Story 7)", () => {
       lastSyncedAt: null,
       tournamentName: "IMPACT MAJOR #4",
       eventName: "Ultimate Singles",
+      onboardingCompletedAt: new Date().toISOString(),
     });
     await db.put("matchCards", {
       id: "card-1",
@@ -124,6 +125,7 @@ describe("Print page (User Story 7)", () => {
       lastSyncedAt: null,
       tournamentName: "IMPACT MAJOR #4",
       eventName: "Ultimate Singles",
+      onboardingCompletedAt: new Date().toISOString(),
     });
     await db.put("matchCards", {
       id: "card-1",
@@ -167,6 +169,7 @@ describe("Print page (User Story 7)", () => {
       lastSyncedAt: null,
       tournamentName: "IMPACT MAJOR #4",
       eventName: "Ultimate Singles",
+      onboardingCompletedAt: new Date().toISOString(),
     });
 
     const user = userEvent.setup();

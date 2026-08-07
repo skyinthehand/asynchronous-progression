@@ -1,13 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Modal } from "../../components/index.js";
 import { PrintPage } from "../print/PrintPage.js";
 import { AttendancePanel } from "./AttendancePanel.js";
 import { AwayPeriodPanel } from "./AwayPeriodPanel.js";
 import { EntrantList } from "./EntrantList.js";
 import { MatchCardList } from "./MatchCardList.js";
+import { PoolOnboardingWizard } from "./PoolOnboardingWizard.js";
 import { StaffAssignmentPanel } from "./StaffAssignmentPanel.js";
 import { usePoolProgress } from "./usePoolProgress.js";
 
-/** US2/US7: 予選プール進行のオフライン入力・保持と印刷ページ切り替え。 */
+type PanelKey = "staff" | "attendance" | "away" | "entrants";
+
+const PANEL_TITLES: Record<PanelKey, string> = {
+  staff: "進行担当者",
+  attendance: "出欠確認",
+  away: "離席記録",
+  entrants: "選手一覧・次戦案内",
+};
+
+/**
+ * US2/US7: 予選プール進行のオフライン入力・保持と印刷ページ切り替え。
+ * タブレット操作を前提に、基本画面には対戦カード(トーナメント表)のみを
+ * 表示し、進行担当者・出欠確認・離席記録・選手一覧はボタンから開く
+ * モーダルに集約する。
+ */
 export function PoolProgressScreen() {
   const {
     loading,
@@ -20,8 +36,17 @@ export function PoolProgressScreen() {
     endAwayPeriod,
     recordStaffAssignment,
     recordResult,
+    completeOnboarding,
   } = usePoolProgress();
   const [printing, setPrinting] = useState(false);
+  const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (pool && !pool.onboardingCompletedAt) {
+      setShowOnboarding(true);
+    }
+  }, [pool]);
 
   if (loading) {
     return <p>プール情報を読み込んでいます…</p>;
@@ -46,35 +71,71 @@ export function PoolProgressScreen() {
 
   return (
     <div className="pool-progress-screen">
-      <h2>
-        {pool?.displayIdentifier ?? poolId}
-        <button
-          type="button"
-          className="no-print"
-          onClick={() => setPrinting(true)}
-        >
+      <h2>{pool?.displayIdentifier ?? poolId}</h2>
+      <div className="pool-progress-toolbar no-print">
+        <button type="button" onClick={() => setActivePanel("staff")}>
+          進行担当者
+        </button>
+        <button type="button" onClick={() => setActivePanel("attendance")}>
+          出欠確認
+        </button>
+        <button type="button" onClick={() => setActivePanel("away")}>
+          離席記録
+        </button>
+        <button type="button" onClick={() => setActivePanel("entrants")}>
+          選手一覧
+        </button>
+        <button type="button" onClick={() => setPrinting(true)}>
           印刷用ページ
         </button>
-      </h2>
-      <StaffAssignmentPanel
-        pool={pool}
-        onRecordStaffAssignment={recordStaffAssignment}
-      />
-      <AttendancePanel
-        entrants={entrants}
-        onRecordAttendance={recordAttendance}
-      />
-      <AwayPeriodPanel
-        entrants={entrants}
-        onStartAwayPeriod={startAwayPeriod}
-        onEndAwayPeriod={endAwayPeriod}
-      />
+      </div>
+
       <MatchCardList
         matchCards={matchCards}
         entrants={entrants}
         onRecordResult={recordResult}
       />
-      <EntrantList entrants={entrants} />
+
+      {activePanel && (
+        <Modal
+          title={PANEL_TITLES[activePanel]}
+          onClose={() => setActivePanel(null)}
+        >
+          {activePanel === "staff" && (
+            <StaffAssignmentPanel
+              pool={pool}
+              onRecordStaffAssignment={recordStaffAssignment}
+            />
+          )}
+          {activePanel === "attendance" && (
+            <AttendancePanel
+              entrants={entrants}
+              onRecordAttendance={recordAttendance}
+            />
+          )}
+          {activePanel === "away" && (
+            <AwayPeriodPanel
+              entrants={entrants}
+              onStartAwayPeriod={startAwayPeriod}
+              onEndAwayPeriod={endAwayPeriod}
+            />
+          )}
+          {activePanel === "entrants" && <EntrantList entrants={entrants} />}
+        </Modal>
+      )}
+
+      {showOnboarding && pool && (
+        <PoolOnboardingWizard
+          pool={pool}
+          entrants={entrants}
+          onRecordStaffAssignment={recordStaffAssignment}
+          onRecordAttendance={recordAttendance}
+          onFinish={() => {
+            setShowOnboarding(false);
+            void completeOnboarding();
+          }}
+        />
+      )}
     </div>
   );
 }

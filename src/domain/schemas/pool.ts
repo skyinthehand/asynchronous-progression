@@ -20,6 +20,12 @@ export const PoolSchema = z.object({
   /** 印刷ヘッダー表示用(FR-024)。初期化時にstartggの一覧取得結果から保存。 */
   tournamentName: z.string().nullable().default(null),
   eventName: z.string().nullable().default(null),
+  /**
+   * プール設定後、初回に進行担当者→出欠確認→注意事項のオンボーディング
+   * ウィザードを表示済みかどうか(端末×プール単位で1回)。ウィザードの
+   * 完了・キャンセルいずれでも記録し、以後は再表示しない。
+   */
+  onboardingCompletedAt: z.string().datetime().nullable().default(null),
 });
 
 export type Pool = z.infer<typeof PoolSchema>;

@@ -15,7 +15,6 @@ export function StaffAssignmentPanel({
 
   return (
     <section className="staff-assignment-panel">
-      <h2>進行担当者</h2>
       <p>現在の担当者: {pool?.staffName ?? "未設定"}</p>
       <input
         value={name}

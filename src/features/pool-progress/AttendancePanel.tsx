@@ -19,7 +19,6 @@ export function AttendancePanel({
 }: AttendancePanelProps) {
   return (
     <section className="attendance-panel">
-      <h2>出欠確認</h2>
       <Table
         rowKey={(entrant: Entrant) => entrant.id}
         rows={entrants}

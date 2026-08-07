@@ -46,6 +46,7 @@ async function seedPoolWithTwoRounds() {
     bracketType: "SINGLE_ELIMINATION",
     staffName: null,
     lastSyncedAt: null,
+    onboardingCompletedAt: new Date().toISOString(),
   });
   for (const [id, name] of [
     ["e1", "Alice"],

@@ -22,7 +22,6 @@ export function AwayPeriodPanel({
 
   return (
     <section className="away-period-panel">
-      <h2>離席記録</h2>
       <label>
         理由(任意):
         <input

@@ -34,6 +34,7 @@ interface UsePoolProgressResult {
     winnerId: string,
     score: string | null,
   ) => Promise<void>;
+  completeOnboarding: () => Promise<void>;
 }
 
 /**
@@ -196,6 +197,16 @@ export function usePoolProgress(): UsePoolProgressResult {
     [matchCards],
   );
 
+  const completeOnboarding = useCallback(async () => {
+    if (!pool) return;
+    const updatedPool: Pool = {
+      ...pool,
+      onboardingCompletedAt: new Date().toISOString(),
+    };
+    await savePool(updatedPool);
+    setPool(updatedPool);
+  }, [pool]);
+
   return {
     loading,
     poolId,
@@ -207,5 +218,6 @@ export function usePoolProgress(): UsePoolProgressResult {
     endAwayPeriod,
     recordStaffAssignment,
     recordResult,
+    completeOnboarding,
   };
 }
