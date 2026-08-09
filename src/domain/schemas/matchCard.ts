@@ -30,6 +30,14 @@ export const MatchCardSchema = z.object({
   isLocked: z.boolean(),
   editHistory: z.array(MatchCardEditSchema),
   localOnly: z.boolean(),
+  /**
+   * FR-023: ブラケット表示で対戦をつなぐ線を描画するための情報。
+   * entrant1/entrant2の出場者が、どの対戦カードの結果によってこのスロット
+   * に入ったかを示す(start.ggのSetSlot.prereqType==="set"の場合の
+   * prereqId)。シード(初戦)やBYE、対戦以外に由来する場合はnull。
+   */
+  entrant1SourceMatchId: z.string().nullable().default(null),
+  entrant2SourceMatchId: z.string().nullable().default(null),
 });
 
 export type MatchCard = z.infer<typeof MatchCardSchema>;

@@ -232,6 +232,47 @@ describe("Q2: fetchPoolDetail", () => {
     const detail = await fetchPoolDetail(client, "1000");
     expect(detail.matchCards[0].entrant2Id).toBeNull();
   });
+
+  it("maps slot prereqType/prereqId into entrantSourceMatchId for bracket connector lines (FR-023)", async () => {
+    const client = fakeClient({
+      phaseGroup: {
+        id: 1000,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            {
+              id: 5002,
+              identifier: "C",
+              round: 2,
+              station: null,
+              slots: [
+                {
+                  prereqType: "set",
+                  prereqId: 5000,
+                  entrant: { id: 1, name: "Alice" },
+                },
+                {
+                  prereqType: "seed",
+                  prereqId: 3,
+                  entrant: { id: 3, name: "Carol" },
+                },
+              ],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    const detail = await fetchPoolDetail(client, "1000");
+    expect(detail.matchCards[0]).toMatchObject({
+      entrant1SourceMatchId: "5000",
+      entrant2SourceMatchId: null,
+    });
+  });
 });
 
 describe("Q3: fetchNextMatch", () => {

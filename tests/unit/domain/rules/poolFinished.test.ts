@@ -18,6 +18,8 @@ function makeCard(overrides: Partial<MatchCard>): MatchCard {
     isLocked: false,
     editHistory: [],
     localOnly: false,
+    entrant1SourceMatchId: null,
+    entrant2SourceMatchId: null,
     ...overrides,
   };
 }

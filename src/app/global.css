@@ -159,6 +159,8 @@ label {
   margin: 0;
 }
 
+/* 総当り表(MatchCardRow)向けの汎用カード外観。ブラケット木の中の
+   カード(.bracket-tree-matches .match-card)は下でstartgg風に上書きする。 */
 .match-card {
   display: flex;
   flex-wrap: wrap;
@@ -181,6 +183,163 @@ label {
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+}
+
+.match-table tr.match-card-next td {
+  background: rgba(26, 95, 180, 0.08);
+}
+
+/* FR-023: 勝者側/敗者側トーナメント(SINGLE_ELIMINATION/DOUBLE_ELIMINATION)
+   のプールを、startggのブラケット表示(実際のstartggページのHTML/CSSを
+   参考資料として確認して再現)に合わせ、対戦をつなぐ線を伴うトーナメント木
+   として表示する。startggは列幅180px・列間隔24pxの固定寸法で、対戦カードは
+   出場者2名を縦に並べた1枚のカード(勝者は緑・敗者はグレーで強調)。各対戦の
+   縦位置・線の描画はJS側(bracketLayout.ts/BracketBoard.tsx)でpx単位で
+   計算するため、ここで定義する寸法はコンポーネント側の定数と一致させる
+   必要がある。 */
+.bracket-board {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.bracket-board-side h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+  color: var(--accent-color);
+}
+
+.bracket-tree-scroll {
+  overflow: auto;
+  padding-bottom: 0.25rem;
+}
+
+.bracket-tree {
+  position: relative;
+}
+
+.bracket-tree-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.bracket-connector {
+  stroke: #d0d5dd;
+  stroke-width: 2;
+}
+
+.bracket-tree-round-label {
+  position: absolute;
+  top: 0;
+  font-size: 0.8rem;
+  color: #667085;
+  font-weight: 600;
+  text-align: center;
+}
+
+.bracket-tree-matches {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* startggの `.match`/`.match-player` 構成を再現: カード1枚の中に
+   出場者2名分の行を上下に積み、勝者行を緑・敗者行をグレーで強調する。 */
+.bracket-tree-matches .match-card {
+  display: block;
+  border: 2px solid #e6e6e6;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0;
+  margin-bottom: 0;
+}
+
+.bracket-tree-matches .match-card.match-card-next {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 1px;
+}
+
+.bracket-tree-matches .match-card-identifier {
+  display: inline-block;
+  min-width: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  background: #3b4350;
+  padding: 0.05rem 0.4rem;
+  border-radius: 3px 3px 0 0;
+}
+
+.match-card-players {
+  display: flex;
+  flex-direction: column;
+}
+
+.match-card-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-height: 24px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.85rem;
+  border-top: 1px solid #e6e6e6;
+}
+
+.match-card-players .match-card-player:first-child {
+  border-top: none;
+}
+
+.match-card-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-card-player-winner {
+  font-weight: 700;
+}
+
+.match-card-player-winner .match-card-player-name {
+  color: #1a7f37;
+}
+
+.match-card-player-winner .match-card-player-score {
+  color: #fff;
+  background: #22b24c;
+  font-size: 0.75rem;
+  padding: 0 0.35rem;
+  border-radius: 3px;
+}
+
+.match-card-player-loser .match-card-player-name {
+  color: #667085;
+}
+
+.match-card-players .match-card-player button {
+  min-height: 1.6rem;
+  min-width: 0;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.match-card-score-input {
+  width: 100%;
+  min-height: 1.8rem;
+  border: none;
+  border-top: 1px solid #e6e6e6;
+  border-radius: 0 0 4px 4px;
+  font-size: 0.8rem;
+}
+
+.match-card-note {
+  display: block;
+  font-size: 0.7rem;
+  color: #6b7280;
+  padding: 0.1rem 0.5rem;
+  background: #f4f4f5;
 }
 
 /* 画面内ボタンから開くモーダル(進行担当者・出欠確認・離席記録・選手一覧、

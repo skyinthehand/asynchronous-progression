@@ -91,6 +91,7 @@ export function PoolProgressScreen() {
       </div>
 
       <MatchCardList
+        pool={pool}
         matchCards={matchCards}
         entrants={entrants}
         onRecordResult={recordResult}

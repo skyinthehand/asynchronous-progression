@@ -50,6 +50,8 @@ export function generateRoundRobinMatchCards(
         isLocked: false,
         editHistory: [],
         localOnly: true,
+        entrant1SourceMatchId: null,
+        entrant2SourceMatchId: null,
       });
     }
     const last = rotating.pop();

@@ -238,6 +238,9 @@ export interface ManagedPoolOption {
 // --- Q2: pool detail (match cards + entrants) ---
 
 const SetSlotSchema = z.object({
+  /** ブラケット接続線の再現用(FR-023)。旧形式のfixture互換のためoptional。 */
+  prereqType: z.string().nullable().optional(),
+  prereqId: z.union([z.string(), z.number()]).nullable().optional(),
   entrant: z
     .object({
       id: z.union([z.string(), z.number()]).transform(String),
@@ -281,6 +284,8 @@ const POOL_DETAIL_QUERY = /* GraphQL */ `
             number
           }
           slots {
+            prereqType
+            prereqId
             entrant {
               id
               name
@@ -327,6 +332,14 @@ export async function fetchPoolDetail(
     const [slot1, slot2] = set.slots;
     const entrant1Id = slot1?.entrant?.id ?? null;
     const entrant2Id = slot2?.entrant?.id ?? null;
+    const entrant1SourceMatchId =
+      slot1?.prereqType === "set" && slot1.prereqId != null
+        ? String(slot1.prereqId)
+        : null;
+    const entrant2SourceMatchId =
+      slot2?.prereqType === "set" && slot2.prereqId != null
+        ? String(slot2.prereqId)
+        : null;
     for (const slot of set.slots) {
       if (slot.entrant && !entrantById.has(slot.entrant.id)) {
         entrantById.set(slot.entrant.id, {
@@ -362,6 +375,8 @@ export async function fetchPoolDetail(
       isLocked: false,
       editHistory: [],
       localOnly: false,
+      entrant1SourceMatchId,
+      entrant2SourceMatchId,
     };
   });
 

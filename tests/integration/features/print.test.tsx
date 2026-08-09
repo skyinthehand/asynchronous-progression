@@ -95,12 +95,14 @@ describe("Print page (User Story 7)", () => {
       isLocked: false,
       editHistory: [],
       localOnly: true,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
     });
 
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
-    await screen.findByText(/Alice vs Bob/);
+    await screen.findByText("R1-1");
     await user.click(screen.getByRole("button", { name: "印刷用ページ" }));
 
     expect(screen.getByText("Pool 1")).toBeInTheDocument();
@@ -142,6 +144,8 @@ describe("Print page (User Story 7)", () => {
       isLocked: false,
       editHistory: [],
       localOnly: false,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
     });
 
     const user = userEvent.setup();

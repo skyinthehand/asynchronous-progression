@@ -1,5 +1,6 @@
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
+import { groupBySideAndRound } from "../../domain/rules/bracketGrouping.js";
 
 interface BracketPrintLayoutProps {
   matchCards: MatchCard[];
@@ -9,21 +10,6 @@ interface BracketPrintLayoutProps {
 function name(entrantById: Map<string, Entrant>, id: string | null) {
   if (!id) return "BYE";
   return entrantById.get(id)?.name ?? id;
-}
-
-function groupBySideAndRound(matchCards: MatchCard[]) {
-  const sides: Record<"WINNERS" | "LOSERS", Map<number, MatchCard[]>> = {
-    WINNERS: new Map(),
-    LOSERS: new Map(),
-  };
-  for (const card of matchCards) {
-    const side = card.bracketSide === "LOSERS" ? "LOSERS" : "WINNERS";
-    const round = Math.abs(card.round);
-    const list = sides[side].get(round) ?? [];
-    list.push(card);
-    sides[side].set(round, list);
-  }
-  return sides;
 }
 
 /**
