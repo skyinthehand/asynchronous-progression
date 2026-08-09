@@ -3,6 +3,7 @@ import type { Attendance, Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import type { Pool } from "../../domain/entities/pool.js";
 import { computeIsLocked } from "../../domain/rules/editLock.js";
+import { advanceWinner } from "../../domain/rules/matchProgression.js";
 import { generateRoundRobinMatchCards } from "../../domain/rules/roundRobinGenerator.js";
 import { addStaffAssignment } from "../../infra/storage/adminRepository.js";
 import { getStartggConfig } from "../../infra/storage/adminRepository.js";
@@ -181,9 +182,14 @@ export function usePoolProgress(): UsePoolProgressResult {
         status: "COMPLETED",
         localOnly: true,
       };
-      const nextCards = matchCards.map((card) =>
+      const replaced = matchCards.map((card) =>
         card.id === matchCardId ? updated : card,
       );
+      // 後続の対戦カード(entrant1/entrant2SourceMatchIdでこのカードを出場元
+      // として参照しているカード)へ勝者を送り込む(FR-023)。startgg同期後は
+      // start.gg側で反映されるが、オフラインでの結果入力ではここで自分で
+      // 反映しないと後続カードがBYEのまま止まって見える。
+      const nextCards = advanceWinner(replaced, matchCardId, winnerId);
       // 後続カードのロック状態を再計算し(FR-022)、変化した全カードを
       // 永続化する(修正対象自身だけでなく、新たにロックされた先行カードも
       // 反映しないと、リロード後にロック状態が失われてしまうため)。
