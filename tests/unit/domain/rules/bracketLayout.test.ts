@@ -120,4 +120,57 @@ describe("computeBracketLayout", () => {
   it("returns an empty array when there are no elimination-bracket match cards", () => {
     expect(computeBracketLayout([])).toEqual([]);
   });
+
+  it("orders round-1 spreadsheet-style identifiers past Z (AA, AB, ...) after Z, not before it", () => {
+    // 報告されたバグの再現: 単純な文字列比較(localeCompare)では
+    // "AA" は先頭が'A'のため "Z" より前に来てしまう。実際のstartggの
+    // 識別子はA,B,...,Z,AA,AB,...の順(スプレッドシートの列名と同じ)
+    // で割り当てられるため、"Y"→"Z"→"AA"→"AB"の順に並ぶ必要がある。
+    const y = makeCard({ id: "y", identifier: "Y", round: 1 });
+    const z = makeCard({ id: "z", identifier: "Z", round: 1 });
+    const aa = makeCard({ id: "aa", identifier: "AA", round: 1 });
+    const ab = makeCard({ id: "ab", identifier: "AB", round: 1 });
+
+    // 意図的に元のソート順をシャッフルして渡す(入力順に依存しないことの確認)。
+    const [winners] = computeBracketLayout([ab, y, aa, z]);
+
+    expect(winners.matchesByRound.get(1)).toEqual([
+      { card: y, round: 1, slot: 0 },
+      { card: z, round: 1, slot: 1 },
+      { card: aa, round: 1, slot: 2 },
+      { card: ab, round: 1, slot: 3 },
+    ]);
+  });
+
+  it("keeps round-2 averaged positions consistent with the corrected round-1 spreadsheet order", () => {
+    const y = makeCard({ id: "y", identifier: "Y", round: 1 });
+    const z = makeCard({ id: "z", identifier: "Z", round: 1 });
+    const aa = makeCard({ id: "aa", identifier: "AA", round: 1 });
+    const ab = makeCard({ id: "ab", identifier: "AB", round: 1 });
+    // Y×Z、AA×AB という2組の対戦がそれぞれラウンド2の対戦を生む。
+    const r2First = makeCard({
+      id: "r2-first",
+      identifier: "AH",
+      round: 2,
+      entrant1SourceMatchId: "y",
+      entrant2SourceMatchId: "z",
+    });
+    const r2Second = makeCard({
+      id: "r2-second",
+      identifier: "AL",
+      round: 2,
+      entrant1SourceMatchId: "aa",
+      entrant2SourceMatchId: "ab",
+    });
+
+    const [winners] = computeBracketLayout([ab, y, aa, z, r2Second, r2First]);
+
+    const round2 = winners.matchesByRound.get(2) ?? [];
+    const first = round2.find((m) => m.card.id === "r2-first");
+    const second = round2.find((m) => m.card.id === "r2-second");
+    expect(first?.slot).toBe(0.5);
+    expect(second?.slot).toBe(2.5);
+    // Y×Zから生まれたAHはAA×ABから生まれたALより上(小さいslot)に来るべき。
+    expect(first?.slot).toBeLessThan(second?.slot ?? Number.POSITIVE_INFINITY);
+  });
 });

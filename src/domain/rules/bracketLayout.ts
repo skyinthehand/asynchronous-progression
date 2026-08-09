@@ -1,6 +1,36 @@
 import type { MatchCard } from "../entities/matchCard.js";
 import { type BracketSide, groupBySideAndRound } from "./bracketGrouping.js";
 
+const SPREADSHEET_IDENTIFIER = /^[A-Za-z]+$/;
+
+/**
+ * startggの対戦識別子(A, B, ..., Z, AA, AB, ...)をExcel/スプレッドシートの
+ * 列名と同じ base-26 の通し番号に変換する。単純な文字列比較(localeCompare)
+ * だと "AA" が "Z" より前に来てしまい(A<Zのため)、26試合を超える大きな
+ * プールでラウンド1の並び順、ひいてはそれを基に平均計算する後続ラウンドの
+ * 縦位置まで崩れてしまう(実際に報告されたバグ)。
+ */
+function spreadsheetRank(identifier: string): number {
+  let rank = 0;
+  for (const char of identifier.toUpperCase()) {
+    rank = rank * 26 + (char.charCodeAt(0) - "A".charCodeAt(0) + 1);
+  }
+  return rank;
+}
+
+/**
+ * ラウンド1(出場元カードの情報がなく、識別子の並び順に頼らざるを得ない
+ * ラウンド)向けの比較関数。A〜Z・AA〜AZ...のような純粋な英字の識別子は
+ * スプレッドシート式の順位で比較し、そうでない識別子(自前生成の
+ * "R1-1"形式など)は従来通り文字列比較にフォールバックする。
+ */
+function compareIdentifiers(a: string, b: string): number {
+  if (SPREADSHEET_IDENTIFIER.test(a) && SPREADSHEET_IDENTIFIER.test(b)) {
+    return spreadsheetRank(a) - spreadsheetRank(b);
+  }
+  return a.localeCompare(b);
+}
+
 export interface BracketMatchLayout {
   card: MatchCard;
   round: number;
@@ -63,7 +93,7 @@ export function computeBracketLayout(
 
     rounds.forEach((round, roundIndex) => {
       const cardsInRound = [...(roundsMap.get(round) ?? [])].sort((a, b) =>
-        a.identifier.localeCompare(b.identifier),
+        compareIdentifiers(a.identifier, b.identifier),
       );
       const layoutForRound: BracketMatchLayout[] = [];
       let fallbackIndex = 0;
