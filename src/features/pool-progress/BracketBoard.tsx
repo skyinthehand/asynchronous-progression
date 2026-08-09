@@ -16,15 +16,27 @@ interface BracketBoardProps {
 }
 
 /**
- * startgg本家のブラケット表示(実際のstartggページのHTML/CSSを参考資料として
- * 確認)に合わせた寸法。列幅180px・列間隔24pxは本家と同一値。ROW_HEIGHTは
- * 対戦カード1枠分の縦ピッチで、ラウンド間の縦位置(slot)はbracketLayout.ts側
- * で「出場元カード2枚の位置の平均」として計算されるため、ROW_HEIGHTの値は
- * どのラウンド数でも比例したツリー形状になる。
+ * 対戦カードはJS側の絶対配置(position: absolute)でツリー状に並べるため、
+ * ROW_HEIGHTは「1枚のカードが取りうる最大の高さ」以上でなければ、隣接する
+ * カード同士が重なってしまう。startgg本家は列幅180px・行ピッチ約66pxだが、
+ * 本家のカードは選手名の表示のみ(結果入力は別画面)なのに対し、本アプリは
+ * カード内に常時タップ可能な結果入力ボタン(--touch-target-min: 44px)を
+ * 表示するため、その分カードが縦に厚い。特に確定済みの対戦で「結果を修正」
+ * を開いた状態(スコア入力+選手2名分のボタン+キャンセルボタンが縦に並ぶ)
+ * が最も高さを取り、実測(Chromiumで開発サーバーをレンダリングして
+ * getBoundingClientRectで計測)で約313pxだった。これに注記(2行,
+ * 最大30px)分と安全マージンを足した350pxをROW_HEIGHTとして使う。
+ * global.css側の.match-card内要素の高さを変更する場合は、この値も
+ * 合わせて見直すこと(念のためglobal.css側にも
+ * `:has(.match-card-edit-form)` 発火時にカードを最前面へ押し上げる
+ * フォールバックを入れてあるが、通常はROW_HEIGHT側の余裕で吸収される
+ * べきで、そちらに頼らない)。ラウンド間の縦位置(slot)はbracketLayout.ts
+ * 側で「出場元カード2枚の位置の平均」として計算されるため、ROW_HEIGHTの
+ * 値はどのラウンド数でも比例したツリー形状になる。
  */
-const COLUMN_WIDTH = 180;
-const COLUMN_GAP = 24;
-const ROW_HEIGHT = 66;
+const COLUMN_WIDTH = 220;
+const COLUMN_GAP = 32;
+const ROW_HEIGHT = 350;
 const HEADER_HEIGHT = 24;
 
 function sideLabel(side: BracketSide) {

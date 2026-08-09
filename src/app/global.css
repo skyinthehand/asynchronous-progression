@@ -192,11 +192,17 @@ label {
 /* FR-023: 勝者側/敗者側トーナメント(SINGLE_ELIMINATION/DOUBLE_ELIMINATION)
    のプールを、startggのブラケット表示(実際のstartggページのHTML/CSSを
    参考資料として確認して再現)に合わせ、対戦をつなぐ線を伴うトーナメント木
-   として表示する。startggは列幅180px・列間隔24pxの固定寸法で、対戦カードは
-   出場者2名を縦に並べた1枚のカード(勝者は緑・敗者はグレーで強調)。各対戦の
-   縦位置・線の描画はJS側(bracketLayout.ts/BracketBoard.tsx)でpx単位で
-   計算するため、ここで定義する寸法はコンポーネント側の定数と一致させる
-   必要がある。 */
+   として表示する。各対戦の縦位置・線の描画はJS側(bracketLayout.ts/
+   BracketBoard.tsx)でpx単位の絶対配置として計算するため、ここで定義する
+   寸法(特にmatch-card内の各要素の高さ)はコンポーネント側の
+   ROW_HEIGHT定数と必ず一致させる必要がある。startgg本家は列幅180px・
+   行ピッチ約66pxだが、本家のカードは名前の表示のみで結果入力は別画面で
+   行うため薄い。本アプリはカード内にタップしやすい結果入力ボタン
+   (タッチターゲット44px、--touch-target-min)を常時表示するため、
+   本家よりカードが縦に厚くなる。絶対配置で重なりが出ないよう、対戦者行
+   2行(44px×2)+スコア入力または修正ボタン(44px)+識別子行+注記行を
+   合計した最大高さを含めてROW_HEIGHTを決めている(BracketBoard.tsxの
+   コメント参照)。 */
 .bracket-board {
   display: flex;
   flex-direction: column;
@@ -261,14 +267,29 @@ label {
   outline-offset: 1px;
 }
 
+/* 結果修正フォーム(MatchCardEdit)を開いている間は、長い選手名でボタンが
+   折り返して通常のROW_HEIGHT枠を超えることがある。その間だけカードを
+   最前面に押し上げ、影を付けて「一時的に広がっているカード」だと分かる
+   ようにする(下のカードに隠れて操作不能になるのを防ぐ)。 */
+.bracket-tree-matches .match-card:has(.match-card-edit-form) {
+  z-index: 5;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* 識別子行は高さを固定(1行・折り返し禁止・はみ出しは省略)し、
+   BracketBoard.tsxのROW_HEIGHT計算に含まれる分だけの高さに収める。 */
 .bracket-tree-matches .match-card-identifier {
-  display: inline-block;
-  min-width: 0;
+  display: block;
+  height: 20px;
+  line-height: 20px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 0.7rem;
   font-weight: 700;
   color: #fff;
   background: #3b4350;
-  padding: 0.05rem 0.4rem;
+  padding: 0 0.4rem;
   border-radius: 3px 3px 0 0;
 }
 
@@ -277,15 +298,18 @@ label {
   flex-direction: column;
 }
 
+/* --touch-target-min(44px)に合わせた固定高さ。中身の量に関わらず高さが
+   変わらないことで、BracketBoard.tsx側の絶対配置と食い違わないようにする。 */
 .match-card-player {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
-  min-height: 24px;
-  padding: 0.15rem 0.5rem;
+  height: var(--touch-target-min);
+  padding: 0 0.5rem;
   font-size: 0.85rem;
   border-top: 1px solid #e6e6e6;
+  overflow: hidden;
 }
 
 .match-card-players .match-card-player:first-child {
@@ -312,6 +336,7 @@ label {
   font-size: 0.75rem;
   padding: 0 0.35rem;
   border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .match-card-player-loser .match-card-player-name {
@@ -319,6 +344,7 @@ label {
 }
 
 .match-card-players .match-card-player button {
+  flex-shrink: 0;
   min-height: 1.6rem;
   min-width: 0;
   padding: 0.1rem 0.5rem;
@@ -326,19 +352,50 @@ label {
 }
 
 .match-card-score-input {
+  display: block;
+  box-sizing: border-box;
   width: 100%;
-  min-height: 1.8rem;
+  height: var(--touch-target-min);
   border: none;
   border-top: 1px solid #e6e6e6;
   border-radius: 0 0 4px 4px;
   font-size: 0.8rem;
 }
 
-.match-card-note {
+/* 対戦カード内の結果修正UI(MatchCardEdit)。折り返しがあっても収まる
+   高さをBracketBoard.tsxのROW_HEIGHT計算側で見込んでいる。 */
+.bracket-tree-matches .match-card-edit-locked,
+.bracket-tree-matches .match-card-edit-form,
+.bracket-tree-matches > li > button {
   display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border-top: 1px solid #e6e6e6;
+  padding: 0.3rem 0.5rem;
   font-size: 0.7rem;
+  line-height: 1.3;
+}
+
+.bracket-tree-matches .match-card-edit-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+/* 別の側(勝者側の敗者など)から出場者が来ている場合の注記。最大2行に
+   収め、それ以上は省略する(BracketBoard.tsxのROW_HEIGHT計算に含まれる
+   固定枠に収まるようにするため)。 */
+.match-card-note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  height: 30px;
+  overflow: hidden;
+  font-size: 0.65rem;
+  line-height: 15px;
   color: #6b7280;
-  padding: 0.1rem 0.5rem;
+  padding: 0 0.5rem;
   background: #f4f4f5;
 }
 
