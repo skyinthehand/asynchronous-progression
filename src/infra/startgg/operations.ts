@@ -317,6 +317,63 @@ export interface PoolDetail {
   entrants: Entrant[];
 }
 
+const PREVIEW_ID_PATTERN = /^(.*)_(-?\d+)_(\d+)$/;
+const PREVIEW_GAP_SEARCH_LIMIT = 20;
+
+/**
+ * FR-023: まだ「開始」されていないstart.ggの予測(プレビュー)ブラケットは、
+ * `preview_{phaseGroupId}_{round}_{index}` という形の合成IDをprereqIdに
+ * 使う。このID形式そのものが、ラウンド番号・インデックスをエンコードして
+ * いる。ところが、実際のラウンド数が少ない(例: 8人プール)ブラケットでは、
+ * 本来「勝者側ラウンド1の敗者が入る敗者側ラウンド1」を指すべき参照が、
+ * 実在しない中間ラウンド(例: round -2)のIDを指したまま、その中間ラウンド
+ * 自体のSetがレスポンスに含まれない、という状態になることがある
+ * (start.gg側の内部的なラウンド採番が、実際のブラケット規模とは独立した
+ * 固定のテンプレートに基づいているためと推測される。詳細な理由は不明)。
+ *
+ * この関数は、そうした「参照先が存在しないprereqId」を、同じindex・
+ * より0に近いラウンド番号を持つ実在のカードへたどり直すことで補修する
+ * (0を挟んで負→正、または正→負をまたぐ)。見つかった参照先の
+ * bracketSideが元のカードと異なれば(勝者側→敗者側など)、それは
+ * advanceWinner側で「敗者を送る」と正しく解釈される(FR-023の同側/別側
+ * 判定をそのまま利用できるため、ここでは参照を繋ぎ直すだけでよい)。
+ *
+ * `preview_`形式でないID(実際に開始済みのブラケットの、start.gg発行の
+ * 通常の数値ID)には一切手を加えない。
+ */
+function resolvePreviewBracketGaps(matchCards: MatchCard[]): MatchCard[] {
+  const cardById = new Map(matchCards.map((card) => [card.id, card]));
+
+  function resolveSourceId(id: string | null): string | null {
+    if (id === null || cardById.has(id)) return id;
+    const parsed = PREVIEW_ID_PATTERN.exec(id);
+    if (!parsed || !parsed[1].startsWith("preview_")) return id;
+    const [, prefix, roundText, index] = parsed;
+    const startRound = Number(roundText);
+    const direction = startRound < 0 ? 1 : -1;
+    let round = startRound;
+    for (let step = 0; step < PREVIEW_GAP_SEARCH_LIMIT; step++) {
+      round += direction;
+      if (round === 0) continue; // ラウンド0は存在しない(勝者側は1〜、敗者側は-1〜)
+      const candidateId = `${prefix}_${round}_${index}`;
+      if (cardById.has(candidateId)) return candidateId;
+    }
+    return id; // 見つからなければ元の(存在しない)参照のまま返す
+  }
+
+  return matchCards.map((card) => {
+    const entrant1SourceMatchId = resolveSourceId(card.entrant1SourceMatchId);
+    const entrant2SourceMatchId = resolveSourceId(card.entrant2SourceMatchId);
+    if (
+      entrant1SourceMatchId === card.entrant1SourceMatchId &&
+      entrant2SourceMatchId === card.entrant2SourceMatchId
+    ) {
+      return card;
+    }
+    return { ...card, entrant1SourceMatchId, entrant2SourceMatchId };
+  });
+}
+
 /**
  * Q2: 対象プールの詳細・対戦カード一覧の取得(定期同期)。
  *
@@ -395,7 +452,7 @@ export async function fetchPoolDetail(
     poolId: group.id,
     displayIdentifier: group.displayIdentifier,
     bracketType,
-    matchCards,
+    matchCards: resolvePreviewBracketGaps(matchCards),
     entrants: Array.from(entrantById.values()),
   };
 }

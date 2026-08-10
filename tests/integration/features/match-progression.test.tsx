@@ -132,3 +132,113 @@ describe("Winner advancement to the next round (FR-023)", () => {
     expect(r2.textContent).not.toContain("BYE");
   });
 });
+
+/**
+ * 勝者側(WINNERS)の対戦で負けたプレイヤーが、敗者側(LOSERS)の対戦に
+ * 反映されるかを検証する(報告されたバグ: 敗者側に反映されなかった)。
+ */
+async function seedPoolAwaitingLoserDrop() {
+  const db = await getDb();
+  await db.put(
+    "startggConfig",
+    {
+      tournamentSlug: "impact-major-4",
+      eventId: "1",
+      phaseId: "1",
+      poolId: "pool-1",
+      syncToken: "test-token",
+      tokenUpdatedAt: null,
+    },
+    SINGLETON_KEY,
+  );
+  await db.put("pools", {
+    id: "pool-1",
+    displayIdentifier: "Pool 1",
+    tournamentSlug: "impact-major-4",
+    eventId: "1",
+    phaseId: "1",
+    className: null,
+    bracketType: "DOUBLE_ELIMINATION",
+    staffName: null,
+    lastSyncedAt: null,
+    onboardingCompletedAt: new Date().toISOString(),
+  });
+  for (const [id, name] of [
+    ["e1", "Alice"],
+    ["e2", "Bob"],
+  ]) {
+    await db.put("entrants", {
+      id,
+      poolId: "pool-1",
+      name,
+      attendance: "PRESENT",
+      attendanceRecordedAt: null,
+      poolFinished: false,
+      nextMatch: null,
+      awayPeriods: [],
+    });
+  }
+  await db.put("matchCards", {
+    id: "w1",
+    poolId: "pool-1",
+    identifier: "WA",
+    round: 1,
+    bracketSide: "WINNERS",
+    tableNumber: null,
+    entrant1Id: "e1",
+    entrant2Id: "e2",
+    winnerId: null,
+    score: null,
+    status: "NOT_STARTED",
+    isLocked: false,
+    editHistory: [],
+    localOnly: false,
+    entrant1SourceMatchId: null,
+    entrant2SourceMatchId: null,
+  });
+  await db.put("matchCards", {
+    id: "l1",
+    poolId: "pool-1",
+    identifier: "J",
+    round: -1,
+    bracketSide: "LOSERS",
+    tableNumber: null,
+    entrant1Id: null,
+    entrant2Id: null,
+    winnerId: null,
+    score: null,
+    status: "NOT_STARTED",
+    isLocked: false,
+    editHistory: [],
+    localOnly: false,
+    entrant1SourceMatchId: "w1",
+    entrant2SourceMatchId: null,
+  });
+}
+
+describe("Loser drop into the losers bracket (FR-023)", () => {
+  beforeEach(async () => {
+    await resetDb();
+    await seedPoolAwaitingLoserDrop();
+  });
+
+  it("sends the losing player (not the winner) into the losers-bracket slot", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    await screen.findByText("WA");
+    // Aliceが勝つ = Bobが負けて敗者側に落ちる。
+    await user.click(screen.getByRole("button", { name: "Alice の勝ち" }));
+
+    await screen.findByText("J");
+    const db = await getDb();
+    const loserCard = await db.get("matchCards", "l1");
+    expect(loserCard?.entrant1Id).toBe("e2");
+
+    const j = screen.getByText("J").closest("li");
+    if (!j) throw new Error("losers card not found");
+    expect(j.textContent).toContain("Bob");
+    expect(j.textContent).not.toContain("Alice");
+  });
+});

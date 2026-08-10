@@ -273,6 +273,168 @@ describe("Q2: fetchPoolDetail", () => {
       entrant2SourceMatchId: null,
     });
   });
+
+  it("repairs a preview bracket's dangling prereqId (missing intermediate round) to the nearest existing round at the same index (FR-023)", async () => {
+    // 報告されたバグの再現: start.ggの「プレビュー」(未開始)ブラケットは
+    // round -2に相当するSetを一切返さないまま、round -3(敗者側第1
+    // ラウンド)のprereqIdだけが `preview_..._-2_0` のような実在しないIDを
+    // 指している。0を挟んだ先の実在するラウンド(この場合はラウンド1、
+    // 勝者側の対戦)まで同じindexでたどり直し、繋ぎ直せることを確認する。
+    const client = fakeClient({
+      phaseGroup: {
+        id: 3068263,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            {
+              id: "preview_3068263_1_0",
+              identifier: "A",
+              round: 1,
+              station: null,
+              slots: [
+                {
+                  prereqType: "seed",
+                  prereqId: "37005479",
+                  entrant: { id: 1, name: "Alice" },
+                },
+                {
+                  prereqType: "seed",
+                  prereqId: "37005562",
+                  entrant: { id: 2, name: "Bob" },
+                },
+              ],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+            {
+              id: "preview_3068263_1_1",
+              identifier: "B",
+              round: 1,
+              station: null,
+              slots: [
+                {
+                  prereqType: "seed",
+                  prereqId: "37005527",
+                  entrant: { id: 3, name: "Carol" },
+                },
+                {
+                  prereqType: "seed",
+                  prereqId: "37005528",
+                  entrant: { id: 4, name: "Dave" },
+                },
+              ],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+            {
+              // round -1・-2に相当するSetはレスポンスに一切含まれない。
+              id: "preview_3068263_-3_0",
+              identifier: "J",
+              round: -3,
+              station: null,
+              slots: [
+                {
+                  prereqType: "set",
+                  prereqId: "preview_3068263_-2_0",
+                  entrant: null,
+                },
+                {
+                  prereqType: "set",
+                  prereqId: "preview_3068263_-2_1",
+                  entrant: null,
+                },
+              ],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    const detail = await fetchPoolDetail(client, "3068263");
+    const j = detail.matchCards.find((card) => card.identifier === "J");
+
+    expect(j?.entrant1SourceMatchId).toBe("preview_3068263_1_0");
+    expect(j?.entrant2SourceMatchId).toBe("preview_3068263_1_1");
+  });
+
+  it("leaves a dangling reference unresolved when no real card exists at any nearby round (safety net)", async () => {
+    const client = fakeClient({
+      phaseGroup: {
+        id: 3068263,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            {
+              id: "preview_3068263_-3_0",
+              identifier: "J",
+              round: -3,
+              station: null,
+              slots: [
+                {
+                  prereqType: "set",
+                  prereqId: "preview_3068263_-2_0",
+                  entrant: null,
+                },
+                {
+                  prereqType: "set",
+                  prereqId: "preview_3068263_-2_1",
+                  entrant: null,
+                },
+              ],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    const detail = await fetchPoolDetail(client, "3068263");
+    const j = detail.matchCards.find((card) => card.identifier === "J");
+
+    // 探索範囲内(PREVIEW_GAP_SEARCH_LIMIT)のどのラウンドにも実在する
+    // カードがなければ、元の(存在しない)参照のまま返る。
+    expect(j?.entrant1SourceMatchId).toBe("preview_3068263_-2_0");
+  });
+
+  it("does not touch a dangling reference that is not a preview-style id (real, already-started bracket)", async () => {
+    const client = fakeClient({
+      phaseGroup: {
+        id: 1000,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            {
+              id: 9999,
+              identifier: "J",
+              round: -1,
+              station: null,
+              slots: [
+                { prereqType: "set", prereqId: 12345, entrant: null },
+                { prereqType: "seed", prereqId: 3, entrant: null },
+              ],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    const detail = await fetchPoolDetail(client, "1000");
+    // 12345は実在しないIDだが、"preview_"形式ではないため一切いじらない。
+    expect(detail.matchCards[0].entrant1SourceMatchId).toBe("12345");
+  });
 });
 
 describe("Q3: fetchNextMatch", () => {

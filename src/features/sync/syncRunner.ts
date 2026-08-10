@@ -1,5 +1,6 @@
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
+import { reconcileAdvancement } from "../../domain/rules/matchProgression.js";
 import { computePoolFinished } from "../../domain/rules/poolFinished.js";
 import { createStartggClient } from "../../infra/startgg/client.js";
 import {
@@ -104,9 +105,13 @@ export async function runSync(): Promise<SyncResult> {
     );
     const localCardById = new Map(localCards.map((card) => [card.id, card]));
 
-    const mergedCards = detail.matchCards.map((remote) =>
+    const mergedCardsBeforeReconcile = detail.matchCards.map((remote) =>
       mergeMatchCard(localCardById.get(remote.id), remote),
     );
+    // 念のための保険: mergeMatchCardの判定を万一すり抜けて後続カードへの
+    // 反映が古い値で上書きされてしまっても、確定済みの対戦から結果を
+    // 再適用して直す(matchProgression.tsのreconcileAdvancement参照)。
+    const mergedCards = reconcileAdvancement(mergedCardsBeforeReconcile);
     const mergedEntrantsBeforeNextMatch = detail.entrants.map((remote) =>
       mergeEntrant(localEntrantById.get(remote.id), remote),
     );
