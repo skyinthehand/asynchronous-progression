@@ -136,9 +136,16 @@ export interface BracketSideLayout {
  *    ―、またはラウンドが1つしかない場合)は、ラウンドを昇順に処理し、
  *    各ラウンド内で「出場元カードの位置の平均」(出場元が解決できない
  *    場合はidentifier順の連番)によって位置を決める、という素直な
- *    ロジックを使う。
+ *    ロジックを使う。この平均計算には「同じ側」の出場元カードのみを
+ *    使う点に注意(下記4)。敗者側の対戦は、同じ側(前の敗者側ラウンド
+ *    の勝者)と別の側(勝者側から落ちてきた敗者)の両方を出場元に持つ
+ *    ことがあるが、勝者側と敗者側は縦位置の縮尺(何試合分の木か)が
+ *    まったく異なるため、別の側の位置まで平均に混ぜると、本来並ぶ
+ *    はずの同じ側の出場元カードから大きく外れた位置に飛んでしまう
+ *    (「Jの隣にLが来ない」という形で実際に報告されたバグ)。
  * 4. 出場元カードが「同じ側」であれば、その2カードを結ぶ線(connectors)
- *    を1本作る。「別の側」(勝者側の敗者が敗者側に落ちる等)の場合は、
+ *    を1本作る(縦位置の計算にも使うのはこちらのみ、上記3)。「別の側」
+ *    (勝者側の敗者が敗者側に落ちる等)の場合は、
  *    Winners/Losersを別パネルとして表示するため線は引けない。代わりに
  *    文字での注記(crossSideOrigins)として返す(BracketBoard.tsx側で
  *    カード内にテキスト表示する)。
@@ -181,7 +188,22 @@ export function computeBracketLayout(
           card.entrant1SourceMatchId,
           card.entrant2SourceMatchId,
         ].filter((id): id is string => id !== null);
-        const resolvedPositions = sourceIds
+        // 縦位置(slot)の平均計算には「同じ側」の出場元カードのみを使う。
+        // 敗者側の対戦は、同じ側(前の敗者側ラウンドの勝者)と別の側
+        // (勝者側から落ちてきた敗者)の両方を出場元に持つことがあるが、
+        // 勝者側と敗者側は縦位置の縮尺(何試合分の木か)がまったく異なる
+        // ため、別の側の位置を平均に混ぜると本来のペア(同じ側の出場元)
+        // から大きく外れた位置に飛んでしまう(実際に報告されたバグ)。
+        // 別の側の出場元は、位置計算ではなく注記(crossSideOrigins、下記)
+        // でのみ扱う。
+        const sameSideSourceIds = sourceIds.filter((id) => {
+          const sourceCard = cardById.get(id);
+          if (!sourceCard) return false;
+          const sourceSide: BracketSide =
+            sourceCard.bracketSide === "LOSERS" ? "LOSERS" : "WINNERS";
+          return sourceSide === side;
+        });
+        const resolvedPositions = sameSideSourceIds
           .map((id) => positionByMatchId.get(id))
           .filter((position): position is number => position !== undefined);
 
@@ -282,12 +304,20 @@ export function computeBracketLayout(
 
       // 1つ後のラウンドの位置を、いま確定した実際のleaf側の位置を使って
       // 計算し直す(processRoundで入れた仮のidentifier順の連番を上書き)。
+      // processRound同様、平均計算には同じ側の出場元カードのみを使う。
       for (const [p, nextCard] of nextRoundCardsInOrder.entries()) {
         const sourceIds = [
           nextCard.entrant1SourceMatchId,
           nextCard.entrant2SourceMatchId,
         ].filter((id): id is string => id !== null);
-        const resolvedPositions = sourceIds
+        const sameSideSourceIds = sourceIds.filter((id) => {
+          const sourceCard = cardById.get(id);
+          if (!sourceCard) return false;
+          const sourceSide: BracketSide =
+            sourceCard.bracketSide === "LOSERS" ? "LOSERS" : "WINNERS";
+          return sourceSide === side;
+        });
+        const resolvedPositions = sameSideSourceIds
           .map((id) => positionByMatchId.get(id))
           .filter((position): position is number => position !== undefined);
         const recomputedSlot =

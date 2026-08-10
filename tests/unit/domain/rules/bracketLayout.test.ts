@@ -238,4 +238,73 @@ describe("computeBracketLayout", () => {
       ]),
     );
   });
+
+  it("does not let a cross-side (winners→losers drop) source pull a losers match away from its same-side pair", () => {
+    // 報告されたバグの再現: 敗者側第2ラウンドの対戦(L, M)は、同じ側の
+    // 出場元(敗者側第1ラウンドの勝者J, K)と、別の側の出場元(勝者側から
+    // 落ちてきた敗者)の両方を持つ。この2つを平均してしまうと、勝者側と
+    // 敗者側で縦位置の縮尺が違うため、LはJの隣に、MはKの隣に来ない
+    // (=「Jの横にLがなく、Kの横にMがない」)。
+    const wa = makeCard({ id: "wa", identifier: "WA", round: 1 });
+    const wb = makeCard({ id: "wb", identifier: "WB", round: 1 });
+    const wc = makeCard({ id: "wc", identifier: "WC", round: 1 });
+    const wd = makeCard({ id: "wd", identifier: "WD", round: 1 });
+    const j = makeCard({
+      id: "j",
+      identifier: "J",
+      round: -1,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wa",
+      entrant2SourceMatchId: "wc",
+    });
+    const k = makeCard({
+      id: "k",
+      identifier: "K",
+      round: -1,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wb",
+      entrant2SourceMatchId: "wd",
+    });
+    const l = makeCard({
+      id: "l",
+      identifier: "L",
+      round: -2,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "j",
+      entrant2SourceMatchId: "wb",
+    });
+    const m = makeCard({
+      id: "m",
+      identifier: "M",
+      round: -2,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "k",
+      entrant2SourceMatchId: "wd",
+    });
+
+    const [, losers] = computeBracketLayout([wa, wb, wc, wd, j, k, l, m]);
+
+    const round1 = losers.matchesByRound.get(1) ?? [];
+    const round2 = losers.matchesByRound.get(2) ?? [];
+    const jSlot = round1.find((entry) => entry.card.id === "j")?.slot;
+    const kSlot = round1.find((entry) => entry.card.id === "k")?.slot;
+    const lSlot = round2.find((entry) => entry.card.id === "l")?.slot;
+    const mSlot = round2.find((entry) => entry.card.id === "m")?.slot;
+
+    expect(lSlot).toBe(jSlot);
+    expect(mSlot).toBe(kSlot);
+
+    // 別の側からの出場元(WB, WD)は結線ではなく注記として記録される。
+    expect(losers.crossSideOrigins).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ toMatchId: "l", fromMatchId: "wb" }),
+        expect.objectContaining({ toMatchId: "m", fromMatchId: "wd" }),
+      ]),
+    );
+    expect(
+      losers.connectors.some(
+        (c) => c.fromMatchId === "wb" || c.fromMatchId === "wd",
+      ),
+    ).toBe(false);
+  });
 });
