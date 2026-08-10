@@ -173,4 +173,69 @@ describe("computeBracketLayout", () => {
     // Y×Zから生まれたAHはAA×ABから生まれたALより上(小さいslot)に来るべき。
     expect(first?.slot).toBeLessThan(second?.slot ?? Number.POSITIVE_INFINITY);
   });
+
+  it("derives round-1 slots from round-2's reserved positions when round-1 has BYE gaps", () => {
+    // 報告されたバグの再現: Round1の対戦をidentifier順に並べるだけでは、
+    // BYE(不戦勝)で一部の対戦が実在しない場合に正しい並び順にならない。
+    // Round2側(Y, Z, AA)を基準に、各対戦が予約する2区画のうち実在する
+    // 対戦カードだけに位置を割り当てる。
+    // Y: 1人目はBYE(対応するRound1対戦なし)、2人目がRound1のA。
+    // Z: 両方ともBYE(対応するRound1対戦なし)。
+    // AA: 1人目はBYE、2人目がRound1のB。
+    const a = makeCard({ id: "a", identifier: "A", round: 1 });
+    const b = makeCard({ id: "b", identifier: "B", round: 1 });
+    const y = makeCard({
+      id: "y",
+      identifier: "Y",
+      round: 2,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: "a",
+    });
+    const z = makeCard({
+      id: "z",
+      identifier: "Z",
+      round: 2,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
+    });
+    const aa = makeCard({
+      id: "aa",
+      identifier: "AA",
+      round: 2,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: "b",
+    });
+
+    const [winners] = computeBracketLayout([a, b, y, z, aa]);
+
+    // Round1にはA・Bの2枚しか実在しないが、それぞれが対応するRound2の
+    // 対戦(Y, AA)の2人目の区画(slot 1, slot 5)に正しく配置される。
+    expect(winners.matchesByRound.get(1)).toEqual([
+      { card: a, round: 1, slot: 1 },
+      { card: b, round: 1, slot: 5 },
+    ]);
+
+    const round2 = winners.matchesByRound.get(2) ?? [];
+    const ySlot = round2.find((m) => m.card.id === "y")?.slot;
+    const zSlot = round2.find((m) => m.card.id === "z")?.slot;
+    const aaSlot = round2.find((m) => m.card.id === "aa")?.slot;
+    // Y(実子Aのみ)はAの位置と同じ、AA(実子Bのみ)はBの位置と同じになる。
+    expect(ySlot).toBe(1);
+    expect(aaSlot).toBe(5);
+    // Z(実子なし)は予約区画(2,3)の中央2.5となり、Y・AAの間に収まる。
+    expect(zSlot).toBe(2.5);
+    expect(ySlot).toBeLessThan(zSlot ?? Number.POSITIVE_INFINITY);
+    expect(zSlot ?? Number.NEGATIVE_INFINITY).toBeLessThan(
+      aaSlot ?? Number.POSITIVE_INFINITY,
+    );
+
+    // AからY、BからAAへの結線のみが作られる(Zには実子がないため結線なし)。
+    expect(winners.connectors).toHaveLength(2);
+    expect(winners.connectors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ fromMatchId: "a", toMatchId: "y" }),
+        expect.objectContaining({ fromMatchId: "b", toMatchId: "aa" }),
+      ]),
+    );
+  });
 });

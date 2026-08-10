@@ -17,26 +17,27 @@ interface BracketBoardProps {
 
 /**
  * 対戦カードはJS側の絶対配置(position: absolute)でツリー状に並べるため、
- * ROW_HEIGHTは「1枚のカードが取りうる最大の高さ」以上でなければ、隣接する
- * カード同士が重なってしまう。startgg本家は列幅180px・行ピッチ約66pxだが、
- * 本家のカードは選手名の表示のみ(結果入力は別画面)なのに対し、本アプリは
- * カード内に常時タップ可能な結果入力ボタン(--touch-target-min: 44px)を
- * 表示するため、その分カードが縦に厚い。特に確定済みの対戦で「結果を修正」
- * を開いた状態(スコア入力+選手2名分のボタン+キャンセルボタンが縦に並ぶ)
- * が最も高さを取り、実測(Chromiumで開発サーバーをレンダリングして
- * getBoundingClientRectで計測)で約313pxだった。これに注記(2行,
- * 最大30px)分と安全マージンを足した350pxをROW_HEIGHTとして使う。
- * global.css側の.match-card内要素の高さを変更する場合は、この値も
- * 合わせて見直すこと(念のためglobal.css側にも
- * `:has(.match-card-edit-form)` 発火時にカードを最前面へ押し上げる
- * フォールバックを入れてあるが、通常はROW_HEIGHT側の余裕で吸収される
- * べきで、そちらに頼らない)。ラウンド間の縦位置(slot)はbracketLayout.ts
- * 側で「出場元カード2枚の位置の平均」として計算されるため、ROW_HEIGHTの
- * 値はどのラウンド数でも比例したツリー形状になる。
+ * ROW_HEIGHTは「1枚のカードの通常時の高さ」以上でなければ、隣接するカード
+ * 同士が重なってしまう。global.css側の.match-card内要素(識別子20px + 注記
+ * 最大30px + 対戦者2行88px[44px×2] + スコア入力/修正ボタン最大60px)を
+ * 積み上げた実測値(約190px)に安全マージンを足した210pxを使う。
+ *
+ * 例外として、確定済みの対戦で「結果を修正」を開いた状態(スコア入力+
+ * 選手2名分のボタン+キャンセルボタンが縦に並ぶ)は実測で約313pxとこの
+ * 枠を超える。これに合わせてROW_HEIGHT自体を大きくすると(以前試した際)、
+ * ラウンド数・試合数の多いプールでツリー全体の高さが数万pxに達し、逆に
+ * 「下の方の対戦が全然見つからない」問題を生んでしまった。そのため、この
+ * 例外はROW_HEIGHT側では吸収せず、global.css側の
+ * `:has(.match-card-edit-form)` でそのカードだけ最前面(z-index)に押し上げ、
+ * 「修正フォームを開いている間だけ直下のカードに一時的に少し被る」ことを
+ * 許容する形にしている(修正を終えれば元の高さに戻り重なりも消える)。
+ * ラウンド間の縦位置(slot)はbracketLayout.ts側で「出場元カード2枚の位置の
+ * 平均」として計算されるため、ROW_HEIGHTの値はどのラウンド数でも比例した
+ * ツリー形状になる。
  */
 const COLUMN_WIDTH = 220;
 const COLUMN_GAP = 32;
-const ROW_HEIGHT = 350;
+const ROW_HEIGHT = 210;
 const HEADER_HEIGHT = 24;
 
 function sideLabel(side: BracketSide) {
@@ -92,6 +93,14 @@ function connectorPath(x1: number, y1: number, x2: number, y2: number) {
  * (勝者側の敗者が敗者側に落ちる等)から出場者が来ている場合は、側をまたぐ
  * 結線は行わず対戦カード内の注記で示す(startgg本家もWinners/Losersを別々の
  * パネルとして縦に並べており、パネルをまたぐ線は引かれない)。
+ *
+ * 表示用データの詰め直しの最終段階(px座標への変換)を担う。保存形式や
+ * それ以前の詰め直し手順(ラウンド1の並び替え・出場元カードの位置の平均
+ * によるslot計算)はdomain/rules/bracketLayout.tsのcomputeBracketLayout()
+ * を参照。ここではそのslot(相対的な縦位置。分数になりうる)・rounds
+ * (何番目の列か)を受け取り、columnLeft()/ROW_HEIGHT等の定数で実際の
+ * px座標(style.top/left)に変換して<MatchCardEntry>を絶対配置するだけで、
+ * 並び順そのものの計算はここでは行わない。
  */
 export function BracketBoard({
   matchCards,

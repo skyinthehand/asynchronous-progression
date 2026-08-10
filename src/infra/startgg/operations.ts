@@ -317,7 +317,18 @@ export interface PoolDetail {
   entrants: Entrant[];
 }
 
-/** Q2: 対象プールの詳細・対戦カード一覧の取得(定期同期) */
+/**
+ * Q2: 対象プールの詳細・対戦カード一覧の取得(定期同期)。
+ *
+ * ここがブラケット表示用データの「入り口」。start.gg APIはPhaseGroup.sets
+ * を単なるSetのリスト(ツリー構造を持たないフラットな配列)として返す。
+ * 各SetのSlot(出場者枠)が持つprereqType/prereqIdだけが「この枠にどの
+ * 対戦の勝者が入るか」という木構造の手がかりで、下のmapでそれを
+ * entrant1/entrant2SourceMatchId(MatchCard.idへの参照)として保存用の
+ * 形(MatchCardSchema)に写し取っている。保存後のデータの詳しい形と、
+ * それを画面表示用のツリー(表示順)に組み立て直す手順は
+ * domain/rules/bracketLayout.tsのcomputeBracketLayout()を参照。
+ */
 export async function fetchPoolDetail(
   client: GraphQLClient,
   poolId: string,

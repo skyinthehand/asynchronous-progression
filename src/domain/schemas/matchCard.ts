@@ -15,6 +15,15 @@ export const MatchCardEditSchema = z.object({
   editedBy: z.string().nullable(),
 });
 
+/**
+ * プールの対戦カードの保存形式。IndexedDBには「順序に意味を持たない
+ * フラットな配列」として保存されている(どのラウンド・どちらの側かは
+ * round/bracketSideで自己申告するのみで、木構造そのものは持たない)。
+ * ブラケット表示のためのツリー構造・表示順(どのカードが上でどのカードが
+ * 下か、どのカード同士を線でつなぐか)は保存されておらず、表示のたびに
+ * entrant1/entrant2SourceMatchId(下記)を手がかりに
+ * domain/rules/bracketLayout.tsが動的に組み立て直す。
+ */
 export const MatchCardSchema = z.object({
   id: z.string().min(1),
   poolId: z.string().min(1),
