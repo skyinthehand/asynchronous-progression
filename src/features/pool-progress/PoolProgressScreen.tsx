@@ -5,17 +5,20 @@ import { AttendancePanel } from "./AttendancePanel.js";
 import { AwayPeriodPanel } from "./AwayPeriodPanel.js";
 import { EntrantList } from "./EntrantList.js";
 import { MatchCardList } from "./MatchCardList.js";
+import { NextMatchModal } from "./NextMatchModal.js";
 import { PoolOnboardingWizard } from "./PoolOnboardingWizard.js";
 import { StaffAssignmentPanel } from "./StaffAssignmentPanel.js";
+import { TableCountSettingPanel } from "./TableCountSettingPanel.js";
 import { usePoolProgress } from "./usePoolProgress.js";
 
-type PanelKey = "staff" | "attendance" | "away" | "entrants";
+type PanelKey = "staff" | "attendance" | "away" | "entrants" | "tables";
 
 const PANEL_TITLES: Record<PanelKey, string> = {
   staff: "進行担当者",
   attendance: "出欠確認",
   away: "離席記録",
   entrants: "選手一覧・次戦案内",
+  tables: "対戦台数",
 };
 
 /**
@@ -37,6 +40,13 @@ export function PoolProgressScreen() {
     recordStaffAssignment,
     recordResult,
     completeOnboarding,
+    setTableCount,
+    assignTable,
+    nextMatchSuggestion,
+    callSuggestedMatch,
+    skipSuggestion,
+    dismissSuggestion,
+    setInProgress,
   } = usePoolProgress();
   const [printing, setPrinting] = useState(false);
   const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
@@ -85,6 +95,9 @@ export function PoolProgressScreen() {
         <button type="button" onClick={() => setActivePanel("entrants")}>
           選手一覧
         </button>
+        <button type="button" onClick={() => setActivePanel("tables")}>
+          対戦台数
+        </button>
         <button type="button" onClick={() => setPrinting(true)}>
           印刷用ページ
         </button>
@@ -95,6 +108,8 @@ export function PoolProgressScreen() {
         matchCards={matchCards}
         entrants={entrants}
         onRecordResult={recordResult}
+        onAssignTable={assignTable}
+        onSetInProgress={setInProgress}
       />
 
       {activePanel && (
@@ -122,8 +137,38 @@ export function PoolProgressScreen() {
             />
           )}
           {activePanel === "entrants" && <EntrantList entrants={entrants} />}
+          {activePanel === "tables" && (
+            <TableCountSettingPanel
+              pool={pool}
+              onSetTableCount={setTableCount}
+            />
+          )}
         </Modal>
       )}
+
+      {nextMatchSuggestion &&
+        (() => {
+          const suggestedCard = matchCards.find(
+            (card) => card.id === nextMatchSuggestion.matchCardId,
+          );
+          if (!suggestedCard) return null;
+          const entrantById = new Map(
+            entrants.map((entrant) => [entrant.id, entrant]),
+          );
+          return (
+            <NextMatchModal
+              card={suggestedCard}
+              table={nextMatchSuggestion.table}
+              entrantById={entrantById}
+              tableCount={pool?.tableCount ?? null}
+              onStart={(tableNumber) =>
+                callSuggestedMatch(suggestedCard.id, tableNumber)
+              }
+              onSkip={() => skipSuggestion(suggestedCard.id)}
+              onClose={dismissSuggestion}
+            />
+          );
+        })()}
 
       {showOnboarding && pool && (
         <PoolOnboardingWizard

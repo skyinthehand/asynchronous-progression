@@ -47,6 +47,23 @@ export const MatchCardSchema = z.object({
    */
   entrant1SourceMatchId: z.string().nullable().default(null),
   entrant2SourceMatchId: z.string().nullable().default(null),
+  /**
+   * 002-match-scoring-and-flow FR-001/FR-004: 両出場者のスコア(0〜3)。
+   * 未入力側はresolveMatchResult()により結果確定時に0として扱われるが、
+   * このフィールド自体は「未入力」をnullのまま保持する(0との違いを
+   * 区別するため)。
+   */
+  entrant1Score: z.number().int().min(0).max(3).nullable().default(null),
+  entrant2Score: z.number().int().min(0).max(3).nullable().default(null),
+  /** 002-match-scoring-and-flow FR-005/FR-006: 出場者の失格(DQ)。両者同時にtrueにはできない(呼び出し側で検証)。 */
+  entrant1DQ: z.boolean().default(false),
+  entrant2DQ: z.boolean().default(false),
+  /**
+   * 002-match-scoring-and-flow FR-018/FR-020/FR-021: 次戦の自動サジェスト
+   * (computeNextMatchSuggestions)の対象から一時的に外れているか。
+   * 一覧からの直接選択には影響しない。
+   */
+  skippedFromSuggestion: z.boolean().default(false),
 });
 
 export type MatchCard = z.infer<typeof MatchCardSchema>;

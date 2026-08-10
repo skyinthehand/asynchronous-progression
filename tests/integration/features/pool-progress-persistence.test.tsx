@@ -159,8 +159,10 @@ describe("Pool progress offline persistence (User Story 2)", () => {
     await acknowledgeNotice(user);
 
     await screen.findByText(/Alice vs Bob/);
-    const winButton = screen.getByRole("button", { name: "Alice の勝ち" });
-    await user.click(winButton);
+    const aliceScore = screen.getByLabelText("Aliceのスコア");
+    await user.clear(aliceScore);
+    await user.type(aliceScore, "1");
+    await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
     expect(await screen.findByText(/勝者: Alice/)).toBeInTheDocument();
 

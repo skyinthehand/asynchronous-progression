@@ -351,21 +351,11 @@ label {
   font-size: 0.75rem;
 }
 
-.match-card-score-input {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  height: var(--touch-target-min);
-  border: none;
-  border-top: 1px solid #e6e6e6;
-  border-radius: 0 0 4px 4px;
-  font-size: 0.8rem;
-}
-
 /* 対戦カード内の結果修正UI(MatchCardEdit)。折り返しがあっても収まる
    高さをBracketBoard.tsxのROW_HEIGHT計算側で見込んでいる。 */
 .bracket-tree-matches .match-card-edit-locked,
 .bracket-tree-matches .match-card-edit-form,
+.bracket-tree-matches .score-entry-form,
 .bracket-tree-matches > li > button {
   display: block;
   width: 100%;
@@ -381,6 +371,56 @@ label {
   flex-wrap: wrap;
   gap: 0.3rem;
   align-items: center;
+}
+
+/* 002-match-scoring-and-flow: スコア/DQ入力フォーム(ScoreEntryForm)。
+   MatchCardEdit同様、折り返しでROW_HEIGHT枠を超えうるため下のz-index規則
+   ( :has(.score-entry-form) )で最前面に押し上げる。 */
+.score-entry-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.2rem;
+}
+
+.score-entry-score-input {
+  width: 3.5rem;
+}
+
+.score-entry-error {
+  color: #b42318;
+  font-size: 0.75rem;
+  margin: 0.2rem 0;
+}
+
+.bracket-tree-matches .match-card:has(.score-entry-form) {
+  z-index: 5;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* 002-match-scoring-and-flow FR-009: 「進行中」ステータスの視覚的な区別。 */
+.match-card-status-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent-color);
+  padding: 0.05rem 0.4rem;
+  border-radius: 3px;
+}
+
+.match-card-in-progress {
+  border-color: var(--accent-color);
+}
+
+/* 002-match-scoring-and-flow FR-012/FR-013: 対戦カードへの対戦台番号入力。 */
+.match-card-table-select {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
 }
 
 /* 別の側(勝者側の敗者など)から出場者が来ている場合の注記。最大2行に
@@ -474,6 +514,31 @@ label {
 .notice-gate::backdrop,
 .notice-viewer::backdrop {
   background: rgba(0, 0, 0, 0.45);
+}
+
+/* 002-match-scoring-and-flow: 次戦候補モーダル(NextMatchModal)。 */
+.next-match-modal-table {
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.next-match-modal-table-select {
+  display: block;
+  margin: 0.5rem 0;
+}
+
+.next-match-modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+/* 002-match-scoring-and-flow: 対戦台数設定パネル(TableCountSettingPanel)。 */
+.table-count-setting-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 /* タブレットの小さめ幅(縦向き等)向けの調整。 */

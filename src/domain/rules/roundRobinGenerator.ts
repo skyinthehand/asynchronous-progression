@@ -52,6 +52,11 @@ export function generateRoundRobinMatchCards(
         localOnly: true,
         entrant1SourceMatchId: null,
         entrant2SourceMatchId: null,
+        entrant1Score: null,
+        entrant2Score: null,
+        entrant1DQ: false,
+        entrant2DQ: false,
+        skippedFromSuggestion: false,
       });
     }
     const last = rotating.pop();

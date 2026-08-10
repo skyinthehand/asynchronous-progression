@@ -7,7 +7,12 @@ import {
   advanceWinner,
   reconcileAdvancement,
 } from "../../domain/rules/matchProgression.js";
+import {
+  type NextMatchSuggestion,
+  computeNextMatchSuggestions,
+} from "../../domain/rules/nextMatchSuggestion.js";
 import { generateRoundRobinMatchCards } from "../../domain/rules/roundRobinGenerator.js";
+import { isTableOccupied } from "../../domain/rules/tableAssignment.js";
 import { addStaffAssignment } from "../../infra/storage/adminRepository.js";
 import { getStartggConfig } from "../../infra/storage/adminRepository.js";
 import {
@@ -16,9 +21,11 @@ import {
 } from "../../infra/storage/entrantRepository.js";
 import {
   getMatchCardsByPool,
+  saveMatchCard,
   saveMatchCards,
 } from "../../infra/storage/matchCardRepository.js";
 import { getPool, savePool } from "../../infra/storage/poolRepository.js";
+import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 
 interface UsePoolProgressResult {
   loading: boolean;
@@ -35,10 +42,31 @@ interface UsePoolProgressResult {
   recordStaffAssignment: (staffName: string) => Promise<void>;
   recordResult: (
     matchCardId: string,
-    winnerId: string,
-    score: string | null,
+    result: MatchResultSubmission,
   ) => Promise<void>;
   completeOnboarding: () => Promise<void>;
+  setTableCount: (tableCount: number | null) => Promise<void>;
+  /** 占有中の対戦台であれば何もせずfalseを返す(FR-014)。成功時はtrue。 */
+  assignTable: (
+    matchCardId: string,
+    tableNumber: string | null,
+  ) => Promise<boolean>;
+  /**
+   * FR-022: 結果確定直後に自動的に提示される、次戦候補のモーダル用state。
+   * FR-025: 「対戦開始」「スキップ」いずれも選ばず閉じた場合はnullに戻す
+   * だけで、対戦カードの状態は変更しない。
+   */
+  nextMatchSuggestion: NextMatchSuggestion | null;
+  /** FR-024: サジェストされた対戦を「進行中」に変更する(対戦台番号は任意)。 */
+  callSuggestedMatch: (
+    matchCardId: string,
+    tableNumber: string | null,
+  ) => Promise<void>;
+  /** FR-020/FR-021: サジェストをスキップし、同じ対戦台へ次の候補を提示する。 */
+  skipSuggestion: (matchCardId: string) => Promise<void>;
+  /** FR-025: モーダルを何も選ばずに閉じる。 */
+  dismissSuggestion: () => void;
+  setInProgress: (matchCardId: string) => Promise<void>;
 }
 
 /**
@@ -52,6 +80,8 @@ export function usePoolProgress(): UsePoolProgressResult {
   const [pool, setPool] = useState<Pool | null>(null);
   const [entrants, setEntrants] = useState<Entrant[]>([]);
   const [matchCards, setMatchCards] = useState<MatchCard[]>([]);
+  const [nextMatchSuggestion, setNextMatchSuggestion] =
+    useState<NextMatchSuggestion | null>(null);
 
   const reload = useCallback(async (targetPoolId: string) => {
     const [loadedPool, loadedEntrants, rawCards] = await Promise.all([
@@ -181,13 +211,17 @@ export function usePoolProgress(): UsePoolProgressResult {
   );
 
   const recordResult = useCallback(
-    async (matchCardId: string, winnerId: string, score: string | null) => {
+    async (matchCardId: string, result: MatchResultSubmission) => {
       const target = matchCards.find((card) => card.id === matchCardId);
       if (!target || target.isLocked) return;
       const updated: MatchCard = {
         ...target,
-        winnerId,
-        score,
+        entrant1Score: result.entrant1Score,
+        entrant2Score: result.entrant2Score,
+        entrant1DQ: result.entrant1DQ,
+        entrant2DQ: result.entrant2DQ,
+        winnerId: result.winnerId,
+        score: result.score,
         status: "COMPLETED",
         localOnly: true,
       };
@@ -209,6 +243,111 @@ export function usePoolProgress(): UsePoolProgressResult {
       }));
       await saveMatchCards(relocked);
       setMatchCards(relocked);
+
+      // FR-017/FR-022: 結果確定直後、その対戦台(割り当てられていれば)へ
+      // 次に呼ぶべき対戦カードを1件、モーダル用stateにセットする。
+      const tableCount = pool?.tableCount ?? null;
+      const suggestions = computeNextMatchSuggestions(relocked, tableCount);
+      const completedTable = updated.tableNumber;
+      const forThisTable =
+        tableCount != null && tableCount > 0 && completedTable != null
+          ? (suggestions.find((s) => s.table === completedTable) ?? null)
+          : (suggestions[0] ?? null);
+      setNextMatchSuggestion(forThisTable);
+    },
+    [matchCards, pool],
+  );
+
+  const setTableCount = useCallback(
+    async (tableCount: number | null) => {
+      if (!pool) return;
+      const updatedPool: Pool = { ...pool, tableCount };
+      await savePool(updatedPool);
+      setPool(updatedPool);
+    },
+    [pool],
+  );
+
+  const assignTable = useCallback(
+    async (matchCardId: string, tableNumber: string | null) => {
+      const target = matchCards.find((card) => card.id === matchCardId);
+      if (!target) return false;
+      if (
+        tableNumber !== null &&
+        isTableOccupied(tableNumber, matchCards, matchCardId)
+      ) {
+        return false;
+      }
+      // 002-match-scoring-and-flow FR-016: 対戦台番号のローカル入力保護は
+      // syncRunner.tsのmergeMatchCardが常にtableNumberをローカル優先で
+      // マージするため、ここでlocalOnlyを立てる必要はない(結果確定と違い
+      // startgg側に送信するものがなく、localOnlyを立てても永久にクリア
+      // されない問題を避けるため意図的にそうしている)。
+      const updated: MatchCard = { ...target, tableNumber };
+      await saveMatchCard(updated);
+      setMatchCards((prev) =>
+        prev.map((card) => (card.id === matchCardId ? updated : card)),
+      );
+      return true;
+    },
+    [matchCards],
+  );
+
+  const callSuggestedMatch = useCallback(
+    async (matchCardId: string, tableNumber: string | null) => {
+      const target = matchCards.find((card) => card.id === matchCardId);
+      if (!target) return;
+      const updated: MatchCard = {
+        ...target,
+        status: "IN_PROGRESS",
+        tableNumber: tableNumber ?? target.tableNumber,
+      };
+      await saveMatchCard(updated);
+      setMatchCards((prev) =>
+        prev.map((card) => (card.id === matchCardId ? updated : card)),
+      );
+      setNextMatchSuggestion(null);
+    },
+    [matchCards],
+  );
+
+  const skipSuggestion = useCallback(
+    async (matchCardId: string) => {
+      const target = matchCards.find((card) => card.id === matchCardId);
+      if (!target) return;
+      const updated: MatchCard = { ...target, skippedFromSuggestion: true };
+      const nextCards = matchCards.map((card) =>
+        card.id === matchCardId ? updated : card,
+      );
+      await saveMatchCard(updated);
+      setMatchCards(nextCards);
+
+      // FR-020: スキップした対戦台へ、別の候補があればすぐに提示し直す。
+      const tableCount = pool?.tableCount ?? null;
+      const table = nextMatchSuggestion?.table ?? null;
+      const suggestions = computeNextMatchSuggestions(nextCards, tableCount);
+      const next =
+        tableCount != null && tableCount > 0 && table != null
+          ? (suggestions.find((s) => s.table === table) ?? null)
+          : (suggestions[0] ?? null);
+      setNextMatchSuggestion(next);
+    },
+    [matchCards, pool, nextMatchSuggestion],
+  );
+
+  const dismissSuggestion = useCallback(() => {
+    setNextMatchSuggestion(null);
+  }, []);
+
+  const setInProgress = useCallback(
+    async (matchCardId: string) => {
+      const target = matchCards.find((card) => card.id === matchCardId);
+      if (!target || target.status !== "NOT_STARTED") return;
+      const updated: MatchCard = { ...target, status: "IN_PROGRESS" };
+      await saveMatchCard(updated);
+      setMatchCards((prev) =>
+        prev.map((card) => (card.id === matchCardId ? updated : card)),
+      );
     },
     [matchCards],
   );
@@ -235,5 +374,12 @@ export function usePoolProgress(): UsePoolProgressResult {
     recordStaffAssignment,
     recordResult,
     completeOnboarding,
+    setTableCount,
+    assignTable,
+    nextMatchSuggestion,
+    callSuggestedMatch,
+    skipSuggestion,
+    dismissSuggestion,
+    setInProgress,
   };
 }

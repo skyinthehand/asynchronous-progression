@@ -26,6 +26,12 @@ export const PoolSchema = z.object({
    * 完了・キャンセルいずれでも記録し、以後は再表示しない。
    */
   onboardingCompletedAt: z.string().datetime().nullable().default(null),
+  /**
+   * 002-match-scoring-and-flow FR-011/FR-015: プールで使用する対戦台の数。
+   * null(未設定)の場合、対戦台に紐付かない従来型の次戦サジェストに
+   * フォールバックする。
+   */
+  tableCount: z.number().int().min(1).nullable().default(null),
 });
 
 export type Pool = z.infer<typeof PoolSchema>;

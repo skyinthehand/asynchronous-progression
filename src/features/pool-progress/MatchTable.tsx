@@ -1,24 +1,30 @@
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import { MatchCardRow } from "./MatchCardRow.js";
+import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 
 interface MatchTableProps {
   matchCards: MatchCard[];
   entrantById: Map<string, Entrant>;
-  nextCardId: string | null;
-  onRecordResult: (
+  nextCardIds: Set<string>;
+  onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
+  tableCount: number | null;
+  onAssignTable: (
     matchCardId: string,
-    winnerId: string,
-    score: string | null,
-  ) => void;
+    tableNumber: string | null,
+  ) => Promise<boolean>;
+  onSetInProgress: (matchCardId: string) => void;
 }
 
 /** FR-023: 総当り形式など、ブラケット図を持たないプールの対戦カード表。 */
 export function MatchTable({
   matchCards,
   entrantById,
-  nextCardId,
+  nextCardIds,
   onRecordResult,
+  tableCount,
+  onAssignTable,
+  onSetInProgress,
 }: MatchTableProps) {
   return (
     <table className="app-table match-table">
@@ -26,6 +32,7 @@ export function MatchTable({
         <tr>
           <th>対戦</th>
           <th>対戦カード</th>
+          <th>対戦台</th>
           <th>結果・操作</th>
         </tr>
       </thead>
@@ -35,8 +42,11 @@ export function MatchTable({
             key={card.id}
             card={card}
             entrantById={entrantById}
-            isNext={nextCardId === card.id}
+            isNext={nextCardIds.has(card.id)}
             onRecordResult={onRecordResult}
+            tableCount={tableCount}
+            onAssignTable={onAssignTable}
+            onSetInProgress={onSetInProgress}
           />
         ))}
       </tbody>

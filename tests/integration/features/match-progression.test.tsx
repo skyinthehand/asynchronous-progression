@@ -119,7 +119,14 @@ describe("Winner advancement to the next round (FR-023)", () => {
     await acknowledgeNotice(user);
 
     await screen.findByText("R1-1");
-    await user.click(screen.getByRole("button", { name: "Alice の勝ち" }));
+    const aliceScore = screen.getByLabelText("Aliceのスコア");
+    await user.clear(aliceScore);
+    await user.type(aliceScore, "1");
+    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+
+    // 結果確定直後は次戦候補のモーダルが自動表示される(FR-022)ため、
+    // 一覧側の要素を一意に特定できるよう閉じておく。
+    await user.click(await screen.findByRole("button", { name: "閉じる" }));
 
     await screen.findByText("R2-1");
     const db = await getDb();
@@ -229,7 +236,14 @@ describe("Loser drop into the losers bracket (FR-023)", () => {
 
     await screen.findByText("WA");
     // Aliceが勝つ = Bobが負けて敗者側に落ちる。
-    await user.click(screen.getByRole("button", { name: "Alice の勝ち" }));
+    const aliceScore = screen.getByLabelText("Aliceのスコア");
+    await user.clear(aliceScore);
+    await user.type(aliceScore, "1");
+    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+
+    // 結果確定直後は次戦候補のモーダルが自動表示される(FR-022)ため、
+    // 一覧側の要素を一意に特定できるよう閉じておく。
+    await user.click(await screen.findByRole("button", { name: "閉じる" }));
 
     await screen.findByText("J");
     const db = await getDb();

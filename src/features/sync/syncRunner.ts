@@ -27,7 +27,13 @@ import { getPool, savePool } from "../../infra/storage/poolRepository.js";
 import { syncNotice } from "../notice/noticeSync.js";
 import { deriveIsStale } from "./syncStatusRules.js";
 
-function mergeMatchCard(
+/**
+ * ローカル/リモートの対戦カードのマージ規則(FR-016の対戦台番号保護、
+ * スコア/DQ等のローカル専用フィールド保護を含む)。`runSync`内部でのみ
+ * 使うが、マージ規則自体はtests/integration/features/table-assignment.test.tsx
+ * から直接検証できるようexportする。
+ */
+export function mergeMatchCard(
   local: MatchCard | undefined,
   remote: MatchCard,
 ): MatchCard {
@@ -41,6 +47,22 @@ function mergeMatchCard(
     ...remote,
     editHistory: local.editHistory,
     isLocked: local.isLocked,
+    // 002-match-scoring-and-flow FR-016: 対戦台番号はローカル入力を常に
+    // 優先する(ローカルで未設定(null)の場合のみstartgg側のstation値を
+    // 使う)。localOnlyのクリア後(結果確定の同期完了後)も、対戦台番号
+    // だけが古い値に巻き戻らないようにするため、localOnlyの状態に関わらず
+    // ここで常に判定する。
+    tableNumber: local.tableNumber ?? remote.tableNumber,
+    // entrant1Score/entrant2Score/DQ/skippedFromSuggestionは本feature独自の
+    // ローカル入力専用フィールドで、start.gg側に対応する概念がなく
+    // fetchPoolDetail()は常に既定値(null/false)を返す。localOnlyのクリア後に
+    // このデフォルト値でローカルの記録を上書きしないよう、常にローカル値を
+    // そのまま維持する。
+    entrant1Score: local.entrant1Score,
+    entrant2Score: local.entrant2Score,
+    entrant1DQ: local.entrant1DQ,
+    entrant2DQ: local.entrant2DQ,
+    skippedFromSuggestion: local.skippedFromSuggestion,
   };
 }
 

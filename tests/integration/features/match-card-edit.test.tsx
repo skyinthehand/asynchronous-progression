@@ -81,6 +81,11 @@ async function seedPoolWithTwoRounds() {
     localOnly: true,
     entrant1SourceMatchId: null,
     entrant2SourceMatchId: null,
+    entrant1Score: 0,
+    entrant2Score: 0,
+    entrant1DQ: false,
+    entrant2DQ: false,
+    skippedFromSuggestion: false,
   });
   await db.put("matchCards", {
     id: "card-2",
@@ -115,7 +120,10 @@ describe("Match result correction (User Story 6)", () => {
 
     await screen.findByText("R1-1");
     await user.click(screen.getByRole("button", { name: "結果を修正" }));
-    await user.click(screen.getByRole("button", { name: "Bob の勝ち" }));
+    const bobScore = screen.getByLabelText("Bobのスコア");
+    await user.clear(bobScore);
+    await user.type(bobScore, "1");
+    await user.click(screen.getByRole("button", { name: "修正を確定" }));
 
     const db = await getDb();
     const card = await db.get("matchCards", "card-1");
@@ -130,7 +138,10 @@ describe("Match result correction (User Story 6)", () => {
     // 後続(R2)の結果を先に入力し、R1をロック状態にする。
     const r2 = (await screen.findByText("R2-1")).closest("li");
     if (!r2) throw new Error("round 2 card not found");
-    await user.click(within(r2).getByRole("button", { name: "Alice の勝ち" }));
+    const aliceScore = within(r2).getByLabelText("Aliceのスコア");
+    await user.clear(aliceScore);
+    await user.type(aliceScore, "1");
+    await user.click(within(r2).getByRole("button", { name: "結果を確定" }));
 
     const r1 = (await screen.findByText("R1-1")).closest("li");
     if (!r1) throw new Error("round 1 card not found");

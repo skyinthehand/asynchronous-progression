@@ -1,19 +1,21 @@
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import type { Pool } from "../../domain/entities/pool.js";
+import { computeNextMatchSuggestions } from "../../domain/rules/nextMatchSuggestion.js";
 import { BracketBoard } from "./BracketBoard.js";
 import { MatchTable } from "./MatchTable.js";
-import { findNextMatchCard } from "./nextCardIndicator.js";
+import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 
 interface MatchCardListProps {
   pool: Pool | null;
   matchCards: MatchCard[];
   entrants: Entrant[];
-  onRecordResult: (
+  onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
+  onAssignTable: (
     matchCardId: string,
-    winnerId: string,
-    score: string | null,
-  ) => void;
+    tableNumber: string | null,
+  ) => Promise<boolean>;
+  onSetInProgress: (matchCardId: string) => void;
 }
 
 /**
@@ -27,9 +29,18 @@ export function MatchCardList({
   matchCards,
   entrants,
   onRecordResult,
+  onAssignTable,
+  onSetInProgress,
 }: MatchCardListProps) {
   const entrantById = new Map(entrants.map((entrant) => [entrant.id, entrant]));
-  const nextCard = findNextMatchCard(matchCards);
+  const tableCount = pool?.tableCount ?? null;
+  // FR-017/FR-018/FR-026: 対戦台単位(複数)の次戦候補を、一覧・組合せ図の
+  // 強調表示にそのまま使う(001の findNextMatchCard を置き換え)。
+  const nextCardIds = new Set(
+    computeNextMatchSuggestions(matchCards, tableCount).map(
+      (suggestion) => suggestion.matchCardId,
+    ),
+  );
   const hasBracket =
     pool?.bracketType === "SINGLE_ELIMINATION" ||
     pool?.bracketType === "DOUBLE_ELIMINATION";
@@ -43,15 +54,21 @@ export function MatchCardList({
         <BracketBoard
           matchCards={matchCards}
           entrantById={entrantById}
-          nextCardId={nextCard?.id ?? null}
+          nextCardIds={nextCardIds}
           onRecordResult={onRecordResult}
+          tableCount={tableCount}
+          onAssignTable={onAssignTable}
+          onSetInProgress={onSetInProgress}
         />
       ) : (
         <MatchTable
           matchCards={matchCards}
           entrantById={entrantById}
-          nextCardId={nextCard?.id ?? null}
+          nextCardIds={nextCardIds}
           onRecordResult={onRecordResult}
+          tableCount={tableCount}
+          onAssignTable={onAssignTable}
+          onSetInProgress={onSetInProgress}
         />
       )}
     </section>

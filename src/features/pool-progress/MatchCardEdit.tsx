@@ -1,25 +1,20 @@
 import { useState } from "react";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
+import type { MatchResultSubmission } from "./ScoreEntryForm.js";
+import { ScoreEntryForm } from "./ScoreEntryForm.js";
 
 interface MatchCardEditProps {
   card: MatchCard;
   entrantById: Map<string, Entrant>;
-  onRecordResult: (
-    matchCardId: string,
-    winnerId: string,
-    score: string | null,
-  ) => void;
-}
-
-function name(entrantById: Map<string, Entrant>, id: string | null) {
-  if (!id) return "BYE";
-  return entrantById.get(id)?.name ?? id;
+  onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
 }
 
 /**
- * FR-021/FR-022: 確定済みの対戦結果を後から修正できる。ただし後続の対戦が
- * 既に進行している場合(isLocked)は修正を拒否する。
+ * 001-pool-progression-tracker FR-021/FR-022: 確定済みの対戦結果を後から
+ * 修正できる。ただし後続の対戦が既に進行している場合(isLocked)は修正を
+ * 拒否する。002-match-scoring-and-flow FR-008により、修正もスコア/DQ入力
+ * (ScoreEntryForm)で行う。
  */
 export function MatchCardEdit({
   card,
@@ -27,7 +22,6 @@ export function MatchCardEdit({
   onRecordResult,
 }: MatchCardEditProps) {
   const [editing, setEditing] = useState(false);
-  const [score, setScore] = useState(card.score ?? "");
 
   if (card.isLocked) {
     return (
@@ -47,41 +41,21 @@ export function MatchCardEdit({
 
   return (
     <span className="match-card-edit-form">
-      <input
-        value={score}
-        onChange={(event) => setScore(event.target.value)}
-        placeholder="スコア(任意)"
+      <ScoreEntryForm
+        card={card}
+        entrantById={entrantById}
+        submitLabel="修正を確定"
+        initial={{
+          entrant1Score: card.entrant1Score,
+          entrant2Score: card.entrant2Score,
+          entrant1DQ: card.entrant1DQ,
+          entrant2DQ: card.entrant2DQ,
+        }}
+        onSubmit={(result) => {
+          onRecordResult(card.id, result);
+          setEditing(false);
+        }}
       />
-      {card.entrant1Id && (
-        <button
-          type="button"
-          onClick={() => {
-            onRecordResult(
-              card.id,
-              card.entrant1Id as string,
-              score.trim() || null,
-            );
-            setEditing(false);
-          }}
-        >
-          {name(entrantById, card.entrant1Id)} の勝ち
-        </button>
-      )}
-      {card.entrant2Id && (
-        <button
-          type="button"
-          onClick={() => {
-            onRecordResult(
-              card.id,
-              card.entrant2Id as string,
-              score.trim() || null,
-            );
-            setEditing(false);
-          }}
-        >
-          {name(entrantById, card.entrant2Id)} の勝ち
-        </button>
-      )}
       <button type="button" onClick={() => setEditing(false)}>
         キャンセル
       </button>

@@ -3,16 +3,19 @@ import type { MatchCard } from "../../domain/entities/matchCard.js";
 import type { BracketSide } from "../../domain/rules/bracketGrouping.js";
 import { computeBracketLayout } from "../../domain/rules/bracketLayout.js";
 import { MatchCardEntry } from "./MatchCardEntry.js";
+import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 
 interface BracketBoardProps {
   matchCards: MatchCard[];
   entrantById: Map<string, Entrant>;
-  nextCardId: string | null;
-  onRecordResult: (
+  nextCardIds: Set<string>;
+  onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
+  tableCount: number | null;
+  onAssignTable: (
     matchCardId: string,
-    winnerId: string,
-    score: string | null,
-  ) => void;
+    tableNumber: string | null,
+  ) => Promise<boolean>;
+  onSetInProgress: (matchCardId: string) => void;
 }
 
 /**
@@ -105,8 +108,11 @@ function connectorPath(x1: number, y1: number, x2: number, y2: number) {
 export function BracketBoard({
   matchCards,
   entrantById,
-  nextCardId,
+  nextCardIds,
   onRecordResult,
+  tableCount,
+  onAssignTable,
+  onSetInProgress,
 }: BracketBoardProps) {
   const layouts = computeBracketLayout(matchCards);
 
@@ -191,8 +197,11 @@ export function BracketBoard({
                           key={match.card.id}
                           card={match.card}
                           entrantById={entrantById}
-                          isNext={nextCardId === match.card.id}
+                          isNext={nextCardIds.has(match.card.id)}
                           onRecordResult={onRecordResult}
+                          tableCount={tableCount}
+                          onAssignTable={onAssignTable}
+                          onSetInProgress={onSetInProgress}
                           note={note}
                           style={{
                             position: "absolute",

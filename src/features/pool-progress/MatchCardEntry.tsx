@@ -1,17 +1,23 @@
-import { type CSSProperties, useState } from "react";
+import type { CSSProperties } from "react";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import { MatchCardEdit } from "./MatchCardEdit.js";
+import type { MatchResultSubmission } from "./ScoreEntryForm.js";
+import { ScoreEntryForm } from "./ScoreEntryForm.js";
 
 interface MatchCardEntryProps {
   card: MatchCard;
   entrantById: Map<string, Entrant>;
   isNext: boolean;
-  onRecordResult: (
+  onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
+  /** FR-011/FR-013: 選択候補の上限となる、プールに設定された対戦台数。 */
+  tableCount: number | null;
+  onAssignTable: (
     matchCardId: string,
-    winnerId: string,
-    score: string | null,
-  ) => void;
+    tableNumber: string | null,
+  ) => Promise<boolean>;
+  /** FR-009/FR-010: 未着手の対戦を任意で「進行中」に設定する。 */
+  onSetInProgress: (matchCardId: string) => void;
   /** FR-023: ブラケット木の中でツリー状に配置するための位置指定。 */
   style?: CSSProperties;
   /** FR-023: 別の側(勝者側の敗者など)から出場者が来ている場合の注記。 */
@@ -31,6 +37,18 @@ function playerStateClassName(card: MatchCard, entrantId: string | null) {
     : "match-card-player match-card-player-loser";
 }
 
+/** BYE(片方の出場者が未確定)の場合の不戦勝確定用結果。スコア・DQは記録しない。 */
+function byeResult(winnerId: string): MatchResultSubmission {
+  return {
+    entrant1Score: null,
+    entrant2Score: null,
+    entrant1DQ: false,
+    entrant2DQ: false,
+    winnerId,
+    score: null,
+  };
+}
+
 /**
  * FR-023: startggのブラケット表示(`match`/`match-player`要素)に合わせ、
  * 対戦者2名を縦に並べたカードとして表示する(1行の「A vs B」表記ではない)。
@@ -40,21 +58,57 @@ export function MatchCardEntry({
   entrantById,
   isNext,
   onRecordResult,
+  tableCount,
+  onAssignTable,
+  onSetInProgress,
   style,
   note,
 }: MatchCardEntryProps) {
-  const [score, setScore] = useState("");
   const isEditable = card.status !== "COMPLETED";
+  const isBye = Boolean(card.entrant1Id) !== Boolean(card.entrant2Id);
+  const byeEntrantId = card.entrant1Id ?? card.entrant2Id;
 
   return (
     <li
-      className={["match-card", isNext ? "match-card-next" : ""]
+      className={[
+        "match-card",
+        isNext ? "match-card-next" : "",
+        card.status === "IN_PROGRESS" ? "match-card-in-progress" : "",
+      ]
         .filter(Boolean)
         .join(" ")}
       style={style}
     >
       <span className="match-card-identifier">{card.identifier}</span>
       {note && <span className="match-card-note">{note}</span>}
+      {card.status === "IN_PROGRESS" && (
+        <span className="match-card-status-badge">進行中</span>
+      )}
+      {card.status === "NOT_STARTED" && (
+        <button type="button" onClick={() => onSetInProgress(card.id)}>
+          進行中にする
+        </button>
+      )}
+      {isEditable && tableCount != null && tableCount > 0 && (
+        <label className="match-card-table-select">
+          対戦台:
+          <select
+            value={card.tableNumber ?? ""}
+            onChange={(event) =>
+              onAssignTable(card.id, event.target.value || null)
+            }
+          >
+            <option value="">未設定</option>
+            {Array.from({ length: tableCount }, (_, i) => String(i + 1)).map(
+              (n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+      )}
       <div className="match-card-players">
         {(
           [
@@ -71,27 +125,22 @@ export function MatchCardEntry({
                 {card.score ?? "W"}
               </span>
             )}
-            {isEditable && entrantId && (
-              <button
-                type="button"
-                onClick={() =>
-                  onRecordResult(card.id, entrantId, score.trim() || null)
-                }
-              >
-                {entrantName(entrantById, entrantId)} の勝ち
-              </button>
-            )}
           </div>
         ))}
       </div>
       {isEditable ? (
-        card.entrant1Id &&
-        card.entrant2Id && (
-          <input
-            className="match-card-score-input"
-            value={score}
-            onChange={(event) => setScore(event.target.value)}
-            placeholder="スコア(任意)"
+        isBye && byeEntrantId ? (
+          <button
+            type="button"
+            onClick={() => onRecordResult(card.id, byeResult(byeEntrantId))}
+          >
+            {entrantName(entrantById, byeEntrantId)} の不戦勝で確定
+          </button>
+        ) : (
+          <ScoreEntryForm
+            card={card}
+            entrantById={entrantById}
+            onSubmit={(result) => onRecordResult(card.id, result)}
           />
         )
       ) : (

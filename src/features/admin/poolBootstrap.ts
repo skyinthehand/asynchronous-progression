@@ -23,5 +23,6 @@ export async function ensurePoolFromOption(
     tournamentName: option.tournamentName,
     eventName: option.eventName,
     onboardingCompletedAt: existing?.onboardingCompletedAt ?? null,
+    tableCount: existing?.tableCount ?? null,
   });
 }
