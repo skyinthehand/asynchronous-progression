@@ -3,6 +3,7 @@ import { useAdminSession } from "../features/admin/AdminSessionContext.js";
 import { InitLogin } from "../features/admin/InitLogin.js";
 import { NoticeAdminPanel } from "../features/admin/NoticeAdminPanel.js";
 import { PoolSelection } from "../features/admin/PoolSelection.js";
+import { TableSettingsPanel } from "../features/admin/TableSettingsPanel.js";
 import { TokenSettings } from "../features/admin/TokenSettings.js";
 import { useAppMode } from "./router.js";
 
@@ -29,6 +30,7 @@ function AdminModeContent() {
       </header>
       <InitLogin onInitialized={() => {}} />
       <PoolSelection />
+      <TableSettingsPanel />
       <TokenSettings />
       <NoticeAdminPanel />
     </div>

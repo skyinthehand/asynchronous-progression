@@ -10,7 +10,7 @@ interface BracketBoardProps {
   entrantById: Map<string, Entrant>;
   nextCardIds: Set<string>;
   onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
-  tableCount: number | null;
+  tableNumbers: string[];
   onAssignTable: (
     matchCardId: string,
     tableNumber: string | null,
@@ -110,7 +110,7 @@ export function BracketBoard({
   entrantById,
   nextCardIds,
   onRecordResult,
-  tableCount,
+  tableNumbers,
   onAssignTable,
   onSetInProgress,
 }: BracketBoardProps) {
@@ -199,7 +199,7 @@ export function BracketBoard({
                           entrantById={entrantById}
                           isNext={nextCardIds.has(match.card.id)}
                           onRecordResult={onRecordResult}
-                          tableCount={tableCount}
+                          tableNumbers={tableNumbers}
                           onAssignTable={onAssignTable}
                           onSetInProgress={onSetInProgress}
                           note={note}

@@ -49,7 +49,7 @@ function card(overrides: Record<string, unknown>) {
   };
 }
 
-async function seedPool(tableCount: number | null) {
+async function seedPool(tableNumbers: string[]) {
   const db = await getDb();
   await db.put(
     "startggConfig",
@@ -74,7 +74,7 @@ async function seedPool(tableCount: number | null) {
     staffName: null,
     lastSyncedAt: null,
     onboardingCompletedAt: new Date().toISOString(),
-    tableCount,
+    tableNumbers,
   });
   for (const [id, name] of [
     ["e1", "Alice"],
@@ -129,9 +129,8 @@ async function completeCard1(user: ReturnType<typeof userEvent.setup>) {
   const identifier = await screen.findByText("R1-1");
   const row = identifier.closest("tr");
   if (!row) throw new Error("R1-1 row not found");
-  const aliceScore = within(row).getByLabelText("Aliceのスコア");
-  await user.clear(aliceScore);
-  await user.type(aliceScore, "1");
+  const aliceGroup = within(row).getByRole("group", { name: "Aliceのスコア" });
+  await user.click(within(aliceGroup).getByRole("button", { name: "1" }));
   await user.click(within(row).getByRole("button", { name: "結果を確定" }));
 }
 
@@ -141,7 +140,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
   });
 
   it("shows the next-match suggestion for the freed table immediately after confirming a result (FR-017/FR-022)", async () => {
-    await seedPool(3);
+    await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
@@ -155,7 +154,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
   });
 
   it("starts the suggested match as IN_PROGRESS without a table number when none is entered (Acceptance Scenario 7)", async () => {
-    await seedPool(3);
+    await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
@@ -174,7 +173,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
   });
 
   it("presents a different candidate for the same table after skipping, without removing the skipped card from the list", async () => {
-    await seedPool(3);
+    await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
@@ -201,7 +200,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
   });
 
   it("leaves the match unchanged when the modal is closed without a selection (FR-025)", async () => {
-    await seedPool(3);
+    await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
@@ -224,7 +223,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
   });
 
   it("falls back to a single pool-wide suggestion when the pool has no table count set (FR-018)", async () => {
-    await seedPool(null);
+    await seedPool([]);
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
@@ -234,7 +233,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
       name: "次戦候補",
     });
     const modal = modalHeading.closest(".app-modal") as HTMLElement;
-    // tableCount未設定なので対戦台選択は表示されない。
+    // tableNumbers未設定なので対戦台選択は表示されない。
     expect(
       within(modal).queryByLabelText("次戦の対戦台"),
     ).not.toBeInTheDocument();
@@ -266,7 +265,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
       staffName: null,
       lastSyncedAt: null,
       onboardingCompletedAt: new Date().toISOString(),
-      tableCount: null,
+      tableNumbers: [],
     });
     for (const [id, name] of [
       ["e1", "Alice"],

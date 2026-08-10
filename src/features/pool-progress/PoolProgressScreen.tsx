@@ -8,17 +8,15 @@ import { MatchCardList } from "./MatchCardList.js";
 import { NextMatchModal } from "./NextMatchModal.js";
 import { PoolOnboardingWizard } from "./PoolOnboardingWizard.js";
 import { StaffAssignmentPanel } from "./StaffAssignmentPanel.js";
-import { TableCountSettingPanel } from "./TableCountSettingPanel.js";
 import { usePoolProgress } from "./usePoolProgress.js";
 
-type PanelKey = "staff" | "attendance" | "away" | "entrants" | "tables";
+type PanelKey = "staff" | "attendance" | "away" | "entrants";
 
 const PANEL_TITLES: Record<PanelKey, string> = {
   staff: "進行担当者",
   attendance: "出欠確認",
   away: "離席記録",
   entrants: "選手一覧・次戦案内",
-  tables: "対戦台数",
 };
 
 /**
@@ -40,7 +38,6 @@ export function PoolProgressScreen() {
     recordStaffAssignment,
     recordResult,
     completeOnboarding,
-    setTableCount,
     assignTable,
     nextMatchSuggestion,
     callSuggestedMatch,
@@ -95,9 +92,6 @@ export function PoolProgressScreen() {
         <button type="button" onClick={() => setActivePanel("entrants")}>
           選手一覧
         </button>
-        <button type="button" onClick={() => setActivePanel("tables")}>
-          対戦台数
-        </button>
         <button type="button" onClick={() => setPrinting(true)}>
           印刷用ページ
         </button>
@@ -137,12 +131,6 @@ export function PoolProgressScreen() {
             />
           )}
           {activePanel === "entrants" && <EntrantList entrants={entrants} />}
-          {activePanel === "tables" && (
-            <TableCountSettingPanel
-              pool={pool}
-              onSetTableCount={setTableCount}
-            />
-          )}
         </Modal>
       )}
 
@@ -160,7 +148,7 @@ export function PoolProgressScreen() {
               card={suggestedCard}
               table={nextMatchSuggestion.table}
               entrantById={entrantById}
-              tableCount={pool?.tableCount ?? null}
+              tableNumbers={pool?.tableNumbers ?? []}
               onStart={(tableNumber) =>
                 callSuggestedMatch(suggestedCard.id, tableNumber)
               }

@@ -45,7 +45,6 @@ interface UsePoolProgressResult {
     result: MatchResultSubmission,
   ) => Promise<void>;
   completeOnboarding: () => Promise<void>;
-  setTableCount: (tableCount: number | null) => Promise<void>;
   /** 占有中の対戦台であれば何もせずfalseを返す(FR-014)。成功時はtrue。 */
   assignTable: (
     matchCardId: string,
@@ -246,26 +245,16 @@ export function usePoolProgress(): UsePoolProgressResult {
 
       // FR-017/FR-022: 結果確定直後、その対戦台(割り当てられていれば)へ
       // 次に呼ぶべき対戦カードを1件、モーダル用stateにセットする。
-      const tableCount = pool?.tableCount ?? null;
-      const suggestions = computeNextMatchSuggestions(relocked, tableCount);
+      const tableNumbers = pool?.tableNumbers ?? [];
+      const suggestions = computeNextMatchSuggestions(relocked, tableNumbers);
       const completedTable = updated.tableNumber;
       const forThisTable =
-        tableCount != null && tableCount > 0 && completedTable != null
+        tableNumbers.length > 0 && completedTable != null
           ? (suggestions.find((s) => s.table === completedTable) ?? null)
           : (suggestions[0] ?? null);
       setNextMatchSuggestion(forThisTable);
     },
     [matchCards, pool],
-  );
-
-  const setTableCount = useCallback(
-    async (tableCount: number | null) => {
-      if (!pool) return;
-      const updatedPool: Pool = { ...pool, tableCount };
-      await savePool(updatedPool);
-      setPool(updatedPool);
-    },
-    [pool],
   );
 
   const assignTable = useCallback(
@@ -323,11 +312,11 @@ export function usePoolProgress(): UsePoolProgressResult {
       setMatchCards(nextCards);
 
       // FR-020: スキップした対戦台へ、別の候補があればすぐに提示し直す。
-      const tableCount = pool?.tableCount ?? null;
+      const tableNumbers = pool?.tableNumbers ?? [];
       const table = nextMatchSuggestion?.table ?? null;
-      const suggestions = computeNextMatchSuggestions(nextCards, tableCount);
+      const suggestions = computeNextMatchSuggestions(nextCards, tableNumbers);
       const next =
-        tableCount != null && tableCount > 0 && table != null
+        tableNumbers.length > 0 && table != null
           ? (suggestions.find((s) => s.table === table) ?? null)
           : (suggestions[0] ?? null);
       setNextMatchSuggestion(next);
@@ -374,7 +363,6 @@ export function usePoolProgress(): UsePoolProgressResult {
     recordStaffAssignment,
     recordResult,
     completeOnboarding,
-    setTableCount,
     assignTable,
     nextMatchSuggestion,
     callSuggestedMatch,

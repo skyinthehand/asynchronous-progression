@@ -10,8 +10,8 @@ interface MatchCardEntryProps {
   entrantById: Map<string, Entrant>;
   isNext: boolean;
   onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
-  /** FR-011/FR-013: 選択候補の上限となる、プールに設定された対戦台数。 */
-  tableCount: number | null;
+  /** FR-011/FR-013: プールに設定された対戦台番号の一覧(選択候補)。 */
+  tableNumbers: string[];
   onAssignTable: (
     matchCardId: string,
     tableNumber: string | null,
@@ -58,7 +58,7 @@ export function MatchCardEntry({
   entrantById,
   isNext,
   onRecordResult,
-  tableCount,
+  tableNumbers,
   onAssignTable,
   onSetInProgress,
   style,
@@ -89,7 +89,7 @@ export function MatchCardEntry({
           進行中にする
         </button>
       )}
-      {isEditable && tableCount != null && tableCount > 0 && (
+      {isEditable && tableNumbers.length > 0 && (
         <label className="match-card-table-select">
           対戦台:
           <select
@@ -99,13 +99,11 @@ export function MatchCardEntry({
             }
           >
             <option value="">未設定</option>
-            {Array.from({ length: tableCount }, (_, i) => String(i + 1)).map(
-              (n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ),
-            )}
+            {tableNumbers.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
           </select>
         </label>
       )}

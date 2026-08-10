@@ -30,31 +30,31 @@ function makeCard(overrides: Partial<MatchCard>): MatchCard {
 }
 
 describe("computeNextMatchSuggestions", () => {
-  it("returns a single pool-wide suggestion (round then identifier order) when tableCount is unset", () => {
+  it("returns a single pool-wide suggestion (round then identifier order) when tableNumbers is empty", () => {
     const cards = [
       makeCard({ id: "a", round: 2, identifier: "R2-1" }),
       makeCard({ id: "b", round: 1, identifier: "R1-2" }),
       makeCard({ id: "c", round: 1, identifier: "R1-1" }),
     ];
-    expect(computeNextMatchSuggestions(cards, null)).toEqual([
+    expect(computeNextMatchSuggestions(cards, [])).toEqual([
       { matchCardId: "c", table: null },
     ]);
   });
 
   it("returns nothing when there are no NOT_STARTED cards", () => {
     const cards = [makeCard({ id: "a", status: "COMPLETED" })];
-    expect(computeNextMatchSuggestions(cards, null)).toEqual([]);
+    expect(computeNextMatchSuggestions(cards, [])).toEqual([]);
   });
 
-  it("assigns one suggestion per empty table when tableCount is set", () => {
+  it("assigns one suggestion per empty table, using the venue's own (non-sequential) table numbers", () => {
     const cards = [
       makeCard({ id: "a", round: 1, identifier: "R1-1" }),
       makeCard({ id: "b", round: 1, identifier: "R1-2" }),
     ];
-    const result = computeNextMatchSuggestions(cards, 2);
+    const result = computeNextMatchSuggestions(cards, ["101", "102"]);
     expect(result).toEqual([
-      { matchCardId: "a", table: "1" },
-      { matchCardId: "b", table: "2" },
+      { matchCardId: "a", table: "101" },
+      { matchCardId: "b", table: "102" },
     ]);
   });
 
@@ -69,13 +69,13 @@ describe("computeNextMatchSuggestions", () => {
       }),
       makeCard({ id: "b", round: 1, identifier: "R1-2" }),
     ];
-    const result = computeNextMatchSuggestions(cards, 2);
+    const result = computeNextMatchSuggestions(cards, ["1", "2"]);
     expect(result).toEqual([{ matchCardId: "b", table: "2" }]);
   });
 
   it("does not suggest the same match twice for two different empty tables", () => {
     const cards = [makeCard({ id: "a", round: 1, identifier: "R1-1" })];
-    const result = computeNextMatchSuggestions(cards, 2);
+    const result = computeNextMatchSuggestions(cards, ["1", "2"]);
     expect(result).toEqual([{ matchCardId: "a", table: "1" }]);
   });
 
@@ -90,7 +90,7 @@ describe("computeNextMatchSuggestions", () => {
       makeCard({ id: "b", round: 1, identifier: "R1-2" }),
     ];
     // 1台のみ: スキップされていないbが優先される。
-    expect(computeNextMatchSuggestions(cards, 1)).toEqual([
+    expect(computeNextMatchSuggestions(cards, ["1"])).toEqual([
       { matchCardId: "b", table: "1" },
     ]);
 
@@ -103,7 +103,7 @@ describe("computeNextMatchSuggestions", () => {
       }),
     ];
     // 残りが全てスキップ済みなら、それを提示する(完全除外はしない)。
-    expect(computeNextMatchSuggestions(onlySkipped, 1)).toEqual([
+    expect(computeNextMatchSuggestions(onlySkipped, ["1"])).toEqual([
       { matchCardId: "a", table: "1" },
     ]);
   });

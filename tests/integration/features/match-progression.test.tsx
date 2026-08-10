@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
@@ -20,6 +20,16 @@ async function resetDb() {
 async function acknowledgeNotice(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByText(/注意事項をまだ取得できていません/);
   await user.click(screen.getByRole("button", { name: "内容を確認しました" }));
+}
+
+/** スコアは文字入力させず、DQ/0/1/2/3のボタンから選ぶ。 */
+async function selectScore(
+  user: ReturnType<typeof userEvent.setup>,
+  entrantName: string,
+  option: "DQ" | "0" | "1" | "2" | "3",
+) {
+  const group = screen.getByRole("group", { name: `${entrantName}のスコア` });
+  await user.click(within(group).getByRole("button", { name: option }));
 }
 
 /**
@@ -119,9 +129,7 @@ describe("Winner advancement to the next round (FR-023)", () => {
     await acknowledgeNotice(user);
 
     await screen.findByText("R1-1");
-    const aliceScore = screen.getByLabelText("Aliceのスコア");
-    await user.clear(aliceScore);
-    await user.type(aliceScore, "1");
+    await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
     // 結果確定直後は次戦候補のモーダルが自動表示される(FR-022)ため、
@@ -236,9 +244,7 @@ describe("Loser drop into the losers bracket (FR-023)", () => {
 
     await screen.findByText("WA");
     // Aliceが勝つ = Bobが負けて敗者側に落ちる。
-    const aliceScore = screen.getByLabelText("Aliceのスコア");
-    await user.clear(aliceScore);
-    await user.type(aliceScore, "1");
+    await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
     // 結果確定直後は次戦候補のモーダルが自動表示される(FR-022)ため、

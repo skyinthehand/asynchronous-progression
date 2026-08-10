@@ -33,11 +33,11 @@ export function MatchCardList({
   onSetInProgress,
 }: MatchCardListProps) {
   const entrantById = new Map(entrants.map((entrant) => [entrant.id, entrant]));
-  const tableCount = pool?.tableCount ?? null;
+  const tableNumbers = pool?.tableNumbers ?? [];
   // FR-017/FR-018/FR-026: 対戦台単位(複数)の次戦候補を、一覧・組合せ図の
   // 強調表示にそのまま使う(001の findNextMatchCard を置き換え)。
   const nextCardIds = new Set(
-    computeNextMatchSuggestions(matchCards, tableCount).map(
+    computeNextMatchSuggestions(matchCards, tableNumbers).map(
       (suggestion) => suggestion.matchCardId,
     ),
   );
@@ -56,7 +56,7 @@ export function MatchCardList({
           entrantById={entrantById}
           nextCardIds={nextCardIds}
           onRecordResult={onRecordResult}
-          tableCount={tableCount}
+          tableNumbers={tableNumbers}
           onAssignTable={onAssignTable}
           onSetInProgress={onSetInProgress}
         />
@@ -66,7 +66,7 @@ export function MatchCardList({
           entrantById={entrantById}
           nextCardIds={nextCardIds}
           onRecordResult={onRecordResult}
-          tableCount={tableCount}
+          tableNumbers={tableNumbers}
           onAssignTable={onAssignTable}
           onSetInProgress={onSetInProgress}
         />

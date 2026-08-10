@@ -27,11 +27,13 @@ export const PoolSchema = z.object({
    */
   onboardingCompletedAt: z.string().datetime().nullable().default(null),
   /**
-   * 002-match-scoring-and-flow FR-011/FR-015: プールで使用する対戦台の数。
-   * null(未設定)の場合、対戦台に紐付かない従来型の次戦サジェストに
-   * フォールバックする。
+   * 002-match-scoring-and-flow FR-011/FR-015: プールで使用する対戦台の番号
+   * (会場の卓番号をそのまま手入力する。例: ["101", "102", "103", "105"])。
+   * 1〜Nの連番とは限らないため、単純な「台数」ではなく番号の一覧として
+   * 保持する。空配列は「対戦台を設定していない」ことを表し、対戦台に
+   * 紐付かない従来型の次戦サジェストにフォールバックする。
    */
-  tableCount: z.number().int().min(1).nullable().default(null),
+  tableNumbers: z.array(z.string().min(1)).default([]),
 });
 
 export type Pool = z.infer<typeof PoolSchema>;

@@ -27,6 +27,11 @@ interface ScoreEntryFormProps {
   };
 }
 
+/** 1人分のスコア選択肢。文字入力はさせず、ボタンから選ぶ形にする。 */
+type Selection = "DQ" | "0" | "1" | "2" | "3" | null;
+
+const OPTIONS: readonly Exclude<Selection, null>[] = ["DQ", "0", "1", "2", "3"];
+
 const ERROR_MESSAGES: Record<"TIE" | "BOTH_DQ", string> = {
   TIE: "同点のため結果を確定できません。スコアを修正してください。",
   BOTH_DQ: "両方の出場者を同時に失格にはできません。",
@@ -37,22 +42,33 @@ function entrantName(entrantById: Map<string, Entrant>, id: string | null) {
   return entrantById.get(id)?.name ?? id;
 }
 
-function scoreToInput(value: number | null): string {
-  return value === null ? "" : String(value);
+function initialSelection(input: {
+  score: number | null;
+  dq: boolean;
+}): Selection {
+  if (input.dq) return "DQ";
+  if (input.score === null) return null;
+  return String(input.score) as Selection;
 }
 
-function parseScore(value: string): number | null {
-  if (value.trim() === "") return null;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 3) return null;
-  return parsed;
+function toResultFields(selection: Selection): {
+  score: number | null;
+  dq: boolean;
+} {
+  if (selection === "DQ") return { score: null, dq: true };
+  if (selection === null) return { score: null, dq: false };
+  return { score: Number(selection), dq: false };
 }
 
 /**
- * FR-001〜FR-008: 両出場者のスコア(0〜3)・DQ入力フォーム。ブラケット表示
- * (MatchCardEntry)・総当り表(MatchCardRow)・結果修正(MatchCardEdit)の
- * 3箇所から共通利用し、resolveMatchResultの呼び出し・TIE/BOTH_DQの
- * エラー表示を1箇所に集約する(research.md #9)。
+ * FR-001〜FR-008: 両出場者のスコア(DQ/0/1/2/3のいずれか1つ)入力。文字入力
+ * ではなくボタン選択式にする。片方を選択した瞬間、まだ何も選ばれていない
+ * もう一方は自動的に「0」が選ばれた状態になる(FR-004の自動0補完を、
+ * 確定前の時点で画面上にも反映する。結果を自動確定するわけではなく、
+ * あくまで「結果を確定」ボタンを押すまでは未確定のまま)。
+ * ブラケット表示(MatchCardEntry)・総当り表(MatchCardRow)・結果修正
+ * (MatchCardEdit)の3箇所から共通利用し、resolveMatchResultの呼び出し・
+ * TIE/BOTH_DQのエラー表示を1箇所に集約する(research.md #9)。
  */
 export function ScoreEntryForm({
   card,
@@ -61,14 +77,22 @@ export function ScoreEntryForm({
   submitLabel = "結果を確定",
   initial,
 }: ScoreEntryFormProps) {
-  const [entrant1Score, setEntrant1Score] = useState(
-    scoreToInput(initial?.entrant1Score ?? null),
+  const [entrant1Selection, setEntrant1Selection] = useState<Selection>(
+    initial
+      ? initialSelection({
+          score: initial.entrant1Score,
+          dq: initial.entrant1DQ,
+        })
+      : null,
   );
-  const [entrant2Score, setEntrant2Score] = useState(
-    scoreToInput(initial?.entrant2Score ?? null),
+  const [entrant2Selection, setEntrant2Selection] = useState<Selection>(
+    initial
+      ? initialSelection({
+          score: initial.entrant2Score,
+          dq: initial.entrant2DQ,
+        })
+      : null,
   );
-  const [entrant1DQ, setEntrant1DQ] = useState(initial?.entrant1DQ ?? false);
-  const [entrant2DQ, setEntrant2DQ] = useState(initial?.entrant2DQ ?? false);
   const [error, setError] = useState<"TIE" | "BOTH_DQ" | null>(null);
 
   if (!card.entrant1Id || !card.entrant2Id) {
@@ -77,12 +101,24 @@ export function ScoreEntryForm({
   const entrant1Id = card.entrant1Id;
   const entrant2Id = card.entrant2Id;
 
+  function selectEntrant1(option: Selection) {
+    setEntrant1Selection(option);
+    setEntrant2Selection((prev) => (prev === null ? "0" : prev));
+  }
+
+  function selectEntrant2(option: Selection) {
+    setEntrant2Selection(option);
+    setEntrant1Selection((prev) => (prev === null ? "0" : prev));
+  }
+
   function handleSubmit() {
+    const entrant1 = toResultFields(entrant1Selection);
+    const entrant2 = toResultFields(entrant2Selection);
     const input = {
-      entrant1Score: entrant1DQ ? null : parseScore(entrant1Score),
-      entrant2Score: entrant2DQ ? null : parseScore(entrant2Score),
-      entrant1DQ,
-      entrant2DQ,
+      entrant1Score: entrant1.score,
+      entrant2Score: entrant2.score,
+      entrant1DQ: entrant1.dq,
+      entrant2DQ: entrant2.dq,
     };
     const outcome = resolveMatchResult(input);
     if ("error" in outcome) {
@@ -93,8 +129,8 @@ export function ScoreEntryForm({
     onSubmit({
       entrant1Score: input.entrant1Score,
       entrant2Score: input.entrant2Score,
-      entrant1DQ,
-      entrant2DQ,
+      entrant1DQ: input.entrant1DQ,
+      entrant2DQ: input.entrant2DQ,
       winnerId: outcome.winnerSlot === "entrant1" ? entrant1Id : entrant2Id,
       score: outcome.score,
     });
@@ -102,52 +138,41 @@ export function ScoreEntryForm({
 
   return (
     <div className="score-entry-form">
-      <div className="score-entry-row">
-        <span className="score-entry-name">
-          {entrantName(entrantById, entrant1Id)}
-        </span>
-        <input
-          className="score-entry-score-input"
-          type="number"
-          min={0}
-          max={3}
-          value={entrant1Score}
-          disabled={entrant1DQ}
-          onChange={(event) => setEntrant1Score(event.target.value)}
-          aria-label={`${entrantName(entrantById, entrant1Id)}のスコア`}
-        />
-        <label className="score-entry-dq">
-          <input
-            type="checkbox"
-            checked={entrant1DQ}
-            onChange={(event) => setEntrant1DQ(event.target.checked)}
-          />
-          DQ
-        </label>
-      </div>
-      <div className="score-entry-row">
-        <span className="score-entry-name">
-          {entrantName(entrantById, entrant2Id)}
-        </span>
-        <input
-          className="score-entry-score-input"
-          type="number"
-          min={0}
-          max={3}
-          value={entrant2Score}
-          disabled={entrant2DQ}
-          onChange={(event) => setEntrant2Score(event.target.value)}
-          aria-label={`${entrantName(entrantById, entrant2Id)}のスコア`}
-        />
-        <label className="score-entry-dq">
-          <input
-            type="checkbox"
-            checked={entrant2DQ}
-            onChange={(event) => setEntrant2DQ(event.target.checked)}
-          />
-          DQ
-        </label>
-      </div>
+      {(
+        [
+          [entrant1Id, entrant1Selection, selectEntrant1],
+          [entrant2Id, entrant2Selection, selectEntrant2],
+        ] as const
+      ).map(([entrantId, selection, select]) => {
+        const name = entrantName(entrantById, entrantId);
+        return (
+          <fieldset
+            className="score-entry-row"
+            key={entrantId}
+            aria-label={`${name}のスコア`}
+          >
+            <legend className="score-entry-name">{name}</legend>
+            <div className="score-entry-options">
+              {OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={selection === option}
+                  className={[
+                    "score-entry-option",
+                    selection === option ? "score-entry-option-selected" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onClick={() => select(option)}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        );
+      })}
       {error && <p className="score-entry-error">{ERROR_MESSAGES[error]}</p>}
       <button type="button" onClick={handleSubmit}>
         {submitLabel}

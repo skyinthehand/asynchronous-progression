@@ -47,7 +47,7 @@ async function seedPool(matchCards: Record<string, unknown>[]) {
     staffName: null,
     lastSyncedAt: null,
     onboardingCompletedAt: new Date().toISOString(),
-    tableCount: null,
+    tableNumbers: [],
   });
   for (const [id, name] of [
     ["e1", "Alice"],
@@ -96,16 +96,17 @@ function baseCard(overrides: Record<string, unknown>) {
   };
 }
 
-async function enterScore(
+/** スコアは文字入力させず、DQ/0/1/2/3のボタンから選ぶ。 */
+async function selectScore(
   user: ReturnType<typeof userEvent.setup>,
-  label: string,
-  value: string,
+  container: HTMLElement,
+  entrantName: string,
+  option: "DQ" | "0" | "1" | "2" | "3",
 ) {
-  const input = screen.getByLabelText(label);
-  await user.clear(input);
-  if (value) {
-    await user.type(input, value);
-  }
+  const group = within(container).getByRole("group", {
+    name: `${entrantName}のスコア`,
+  });
+  await user.click(within(group).getByRole("button", { name: option }));
 }
 
 describe("Score/DQ based result entry (User Story 1)", () => {
@@ -120,8 +121,8 @@ describe("Score/DQ based result entry (User Story 1)", () => {
     await acknowledgeNotice(user);
     await screen.findByText("R1-1");
 
-    await enterScore(user, "Aliceのスコア", "3");
-    await enterScore(user, "Bobのスコア", "1");
+    await selectScore(user, document.body, "Alice", "3");
+    await selectScore(user, document.body, "Bob", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
     expect(await screen.findByText(/勝者: Alice/)).toBeInTheDocument();
@@ -135,11 +136,35 @@ describe("Score/DQ based result entry (User Story 1)", () => {
     await acknowledgeNotice(user);
     await screen.findByText("R1-1");
 
-    await enterScore(user, "Aliceのスコア", "3");
+    await selectScore(user, document.body, "Alice", "3");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
     expect(await screen.findByText(/勝者: Alice/)).toBeInTheDocument();
     expect(screen.getByText(/\(3-0\)/)).toBeInTheDocument();
+  });
+
+  it("reflects the auto-filled 0 on screen immediately, without confirming the result (clarification)", async () => {
+    await seedPool([baseCard({})]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("R1-1");
+
+    await selectScore(user, document.body, "Alice", "3");
+
+    const bobGroup = screen.getByRole("group", { name: "Bobのスコア" });
+    expect(within(bobGroup).getByRole("button", { name: "0" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    // 「反映」は画面表示のみで、まだ確定はされていない。
+    expect(screen.queryByText(/勝者:/)).not.toBeInTheDocument();
+
+    // 明示的に確定ボタンを押すまでは結果は残らない。
+    await selectScore(user, document.body, "Bob", "1");
+    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+    expect(await screen.findByText(/勝者: Alice/)).toBeInTheDocument();
+    expect(screen.getByText(/\(3-1\)/)).toBeInTheDocument();
   });
 
   it("confirms the result as a DQ without requiring a score (Acceptance Scenario 3)", async () => {
@@ -149,10 +174,7 @@ describe("Score/DQ based result entry (User Story 1)", () => {
     await acknowledgeNotice(user);
     await screen.findByText("R1-1");
 
-    // Bob側(2つ目)のDQチェックボックスのみをオンにする。
-    const dqCheckboxes = screen.getAllByRole("checkbox");
-    await user.click(dqCheckboxes[1]);
-
+    await selectScore(user, document.body, "Bob", "DQ");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
     expect(await screen.findByText(/勝者: Alice/)).toBeInTheDocument();
@@ -165,8 +187,8 @@ describe("Score/DQ based result entry (User Story 1)", () => {
     await acknowledgeNotice(user);
     await screen.findByText("R1-1");
 
-    await enterScore(user, "Aliceのスコア", "2");
-    await enterScore(user, "Bobのスコア", "2");
+    await selectScore(user, document.body, "Alice", "2");
+    await selectScore(user, document.body, "Bob", "2");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
     expect(
@@ -182,9 +204,8 @@ describe("Score/DQ based result entry (User Story 1)", () => {
     await acknowledgeNotice(user);
     await screen.findByText("R1-1");
 
-    const dqCheckboxes = screen.getAllByRole("checkbox");
-    await user.click(dqCheckboxes[0]);
-    await user.click(dqCheckboxes[1]);
+    await selectScore(user, document.body, "Alice", "DQ");
+    await selectScore(user, document.body, "Bob", "DQ");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
     expect(
@@ -232,9 +253,7 @@ describe('"In Progress" status is optional (User Story 4)', () => {
     const identifier = await screen.findByText("R1-2");
     const row = identifier.closest("tr");
     if (!row) throw new Error("R1-2 row not found");
-    const aliceScore = within(row).getByLabelText("Aliceのスコア");
-    await user.clear(aliceScore);
-    await user.type(aliceScore, "1");
+    await selectScore(user, row, "Alice", "1");
     await user.click(within(row).getByRole("button", { name: "結果を確定" }));
 
     expect(within(row).getByText(/勝者: Alice/)).toBeInTheDocument();

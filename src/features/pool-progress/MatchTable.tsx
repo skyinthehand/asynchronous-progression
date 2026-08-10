@@ -8,7 +8,7 @@ interface MatchTableProps {
   entrantById: Map<string, Entrant>;
   nextCardIds: Set<string>;
   onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
-  tableCount: number | null;
+  tableNumbers: string[];
   onAssignTable: (
     matchCardId: string,
     tableNumber: string | null,
@@ -22,7 +22,7 @@ export function MatchTable({
   entrantById,
   nextCardIds,
   onRecordResult,
-  tableCount,
+  tableNumbers,
   onAssignTable,
   onSetInProgress,
 }: MatchTableProps) {
@@ -44,7 +44,7 @@ export function MatchTable({
             entrantById={entrantById}
             isNext={nextCardIds.has(card.id)}
             onRecordResult={onRecordResult}
-            tableCount={tableCount}
+            tableNumbers={tableNumbers}
             onAssignTable={onAssignTable}
             onSetInProgress={onSetInProgress}
           />

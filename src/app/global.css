@@ -382,10 +382,39 @@ label {
   align-items: center;
   gap: 0.4rem;
   margin-bottom: 0.2rem;
+  /* <fieldset>の既定の枠線・パディングを解除し、通常の行と同じ見た目にする。 */
+  border: none;
+  padding: 0;
+  min-width: 0;
 }
 
-.score-entry-score-input {
-  width: 3.5rem;
+.score-entry-row .score-entry-name {
+  /* <legend>の既定配置(通常フローの先頭)をそのまま行内ラベルとして使う。 */
+  float: none;
+  width: auto;
+  padding: 0;
+}
+
+.score-entry-options {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.score-entry-option {
+  min-width: 1.8rem;
+  min-height: 1.8rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: #fff;
+}
+
+.score-entry-option-selected {
+  color: #fff;
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  font-weight: 700;
 }
 
 .score-entry-error {
@@ -533,12 +562,39 @@ label {
   margin-top: 0.75rem;
 }
 
-/* 002-match-scoring-and-flow: 対戦台数設定パネル(TableCountSettingPanel)。 */
+/* 002-match-scoring-and-flow: 対戦台設定パネル(TableCountSettingPanel)。
+   会場の卓番号を1台ずつ手入力・削除するリスト形式。 */
 .table-count-setting-panel {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
+}
+
+.table-number-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.6rem;
+  width: 100%;
+}
+
+.table-number-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+}
+
+/* 管理画面での対戦台設定セクション。他の管理パネルと同じ枠組みにする。 */
+.table-settings-panel {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+  margin-top: 1rem;
 }
 
 /* タブレットの小さめ幅(縦向き等)向けの調整。 */

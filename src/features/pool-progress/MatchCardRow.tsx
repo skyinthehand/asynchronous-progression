@@ -9,7 +9,7 @@ interface MatchCardRowProps {
   entrantById: Map<string, Entrant>;
   isNext: boolean;
   onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
-  tableCount: number | null;
+  tableNumbers: string[];
   onAssignTable: (
     matchCardId: string,
     tableNumber: string | null,
@@ -41,7 +41,7 @@ export function MatchCardRow({
   entrantById,
   isNext,
   onRecordResult,
-  tableCount,
+  tableNumbers,
   onAssignTable,
   onSetInProgress,
 }: MatchCardRowProps) {
@@ -73,7 +73,7 @@ export function MatchCardRow({
         )}
       </td>
       <td>
-        {isEditable && tableCount != null && tableCount > 0 && (
+        {isEditable && tableNumbers.length > 0 && (
           <select
             aria-label={`${card.identifier}の対戦台`}
             value={card.tableNumber ?? ""}
@@ -82,13 +82,11 @@ export function MatchCardRow({
             }
           >
             <option value="">未設定</option>
-            {Array.from({ length: tableCount }, (_, i) => String(i + 1)).map(
-              (n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ),
-            )}
+            {tableNumbers.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
           </select>
         )}
         {!isEditable && card.tableNumber && `卓 ${card.tableNumber}`}

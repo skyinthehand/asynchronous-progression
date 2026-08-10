@@ -22,7 +22,7 @@ async function acknowledgeNotice(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "内容を確認しました" }));
 }
 
-async function seedPool(tableCount: number | null) {
+async function seedPool(tableNumbers: string[]) {
   const db = await getDb();
   await db.put(
     "startggConfig",
@@ -47,7 +47,7 @@ async function seedPool(tableCount: number | null) {
     staffName: null,
     lastSyncedAt: null,
     onboardingCompletedAt: new Date().toISOString(),
-    tableCount,
+    tableNumbers,
   });
   for (const [id, name] of [
     ["e1", "Alice"],
@@ -114,12 +114,22 @@ async function seedPool(tableCount: number | null) {
   });
 }
 
-async function openTablesModal(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: "対戦台数" }));
-  const heading = await screen.findByRole("heading", { name: "対戦台数" });
-  const modal = heading.closest(".app-modal");
-  if (!modal) throw new Error("tables modal not found");
-  return modal as HTMLElement;
+/**
+ * FR-011: 対戦台の設定は管理画面で行う。管理画面はパスワード認証が必要
+ * (初回入力したパスワードがそのままブートストラップされる、
+ * admin.test.tsxと同じ規約)。対戦台は「N台」という数値ではなく、会場の
+ * 実際の卓番号(101, 102, ...のように連番とは限らない)を1台ずつ手入力する。
+ */
+async function addTableFromAdminScreen(
+  user: ReturnType<typeof userEvent.setup>,
+  section: HTMLElement,
+  tableNumber: string,
+) {
+  // 対象プールの読み込み(非同期)が完了するまで、対戦台番号の入力欄自体が
+  // まだ描画されていないことがあるため、findByLabelTextで待つ。
+  const input = await within(section).findByLabelText("対戦台番号");
+  await user.type(input, tableNumber);
+  await user.click(within(section).getByRole("button", { name: "追加" }));
 }
 
 describe("Table count setting and assignment (User Story 2)", () => {
@@ -127,31 +137,40 @@ describe("Table count setting and assignment (User Story 2)", () => {
     await resetDb();
   });
 
-  it("allows setting the pool's table count and assigning a table number to a card", async () => {
-    await seedPool(null);
+  it("sets the pool's table numbers from the admin screen, one at a time, and assigns one to a card", async () => {
+    await seedPool([]);
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
     await screen.findByText("R1-1");
 
-    const modal = await openTablesModal(user);
-    const input = within(modal).getByLabelText("対戦台数");
-    await user.type(input, "3");
-    await user.click(
-      within(modal).getByRole("button", { name: "対戦台数を設定" }),
-    );
-    await user.click(within(modal).getByRole("button", { name: "閉じる" }));
+    await user.click(screen.getByRole("button", { name: "管理画面" }));
+    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
+    await user.click(screen.getByRole("button", { name: "ログイン" }));
 
-    const select = screen.getByLabelText("R1-1の対戦台");
-    await user.selectOptions(select, "2");
+    const section = (
+      await screen.findByRole("heading", { name: "対戦台" })
+    ).closest("section");
+    if (!section) throw new Error("table settings section not found");
+    await addTableFromAdminScreen(user, section, "101");
+    await addTableFromAdminScreen(user, section, "102");
+    expect(within(section).getByText("101")).toBeInTheDocument();
+    expect(within(section).getByText("102")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "一般モードへ戻る" }));
+
+    const select = await screen.findByLabelText("R1-1の対戦台");
+    await user.selectOptions(select, "102");
 
     const db = await getDb();
     const card = await db.get("matchCards", "card-1");
-    expect(card?.tableNumber).toBe("2");
+    expect(card?.tableNumber).toBe("102");
+    const pool = await db.get("pools", "pool-1");
+    expect(pool?.tableNumbers).toEqual(["101", "102"]);
   });
 
   it("rejects assigning a table already occupied by another incomplete card (FR-014)", async () => {
-    await seedPool(3);
+    await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
@@ -172,7 +191,7 @@ describe("Table count setting and assignment (User Story 2)", () => {
   });
 
   it("keeps a locally-assigned table number after a sync merges remote data (FR-016)", async () => {
-    await seedPool(3);
+    await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);

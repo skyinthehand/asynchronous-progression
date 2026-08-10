@@ -3,7 +3,7 @@ import { isTableOccupied } from "./tableAssignment.js";
 
 export interface NextMatchSuggestion {
   matchCardId: string;
-  /** 対応する対戦台番号。`tableCount`未設定時のフォールバックではnull。 */
+  /** 対応する対戦台番号。`tableNumbers`未設定時のフォールバックではnull。 */
   table: string | null;
 }
 
@@ -21,31 +21,30 @@ function pickBest(candidates: MatchCard[]): MatchCard | null {
 
 /**
  * FR-017/FR-018/FR-021: 次に呼ぶべき対戦カードのサジェストを計算する。
- * `tableCount`が未設定(null/0)の場合は、対戦台に紐付かない従来の
+ * `tableNumbers`が未設定(空配列)の場合は、対戦台に紐付かない従来の
  * findNextMatchCard(001 FR-009)と同じ優先順位(ラウンド→識別子の昇順、
- * 未着手のみ)で1件だけ返す。`tableCount`が設定されている場合は、空いて
+ * 未着手のみ)で1件だけ返す。`tableNumbers`が設定されている場合は、空いて
  * いる(isTableOccupiedがfalseを返す)対戦台ごとに1件ずつ割り当てる。
  * 001-pool-progression-trackerの`nextCardIndicator.ts`(`findNextMatchCard`)
  * を置き換える(このロジックに統合する)。
  */
 export function computeNextMatchSuggestions(
   matchCards: MatchCard[],
-  tableCount: number | null,
+  tableNumbers: string[],
 ): NextMatchSuggestion[] {
   const pending = matchCards.filter((card) => card.status === "NOT_STARTED");
   if (pending.length === 0) {
     return [];
   }
 
-  if (tableCount == null || tableCount <= 0) {
+  if (tableNumbers.length === 0) {
     const best = pickBest(pending);
     return best ? [{ matchCardId: best.id, table: null }] : [];
   }
 
   const suggestions: NextMatchSuggestion[] = [];
   const alreadySuggested = new Set<string>();
-  for (let table = 1; table <= tableCount; table++) {
-    const tableNumber = String(table);
+  for (const tableNumber of tableNumbers) {
     if (isTableOccupied(tableNumber, matchCards)) {
       continue;
     }

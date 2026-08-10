@@ -7,7 +7,7 @@ interface NextMatchModalProps {
   card: MatchCard;
   table: string | null;
   entrantById: Map<string, Entrant>;
-  tableCount: number | null;
+  tableNumbers: string[];
   onStart: (tableNumber: string | null) => void;
   onSkip: () => void;
   onClose: () => void;
@@ -29,7 +29,7 @@ export function NextMatchModal({
   card,
   table,
   entrantById,
-  tableCount,
+  tableNumbers,
   onStart,
   onSkip,
   onClose,
@@ -48,7 +48,7 @@ export function NextMatchModal({
         {entrantName(entrantById, card.entrant1Id)} vs{" "}
         {entrantName(entrantById, card.entrant2Id)}
       </p>
-      {tableCount != null && tableCount > 0 && (
+      {tableNumbers.length > 0 && (
         <label className="next-match-modal-table-select">
           対戦台(任意):
           <select
@@ -57,13 +57,11 @@ export function NextMatchModal({
             onChange={(event) => setTableNumber(event.target.value)}
           >
             <option value="">未設定</option>
-            {Array.from({ length: tableCount }, (_, i) => String(i + 1)).map(
-              (n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ),
-            )}
+            {tableNumbers.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
           </select>
         </label>
       )}
