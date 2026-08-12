@@ -89,31 +89,35 @@ export function MatchCardEntry({
     >
       <span className="match-card-identifier">{card.identifier}</span>
       {note && <span className="match-card-note">{note}</span>}
-      {card.status === "IN_PROGRESS" && (
-        <span className="match-card-status-badge">進行中</span>
-      )}
-      {card.status === "NOT_STARTED" && (
-        <button type="button" onClick={() => onSetInProgress(card.id)}>
-          進行中にする
-        </button>
-      )}
-      {isEditable && tableNumbers.length > 0 && (
-        <label className="match-card-table-select">
-          対戦台:
-          <select
-            value={card.tableNumber ?? ""}
-            onChange={(event) =>
-              onAssignTable(card.id, event.target.value || null)
-            }
-          >
-            <option value="">未設定</option>
-            <TableNumberOptions
-              tableNumbers={tableNumbers}
-              matchCards={matchCards}
-              excludeCardId={card.id}
-            />
-          </select>
-        </label>
+      {isEditable && (
+        <div className="match-card-status-row">
+          {card.status === "IN_PROGRESS" && (
+            <span className="match-card-status-badge">進行中</span>
+          )}
+          {card.status === "NOT_STARTED" && (
+            <button type="button" onClick={() => onSetInProgress(card.id)}>
+              進行中にする
+            </button>
+          )}
+          {tableNumbers.length > 0 && (
+            <label className="match-card-table-select">
+              対戦台:
+              <select
+                value={card.tableNumber ?? ""}
+                onChange={(event) =>
+                  onAssignTable(card.id, event.target.value || null)
+                }
+              >
+                <option value="">未設定</option>
+                <TableNumberOptions
+                  tableNumbers={tableNumbers}
+                  matchCards={matchCards}
+                  excludeCardId={card.id}
+                />
+              </select>
+            </label>
+          )}
+        </div>
       )}
       <div className="match-card-players">
         {(

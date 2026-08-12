@@ -181,4 +181,45 @@ describe("Score entry is collapsed into a modal on the bracket board", () => {
     expect(card1?.status).toBe("COMPLETED");
     expect(card1?.winnerId).toBe("e1");
   });
+
+  it("places the '進行中にする' button and the table select side by side in the same row", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const card = (await screen.findByText("WF")).closest("li");
+    if (!card) throw new Error("card not found");
+
+    const progressButton = within(card).getByRole("button", {
+      name: "進行中にする",
+    });
+    const tableSelect = within(card).getByLabelText("対戦台:");
+    // ユーザーフィードバック: 進行中表記と対戦台表示は横並びにする。
+    expect(progressButton.parentElement).toBe(
+      tableSelect.closest("label")?.parentElement,
+    );
+    expect(progressButton.parentElement?.className).toContain(
+      "match-card-status-row",
+    );
+  });
+
+  it("places the '進行中' badge and the table select side by side once the match is in progress", async () => {
+    const db = await getDb();
+    const card1 = await db.get("matchCards", "card-1");
+    await db.put("matchCards", { ...card1, status: "IN_PROGRESS" });
+
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const card = (await screen.findByText("WF")).closest("li");
+    if (!card) throw new Error("card not found");
+
+    const badge = within(card).getByText("進行中");
+    const tableSelect = within(card).getByLabelText("対戦台:");
+    expect(badge.parentElement).toBe(
+      tableSelect.closest("label")?.parentElement,
+    );
+    expect(badge.parentElement?.className).toContain("match-card-status-row");
+  });
 });

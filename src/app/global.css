@@ -406,6 +406,25 @@ label {
   margin: 0.2rem 0;
 }
 
+/* ユーザーフィードバック: 「進行中」表記(バッジ・「進行中にする」
+   ボタン)と対戦台表示が縦に積まれて分かりにくかったため、横並びの
+   1行にまとめる(どちらか片方だけの場合はその要素のみ左寄せ)。 */
+.match-card-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  padding: 0.3rem 0.5rem;
+  border-top: 1px solid #e6e6e6;
+}
+
+.match-card-status-row button {
+  min-height: 1.6rem;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.7rem;
+}
+
 /* 002-match-scoring-and-flow FR-009: 「進行中」ステータスの視覚的な区別。 */
 .match-card-status-badge {
   display: inline-block;
@@ -421,13 +440,14 @@ label {
   border-color: var(--accent-color);
 }
 
-/* 002-match-scoring-and-flow FR-012/FR-013: 対戦カードへの対戦台番号入力。 */
+/* 002-match-scoring-and-flow FR-012/FR-013: 対戦カードへの対戦台番号入力。
+   横並びの行(.match-card-status-row)内に収まるため、自身の余白は
+   持たない。 */
 .match-card-table-select {
   display: flex;
   align-items: center;
   gap: 0.3rem;
   font-size: 0.7rem;
-  padding: 0.2rem 0.5rem;
 }
 
 /* 別の側(勝者側の敗者など)から出場者が来ている場合の注記。最大2行に
