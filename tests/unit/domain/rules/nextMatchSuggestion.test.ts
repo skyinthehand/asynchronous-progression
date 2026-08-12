@@ -26,7 +26,6 @@ function makeCard(overrides: Partial<MatchCard>): MatchCard {
     entrant2DQ: false,
     entrant1W: false,
     entrant2W: false,
-    skippedFromSuggestion: false,
     ...overrides,
   };
 }
@@ -79,35 +78,6 @@ describe("computeNextMatchSuggestions", () => {
     const cards = [makeCard({ id: "a", round: 1, identifier: "R1-1" })];
     const result = computeNextMatchSuggestions(cards, ["1", "2"]);
     expect(result).toEqual([{ matchCardId: "a", table: "1" }]);
-  });
-
-  it("deprioritizes skipped cards but still offers them when nothing else is available", () => {
-    const cards = [
-      makeCard({
-        id: "a",
-        round: 1,
-        identifier: "R1-1",
-        skippedFromSuggestion: true,
-      }),
-      makeCard({ id: "b", round: 1, identifier: "R1-2" }),
-    ];
-    // 1台のみ: スキップされていないbが優先される。
-    expect(computeNextMatchSuggestions(cards, ["1"])).toEqual([
-      { matchCardId: "b", table: "1" },
-    ]);
-
-    const onlySkipped = [
-      makeCard({
-        id: "a",
-        round: 1,
-        identifier: "R1-1",
-        skippedFromSuggestion: true,
-      }),
-    ];
-    // 残りが全てスキップ済みなら、それを提示する(完全除外はしない)。
-    expect(computeNextMatchSuggestions(onlySkipped, ["1"])).toEqual([
-      { matchCardId: "a", table: "1" },
-    ]);
   });
 
   // FR-001: 出場者の両方の枠が確定していない対戦カードは次戦候補から除外する。

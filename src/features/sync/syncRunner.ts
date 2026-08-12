@@ -53,18 +53,16 @@ export function mergeMatchCard(
     // だけが古い値に巻き戻らないようにするため、localOnlyの状態に関わらず
     // ここで常に判定する。
     tableNumber: local.tableNumber ?? remote.tableNumber,
-    // entrant1Score/entrant2Score/DQ/W/skippedFromSuggestionは本feature
-    // 独自のローカル入力専用フィールドで、start.gg側に対応する概念がなく
-    // fetchPoolDetail()は常に既定値(null/false)を返す。localOnlyのクリア後に
-    // このデフォルト値でローカルの記録を上書きしないよう、常にローカル値を
-    // そのまま維持する。
+    // entrant1Score/entrant2Score/DQ/Wは本feature独自のローカル入力専用
+    // フィールドで、start.gg側に対応する概念がなくfetchPoolDetail()は常に
+    // 既定値(null/false)を返す。localOnlyのクリア後にこのデフォルト値で
+    // ローカルの記録を上書きしないよう、常にローカル値をそのまま維持する。
     entrant1Score: local.entrant1Score,
     entrant2Score: local.entrant2Score,
     entrant1DQ: local.entrant1DQ,
     entrant2DQ: local.entrant2DQ,
     entrant1W: local.entrant1W,
     entrant2W: local.entrant2W,
-    skippedFromSuggestion: local.skippedFromSuggestion,
   };
 }
 

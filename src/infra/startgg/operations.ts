@@ -445,9 +445,9 @@ export async function fetchPoolDetail(
       localOnly: false,
       entrant1SourceMatchId,
       entrant2SourceMatchId,
-      // 002-match-scoring-and-flow: スコア/DQ/対戦台数・スキップはローカル
-      // 入力専用でstart.gg側に対応する概念がないため、ここでは既定値のみを
-      // 設定する。既存カードとのマージ時は常にローカル値を優先する
+      // 002-match-scoring-and-flow: スコア/DQ/対戦台数はローカル入力専用で
+      // start.gg側に対応する概念がないため、ここでは既定値のみを設定する。
+      // 既存カードとのマージ時は常にローカル値を優先する
       // (syncRunner.tsのmergeMatchCard参照)。
       entrant1Score: null,
       entrant2Score: null,
@@ -455,7 +455,6 @@ export async function fetchPoolDetail(
       entrant2DQ: false,
       entrant1W: false,
       entrant2W: false,
-      skippedFromSuggestion: false,
     };
   });
 

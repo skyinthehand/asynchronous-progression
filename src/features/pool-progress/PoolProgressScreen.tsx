@@ -59,7 +59,6 @@ export function PoolProgressScreen() {
     assignTable,
     nextMatchSuggestion,
     callSuggestedMatch,
-    skipSuggestion,
     dismissSuggestion,
     setInProgress,
   } = usePoolProgress();
@@ -170,7 +169,6 @@ export function PoolProgressScreen() {
               onStart={(tableNumber) =>
                 callSuggestedMatch(suggestedCard.id, tableNumber)
               }
-              onSkip={() => skipSuggestion(suggestedCard.id)}
               onClose={dismissSuggestion}
             />
           );

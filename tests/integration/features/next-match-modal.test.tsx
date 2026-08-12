@@ -44,7 +44,6 @@ function card(overrides: Record<string, unknown>) {
     entrant2Score: null,
     entrant1DQ: false,
     entrant2DQ: false,
-    skippedFromSuggestion: false,
     ...overrides,
   };
 }
@@ -172,33 +171,6 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     expect(suggested?.tableNumber).toBeNull();
   });
 
-  it("presents a different candidate for the same table after skipping, without removing the skipped card from the list", async () => {
-    await seedPool(["1", "2", "3"]);
-    const user = userEvent.setup();
-    render(<App />);
-    await acknowledgeNotice(user);
-    await completeCard1(user);
-
-    let modalHeading = await screen.findByRole("heading", {
-      name: "次戦候補",
-    });
-    let modal = modalHeading.closest(".app-modal") as HTMLElement;
-    expect(within(modal).getByText("R1-2")).toBeInTheDocument();
-
-    await user.click(within(modal).getByRole("button", { name: "スキップ" }));
-
-    modalHeading = await screen.findByRole("heading", { name: "次戦候補" });
-    modal = modalHeading.closest(".app-modal") as HTMLElement;
-    expect(within(modal).getByText("R1-3")).toBeInTheDocument();
-
-    // スキップされた対戦は一覧から消えない。
-    expect(screen.getByText("R1-2")).toBeInTheDocument();
-    const db = await getDb();
-    const skipped = await db.get("matchCards", "card-2");
-    expect(skipped?.skippedFromSuggestion).toBe(true);
-    expect(skipped?.status).toBe("NOT_STARTED");
-  });
-
   it("leaves the match unchanged when the modal is closed without a selection (FR-025)", async () => {
     await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();
@@ -219,7 +191,6 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     const db = await getDb();
     const card2 = await db.get("matchCards", "card-2");
     expect(card2?.status).toBe("NOT_STARTED");
-    expect(card2?.skippedFromSuggestion).toBe(false);
   });
 
   it("falls back to a single pool-wide suggestion when the pool has no table count set (FR-018)", async () => {

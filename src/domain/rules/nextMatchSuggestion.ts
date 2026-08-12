@@ -74,11 +74,7 @@ function pickBest(
   slotByCardId: Map<string, number>,
 ): MatchCard | null {
   if (candidates.length === 0) return null;
-  // FR-021: skippedFromSuggestionのカードは、他に候補がある間は後回しにする
-  // (完全に除外はしない。他が全てスキップ済みならそれを提示する)。
-  const notSkipped = candidates.filter((card) => !card.skippedFromSuggestion);
-  const pool = notSkipped.length > 0 ? notSkipped : candidates;
-  return [...pool].sort((a, b) =>
+  return [...candidates].sort((a, b) =>
     compareByPriority(a, b, distances, slotByCardId),
   )[0];
 }

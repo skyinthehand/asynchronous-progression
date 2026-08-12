@@ -226,7 +226,6 @@ describe("Print page (User Story 7)", () => {
       entrant2Score: null,
       entrant1DQ: false,
       entrant2DQ: true,
-      skippedFromSuggestion: false,
     });
 
     const user = userEvent.setup();
@@ -278,7 +277,6 @@ describe("Print page (User Story 7)", () => {
       entrant2DQ: false,
       entrant1W: true,
       entrant2W: false,
-      skippedFromSuggestion: false,
     });
 
     const user = userEvent.setup();

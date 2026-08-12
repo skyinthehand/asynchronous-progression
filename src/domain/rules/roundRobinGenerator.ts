@@ -58,7 +58,6 @@ export function generateRoundRobinMatchCards(
         entrant2DQ: false,
         entrant1W: false,
         entrant2W: false,
-        skippedFromSuggestion: false,
       });
     }
     const last = rotating.pop();

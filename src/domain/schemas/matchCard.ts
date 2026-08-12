@@ -65,12 +65,6 @@ export const MatchCardSchema = z.object({
    */
   entrant1W: z.boolean().default(false),
   entrant2W: z.boolean().default(false),
-  /**
-   * 002-match-scoring-and-flow FR-018/FR-020/FR-021: 次戦の自動サジェスト
-   * (computeNextMatchSuggestions)の対象から一時的に外れているか。
-   * 一覧からの直接選択には影響しない。
-   */
-  skippedFromSuggestion: z.boolean().default(false),
 });
 
 export type MatchCard = z.infer<typeof MatchCardSchema>;

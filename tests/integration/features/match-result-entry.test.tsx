@@ -91,7 +91,6 @@ function baseCard(overrides: Record<string, unknown>) {
     entrant2Score: null,
     entrant1DQ: false,
     entrant2DQ: false,
-    skippedFromSuggestion: false,
     ...overrides,
   };
 }

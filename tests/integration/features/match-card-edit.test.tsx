@@ -98,7 +98,6 @@ async function seedPoolWithTwoRounds() {
     entrant2Score: 0,
     entrant1DQ: false,
     entrant2DQ: false,
-    skippedFromSuggestion: false,
   });
   await db.put("matchCards", {
     id: "card-2",

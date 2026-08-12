@@ -52,8 +52,8 @@ interface UsePoolProgressResult {
   ) => Promise<boolean>;
   /**
    * FR-022: 結果確定直後に自動的に提示される、次戦候補のモーダル用state。
-   * FR-025: 「対戦開始」「スキップ」いずれも選ばず閉じた場合はnullに戻す
-   * だけで、対戦カードの状態は変更しない。
+   * FR-025: 「対戦開始」を選ばず閉じた場合はnullに戻すだけで、対戦カードの
+   * 状態は変更しない。
    */
   nextMatchSuggestion: NextMatchSuggestion | null;
   /** FR-024: サジェストされた対戦を「進行中」に変更する(対戦台番号は任意)。 */
@@ -61,8 +61,6 @@ interface UsePoolProgressResult {
     matchCardId: string,
     tableNumber: string | null,
   ) => Promise<void>;
-  /** FR-020/FR-021: サジェストをスキップし、同じ対戦台へ次の候補を提示する。 */
-  skipSuggestion: (matchCardId: string) => Promise<void>;
   /** FR-025: モーダルを何も選ばずに閉じる。 */
   dismissSuggestion: () => void;
   setInProgress: (matchCardId: string) => Promise<void>;
@@ -302,30 +300,6 @@ export function usePoolProgress(): UsePoolProgressResult {
     [matchCards],
   );
 
-  const skipSuggestion = useCallback(
-    async (matchCardId: string) => {
-      const target = matchCards.find((card) => card.id === matchCardId);
-      if (!target) return;
-      const updated: MatchCard = { ...target, skippedFromSuggestion: true };
-      const nextCards = matchCards.map((card) =>
-        card.id === matchCardId ? updated : card,
-      );
-      await saveMatchCard(updated);
-      setMatchCards(nextCards);
-
-      // FR-020: スキップした対戦台へ、別の候補があればすぐに提示し直す。
-      const tableNumbers = pool?.tableNumbers ?? [];
-      const table = nextMatchSuggestion?.table ?? null;
-      const suggestions = computeNextMatchSuggestions(nextCards, tableNumbers);
-      const next =
-        tableNumbers.length > 0 && table != null
-          ? (suggestions.find((s) => s.table === table) ?? null)
-          : (suggestions[0] ?? null);
-      setNextMatchSuggestion(next);
-    },
-    [matchCards, pool, nextMatchSuggestion],
-  );
-
   const dismissSuggestion = useCallback(() => {
     setNextMatchSuggestion(null);
   }, []);
@@ -368,7 +342,6 @@ export function usePoolProgress(): UsePoolProgressResult {
     assignTable,
     nextMatchSuggestion,
     callSuggestedMatch,
-    skipSuggestion,
     dismissSuggestion,
     setInProgress,
   };

@@ -26,7 +26,6 @@ function makeCard(overrides: Partial<MatchCard>): MatchCard {
     entrant2DQ: false,
     entrant1W: false,
     entrant2W: false,
-    skippedFromSuggestion: false,
     ...overrides,
   };
 }

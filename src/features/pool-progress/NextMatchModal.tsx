@@ -9,7 +9,6 @@ interface NextMatchModalProps {
   entrantById: Map<string, Entrant>;
   tableNumbers: string[];
   onStart: (tableNumber: string | null) => void;
-  onSkip: () => void;
   onClose: () => void;
 }
 
@@ -20,10 +19,10 @@ function entrantName(entrantById: Map<string, Entrant>, id: string | null) {
 
 /**
  * FR-022〜FR-025: 対戦結果確定直後に自動表示する、次戦候補のモーダル。
- * 「対戦開始」(対戦台番号は任意)・「スキップ」の2アクションのみを持ち、
- * 「別の対戦を選ぶ」ボタンは設けない(spec.md Clarifications Q3。別の対戦を
- * 呼びたい場合は一覧から直接開始する)。いずれも選ばずに閉じた場合は対戦の
- * 状態を変更しない(FR-025、onCloseのみ呼ぶ)。
+ * 「対戦開始」(対戦台番号は任意)のみを持ち、「別の対戦を選ぶ」ボタンは
+ * 設けない(spec.md Clarifications Q3。別の対戦を呼びたい場合はモーダルを
+ * 閉じてから一覧から直接開始する)。選ばずに閉じた場合は対戦の状態を
+ * 変更しない(FR-025、onCloseのみ呼ぶ)。
  */
 export function NextMatchModal({
   card,
@@ -31,7 +30,6 @@ export function NextMatchModal({
   entrantById,
   tableNumbers,
   onStart,
-  onSkip,
   onClose,
 }: NextMatchModalProps) {
   // FR-023/Acceptance Scenario 7: サジェスト自体は対戦台に紐付くが、モーダル
@@ -71,9 +69,6 @@ export function NextMatchModal({
           onClick={() => onStart(tableNumber.trim() || null)}
         >
           対戦開始
-        </button>
-        <button type="button" onClick={onSkip}>
-          スキップ
         </button>
       </div>
     </Modal>

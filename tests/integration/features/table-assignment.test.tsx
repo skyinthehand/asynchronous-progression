@@ -106,7 +106,6 @@ async function seedPool(tableNumbers: string[]) {
     entrant2Score: null,
     entrant1DQ: false,
     entrant2DQ: false,
-    skippedFromSuggestion: false,
   });
   await db.put("matchCards", {
     id: "card-2",
@@ -129,7 +128,6 @@ async function seedPool(tableNumbers: string[]) {
     entrant2Score: null,
     entrant1DQ: false,
     entrant2DQ: false,
-    skippedFromSuggestion: false,
   });
 }
 
