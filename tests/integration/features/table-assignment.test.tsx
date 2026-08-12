@@ -6,6 +6,25 @@ import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchTournamentRules: vi.fn().mockRejectedValue(new Error("offline")),
+  listMyTournaments: vi
+    .fn()
+    .mockResolvedValue([
+      { tournamentSlug: "impact-major-4", tournamentName: "IMPACT MAJOR #4" },
+    ]),
+  listTournamentEvents: vi.fn().mockResolvedValue([
+    {
+      eventId: "e1",
+      eventName: "Ultimate Singles",
+      phases: [{ phaseId: "p1", phaseName: "予選プール" }],
+    },
+  ]),
+  listPhasePools: vi.fn().mockResolvedValue([
+    {
+      poolId: "pool-1",
+      poolDisplayIdentifier: "Pool 1",
+      bracketType: "DOUBLE_ELIMINATION",
+    },
+  ]),
 }));
 
 async function resetDb() {
@@ -208,5 +227,54 @@ describe("Table count setting and assignment (User Story 2)", () => {
     const remote = { ...local, tableNumber: null, localOnly: false };
     const merged = mergeMatchCard(local, remote);
     expect(merged.tableNumber).toBe("1");
+  });
+
+  it("lets the admin set up tables for a pool immediately after selecting it, without returning to general mode first", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    await user.click(screen.getByRole("button", { name: "管理画面" }));
+    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
+    await user.click(screen.getByRole("button", { name: "ログイン" }));
+
+    const tableSection = (
+      await screen.findByRole("heading", { name: "対戦台" })
+    ).closest("section");
+    if (!tableSection) throw new Error("table settings section not found");
+    // 対象プールがまだ未設定の間は、対戦台の入力欄そのものが出ない。
+    expect(
+      within(tableSection).getByText(/対象プールが未設定です/),
+    ).toBeInTheDocument();
+
+    // 初期化フロー(PAT入力〜プール選択)を最後まで進める。
+    await user.type(
+      screen.getByPlaceholderText("Personal Access Token"),
+      "pat-123",
+    );
+    await user.click(screen.getByRole("button", { name: "次へ" }));
+    await user.click(screen.getByRole("button", { name: "大会一覧を取得" }));
+    await user.click(await screen.findByRole("button", { name: "選択" }));
+    await user.click(await screen.findByRole("button", { name: "選択" }));
+    await user.click(
+      await screen.findByRole("button", { name: "このプールを選択" }),
+    );
+
+    // 一般モードへ一度戻らなくても、対戦台設定パネルが選択したプールに
+    // 追従して更新され、対戦台番号を追加できることを確認する。
+    // (再マウントにより<section>要素自体が入れ替わるため、古い
+    // tableSection参照ではなく改めてグローバルに探す。)
+    const input = await screen.findByLabelText("対戦台番号");
+    const refreshedSection = input.closest("section");
+    if (!refreshedSection) throw new Error("table settings section not found");
+    await user.type(input, "101");
+    await user.click(
+      within(refreshedSection).getByRole("button", { name: "追加" }),
+    );
+    expect(within(refreshedSection).getByText("101")).toBeInTheDocument();
+
+    const db = await getDb();
+    const pool = await db.get("pools", "pool-1");
+    expect(pool?.tableNumbers).toEqual(["101"]);
   });
 });

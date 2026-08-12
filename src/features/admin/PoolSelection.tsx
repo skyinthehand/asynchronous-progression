@@ -8,11 +8,21 @@ import { runSync } from "../sync/syncRunner.js";
 import { TournamentDrillDown } from "./TournamentDrillDown.js";
 import { ensurePoolFromOption } from "./poolBootstrap.js";
 
+interface PoolSelectionProps {
+  /**
+   * 対象プールが変更された直後(同期の成否を待たず)に呼ばれる。管理画面の
+   * 他のパネル(対戦台設定等)はマウント時に一度だけプールを読み込むため、
+   * ここで変更を伝播しないと「一度一般モードに戻らないと反映されない」
+   * 状態になってしまう。
+   */
+  onPoolChanged?: () => void;
+}
+
 /**
  * FR-028: 対象プールのみを、Personal Access Tokenの入力をやり直すことなく
  * 再設定できる(既に保存済みのトークンを流用する)。
  */
-export function PoolSelection() {
+export function PoolSelection({ onPoolChanged }: PoolSelectionProps) {
   const [savedToken, setSavedToken] = useState<string | null | undefined>(
     undefined,
   );
@@ -37,6 +47,7 @@ export function PoolSelection() {
       poolId: option.poolId,
     });
     await ensurePoolFromOption(option);
+    onPoolChanged?.();
 
     // 定期同期を待たず、選択直後に一度同期を試みる(InitLoginと同様)。
     setSavedMessage("syncing");

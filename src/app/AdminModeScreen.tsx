@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AdminPasswordGate } from "../features/admin/AdminPasswordGate.js";
 import { useAdminSession } from "../features/admin/AdminSessionContext.js";
 import { InitLogin } from "../features/admin/InitLogin.js";
@@ -10,6 +11,12 @@ import { useAppMode } from "./router.js";
 function AdminModeContent() {
   const { exitAdminMode } = useAppMode();
   const { logout } = useAdminSession();
+  // TableSettingsPanelはマウント時に一度だけ対象プールを読み込むため、
+  // InitLogin/PoolSelectionで対象プールが変わったらkeyを変えて
+  // 強制的に再マウント(再読み込み)させる。これがないと、対戦台設定が
+  // 一般モードへ一度戻るまで反映されない不具合になる。
+  const [poolRefreshKey, setPoolRefreshKey] = useState(0);
+  const refreshTablePanel = () => setPoolRefreshKey((key) => key + 1);
 
   return (
     <div className="screen admin-mode-screen">
@@ -28,9 +35,9 @@ function AdminModeContent() {
           一般モードへ戻る
         </button>
       </header>
-      <InitLogin onInitialized={() => {}} />
-      <PoolSelection />
-      <TableSettingsPanel />
+      <InitLogin onInitialized={refreshTablePanel} />
+      <PoolSelection onPoolChanged={refreshTablePanel} />
+      <TableSettingsPanel key={poolRefreshKey} />
       <TokenSettings />
       <NoticeAdminPanel />
     </div>
