@@ -475,6 +475,38 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     expect(la?.status).toBe("IN_PROGRESS");
   });
 
+  it("resets the table-number select back to 未設定 when chaining to the next suggestion (does not keep the previous match's selection)", async () => {
+    await seedChainingPool();
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("WA");
+    await selectScore(user, "Alice", "1");
+    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+
+    let modalHeading = await screen.findByRole("heading", {
+      name: "次戦候補",
+    });
+    let modal = modalHeading.closest(".app-modal") as HTMLElement;
+    const firstSelect = within(modal).getByLabelText(
+      "次戦の対戦台",
+    ) as HTMLSelectElement;
+    await user.selectOptions(firstSelect, "2");
+    expect(firstSelect.value).toBe("2");
+
+    await user.click(within(modal).getByRole("button", { name: "対戦開始" }));
+
+    // 次の候補のモーダルでは、直前の対戦台選択が残らず「未設定」に
+    // リセットされていること(本来選べないはずの、直前の対戦に対して
+    // 選んだ対戦台が選択されたままになってはならない)。
+    modalHeading = await screen.findByRole("heading", { name: "次戦候補" });
+    modal = modalHeading.closest(".app-modal") as HTMLElement;
+    const secondSelect = within(modal).getByLabelText(
+      "次戦の対戦台",
+    ) as HTMLSelectElement;
+    expect(secondSelect.value).toBe("");
+  });
+
   it("does not auto-chain to the remaining suggestion when the modal is closed instead of started", async () => {
     await seedChainingPool();
     const user = userEvent.setup();

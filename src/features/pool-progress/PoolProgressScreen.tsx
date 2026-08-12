@@ -173,6 +173,11 @@ export function PoolProgressScreen() {
           );
           return (
             <NextMatchModal
+              // 対戦ごとに内部の対戦台選択stateをリセットするため、対戦
+              // カードIDをkeyにして別インスタンスとして扱う(そうしないと
+              // 「対戦開始」で次の候補に進んだ際、直前の対戦で選んだ対戦台が
+              // 選択されたまま残ってしまう)。
+              key={suggestedCard.id}
               card={suggestedCard}
               table={activeSuggestion.table}
               entrantById={entrantById}
