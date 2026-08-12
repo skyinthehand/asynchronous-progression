@@ -129,6 +129,7 @@ describe("Winner advancement to the next round (FR-023)", () => {
     await acknowledgeNotice(user);
 
     await screen.findByText("R1-1");
+    await user.click(screen.getByRole("button", { name: "結果を入力" }));
     await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
@@ -242,7 +243,13 @@ describe("Loser drop into the losers bracket (FR-023)", () => {
     render(<App />);
     await acknowledgeNotice(user);
 
-    await screen.findByText("WA");
+    const waCard = (await screen.findByText("WA")).closest("li");
+    if (!waCard) throw new Error("WA card not found");
+    // Jは両者未確定(出場者0名)のためisByeにならず「結果を入力」ボタンが
+    // 同時に表示される。WAのカードに絞って押す。
+    await user.click(
+      within(waCard).getByRole("button", { name: "結果を入力" }),
+    );
     // Aliceが勝つ = Bobが負けて敗者側に落ちる。
     await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));

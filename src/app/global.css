@@ -177,8 +177,7 @@ label {
   min-width: 3.5rem;
 }
 
-.match-card-actions,
-.match-card-edit-form {
+.match-card-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -267,15 +266,6 @@ label {
   outline-offset: 1px;
 }
 
-/* 結果修正フォーム(MatchCardEdit)を開いている間は、長い選手名でボタンが
-   折り返して通常のROW_HEIGHT枠を超えることがある。その間だけカードを
-   最前面に押し上げ、影を付けて「一時的に広がっているカード」だと分かる
-   ようにする(下のカードに隠れて操作不能になるのを防ぐ)。 */
-.bracket-tree-matches .match-card:has(.match-card-edit-form) {
-  z-index: 5;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-}
-
 /* 識別子行は高さを固定(1行・折り返し禁止・はみ出しは省略)し、
    BracketBoard.tsxのROW_HEIGHT計算に含まれる分だけの高さに収める。 */
 .bracket-tree-matches .match-card-identifier {
@@ -351,11 +341,11 @@ label {
   font-size: 0.75rem;
 }
 
-/* 対戦カード内の結果修正UI(MatchCardEdit)。折り返しがあっても収まる
-   高さをBracketBoard.tsxのROW_HEIGHT計算側で見込んでいる。 */
+/* 対戦カード内の「後続の対戦が進行しているため修正できません」表示・
+   カード内の各種ボタン(進行中にする・不戦勝で確定・結果を入力・結果を
+   修正等)。結果入力・修正のフォーム自体(ScoreEntryForm)はモーダルに
+   分離しているため、ここでの折り返しを見込む必要はない。 */
 .bracket-tree-matches .match-card-edit-locked,
-.bracket-tree-matches .match-card-edit-form,
-.bracket-tree-matches .score-entry-form,
 .bracket-tree-matches > li > button {
   display: block;
   width: 100%;
@@ -366,16 +356,9 @@ label {
   line-height: 1.3;
 }
 
-.bracket-tree-matches .match-card-edit-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  align-items: center;
-}
-
 /* 002-match-scoring-and-flow: スコア/DQ入力フォーム(ScoreEntryForm)。
-   MatchCardEdit同様、折り返しでROW_HEIGHT枠を超えうるため下のz-index規則
-   ( :has(.score-entry-form) )で最前面に押し上げる。 */
+   結果の新規入力(MatchCardEntry)・修正(MatchCardEdit)いずれもモーダル
+   内に表示するため、対戦カード自体の高さには影響しない。 */
 .score-entry-row {
   display: flex;
   flex-wrap: wrap;
@@ -423,11 +406,6 @@ label {
   margin: 0.2rem 0;
 }
 
-.bracket-tree-matches .match-card:has(.score-entry-form) {
-  z-index: 5;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-}
-
 /* 002-match-scoring-and-flow FR-009: 「進行中」ステータスの視覚的な区別。 */
 .match-card-status-badge {
   display: inline-block;
@@ -469,11 +447,11 @@ label {
 }
 
 /* 画面内ボタンから開くモーダル(進行担当者・出欠確認・離席記録・選手一覧、
-   オンボーディングウィザード等)。タブレットの画面幅に合わせて中央寄せ。
-   z-indexを明示しないと(`position: fixed`だけではスタッキングコンテキストが
-   生まれないため)、ブラケット表示のスコア入力カード(z-index: 5、下記
-   `:has(.score-entry-form)`規則)等ページ内の他要素の裏に隠れてしまう
-   ことがあった。モーダルは常に他の表示物より前面に出す。 */
+   結果入力・結果修正・次戦候補、オンボーディングウィザード等)。タブレット
+   の画面幅に合わせて中央寄せ。z-indexを明示しないと(`position: fixed`
+   だけではスタッキングコンテキストが生まれないため)、ページ内の他の
+   表示物の裏に隠れてしまうことがあった。モーダルは常に他の表示物より
+   前面に出す。 */
 .app-modal {
   position: fixed;
   inset: 0;

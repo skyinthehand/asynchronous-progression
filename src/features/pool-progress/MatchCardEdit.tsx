@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Modal } from "../../components/index.js";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import type { MatchResultSubmission } from "./ScoreEntryForm.js";
@@ -40,7 +41,10 @@ export function MatchCardEdit({
   }
 
   return (
-    <span className="match-card-edit-form">
+    <Modal
+      title={`${card.identifier}の結果を修正`}
+      onClose={() => setEditing(false)}
+    >
       <ScoreEntryForm
         card={card}
         entrantById={entrantById}
@@ -58,9 +62,6 @@ export function MatchCardEdit({
           setEditing(false);
         }}
       />
-      <button type="button" onClick={() => setEditing(false)}>
-        キャンセル
-      </button>
-    </span>
+    </Modal>
   );
 }

@@ -132,9 +132,16 @@ describe("Match result correction (User Story 6)", () => {
 
     await screen.findByText("R1-1");
     await user.click(screen.getByRole("button", { name: "結果を修正" }));
+    // ユーザーフィードバック: 修正フォームをカード内にインライン展開すると
+    // 高さが対戦カード枠を超え、下のカードに重なることがあったため、
+    // 修正フォームもモーダルで表示する。
+    await screen.findByRole("heading", { name: "R1-1の結果を修正" });
     await selectScore(user, document.body, "Bob", "1");
     await user.click(screen.getByRole("button", { name: "修正を確定" }));
 
+    expect(
+      screen.queryByRole("heading", { name: "R1-1の結果を修正" }),
+    ).not.toBeInTheDocument();
     const db = await getDb();
     const card = await db.get("matchCards", "card-1");
     expect(card?.winnerId).toBe("e2");
@@ -148,8 +155,9 @@ describe("Match result correction (User Story 6)", () => {
     // 後続(R2)の結果を先に入力し、R1をロック状態にする。
     const r2 = (await screen.findByText("R2-1")).closest("li");
     if (!r2) throw new Error("round 2 card not found");
-    await selectScore(user, r2, "Alice", "1");
-    await user.click(within(r2).getByRole("button", { name: "結果を確定" }));
+    await user.click(within(r2).getByRole("button", { name: "結果を入力" }));
+    await selectScore(user, document.body, "Alice", "1");
+    await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
     const r1 = (await screen.findByText("R1-1")).closest("li");
     if (!r1) throw new Error("round 1 card not found");

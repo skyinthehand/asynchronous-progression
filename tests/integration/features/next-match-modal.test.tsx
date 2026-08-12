@@ -440,6 +440,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     render(<App />);
     await acknowledgeNotice(user);
     await screen.findByText("WA");
+    await user.click(screen.getByRole("button", { name: "結果を入力" }));
     await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
@@ -481,6 +482,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     render(<App />);
     await acknowledgeNotice(user);
     await screen.findByText("WA");
+    await user.click(screen.getByRole("button", { name: "結果を入力" }));
     await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
@@ -513,6 +515,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     render(<App />);
     await acknowledgeNotice(user);
     await screen.findByText("WA");
+    await user.click(screen.getByRole("button", { name: "結果を入力" }));
     await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
@@ -538,6 +541,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     render(<App />);
     await acknowledgeNotice(user);
     await screen.findByText("WA");
+    await user.click(screen.getByRole("button", { name: "結果を入力" }));
     await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 

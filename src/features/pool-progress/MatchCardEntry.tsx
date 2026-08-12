@@ -1,4 +1,5 @@
-import type { CSSProperties } from "react";
+import { type CSSProperties, useState } from "react";
+import { Modal } from "../../components/index.js";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import { MatchCardEdit } from "./MatchCardEdit.js";
@@ -70,6 +71,7 @@ export function MatchCardEntry({
   style,
   note,
 }: MatchCardEntryProps) {
+  const [scoreEntryOpen, setScoreEntryOpen] = useState(false);
   const isEditable = card.status !== "COMPLETED";
   const isBye = Boolean(card.entrant1Id) !== Boolean(card.entrant2Id);
   const byeEntrantId = card.entrant1Id ?? card.entrant2Id;
@@ -141,11 +143,26 @@ export function MatchCardEntry({
             {entrantName(entrantById, byeEntrantId)} の不戦勝で確定
           </button>
         ) : (
-          <ScoreEntryForm
-            card={card}
-            entrantById={entrantById}
-            onSubmit={(result) => onRecordResult(card.id, result)}
-          />
+          <>
+            <button type="button" onClick={() => setScoreEntryOpen(true)}>
+              結果を入力
+            </button>
+            {scoreEntryOpen && (
+              <Modal
+                title={`${card.identifier}の結果`}
+                onClose={() => setScoreEntryOpen(false)}
+              >
+                <ScoreEntryForm
+                  card={card}
+                  entrantById={entrantById}
+                  onSubmit={(result) => {
+                    onRecordResult(card.id, result);
+                    setScoreEntryOpen(false);
+                  }}
+                />
+              </Modal>
+            )}
+          </>
         )
       ) : (
         <MatchCardEdit
