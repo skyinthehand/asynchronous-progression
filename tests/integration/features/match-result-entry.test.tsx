@@ -101,7 +101,7 @@ async function selectScore(
   user: ReturnType<typeof userEvent.setup>,
   container: HTMLElement,
   entrantName: string,
-  option: "DQ" | "0" | "1" | "2" | "3",
+  option: "DQ" | "0" | "1" | "2" | "3" | "W",
 ) {
   const group = within(container).getByRole("group", {
     name: `${entrantName}のスコア`,
@@ -178,6 +178,44 @@ describe("Score/DQ based result entry (User Story 1)", () => {
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
     expect(await screen.findByText(/勝者: Alice/)).toBeInTheDocument();
+  });
+
+  it("confirms a win via W (winner known, score unknown), auto-filling the opponent with 0", async () => {
+    await seedPool([baseCard({})]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("R1-1");
+
+    await selectScore(user, document.body, "Alice", "W");
+
+    const bobGroup = screen.getByRole("group", { name: "Bobのスコア" });
+    expect(within(bobGroup).getByRole("button", { name: "0" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+
+    expect(await screen.findByText(/勝者: Alice/)).toBeInTheDocument();
+    expect(screen.getByText(/\(W-0\)/)).toBeInTheDocument();
+  });
+
+  it("rejects both entrants being marked W simultaneously", async () => {
+    await seedPool([baseCard({})]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("R1-1");
+
+    await selectScore(user, document.body, "Alice", "W");
+    await selectScore(user, document.body, "Bob", "W");
+    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+
+    expect(
+      await screen.findByText(/両方の出場者を同時に勝者\(W\)にはできません/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/勝者:/)).not.toBeInTheDocument();
   });
 
   it("rejects a tie and prompts for correction (Acceptance Scenario 4)", async () => {

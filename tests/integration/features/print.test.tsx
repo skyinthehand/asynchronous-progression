@@ -237,4 +237,56 @@ describe("Print page (User Story 7)", () => {
 
     expect(screen.getByText(/勝者: Alice \(0-DQ\)/)).toBeInTheDocument();
   });
+
+  it("renders a W-derived score string (winner known, score unknown) as-is", async () => {
+    const db = await getDb();
+    await db.put("pools", {
+      id: "pool-1",
+      displayIdentifier: "Pool 1",
+      tournamentSlug: "impact-major-4",
+      eventId: "1",
+      phaseId: "1",
+      className: null,
+      bracketType: "ROUND_ROBIN",
+      staffName: null,
+      lastSyncedAt: null,
+      tournamentName: "IMPACT MAJOR #4",
+      eventName: "Ultimate Singles",
+      onboardingCompletedAt: new Date().toISOString(),
+    });
+    await db.put("matchCards", {
+      id: "card-1",
+      poolId: "pool-1",
+      identifier: "R1-1",
+      round: 1,
+      bracketSide: "N/A",
+      tableNumber: null,
+      entrant1Id: "e1",
+      entrant2Id: "e2",
+      winnerId: "e1",
+      // resolveMatchResult()が組み立てる導出値の例(entrant1がW)。
+      score: "W-0",
+      status: "COMPLETED",
+      isLocked: false,
+      editHistory: [],
+      localOnly: true,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
+      entrant1Score: null,
+      entrant2Score: 0,
+      entrant1DQ: false,
+      entrant2DQ: false,
+      entrant1W: true,
+      entrant2W: false,
+      skippedFromSuggestion: false,
+    });
+
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText(/Alice vs Bob/);
+    await user.click(screen.getByRole("button", { name: "印刷用ページ" }));
+
+    expect(screen.getByText(/勝者: Alice \(W-0\)/)).toBeInTheDocument();
+  });
 });

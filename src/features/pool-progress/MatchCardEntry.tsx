@@ -44,6 +44,8 @@ function byeResult(winnerId: string): MatchResultSubmission {
     entrant2Score: null,
     entrant1DQ: false,
     entrant2DQ: false,
+    entrant1W: false,
+    entrant2W: false,
     winnerId,
     score: null,
   };

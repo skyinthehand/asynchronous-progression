@@ -59,6 +59,13 @@ export const MatchCardSchema = z.object({
   entrant1DQ: z.boolean().default(false),
   entrant2DQ: z.boolean().default(false),
   /**
+   * ユーザーフィードバック(2026-08-12): スコアは分からず勝者のみ分かる
+   * 場合の「W(不戦勝ではなく、単にスコア不明の勝ち)」。DQの逆で、trueに
+   * した側自身が勝者になる。両者同時にtrueにはできない(呼び出し側で検証)。
+   */
+  entrant1W: z.boolean().default(false),
+  entrant2W: z.boolean().default(false),
+  /**
    * 002-match-scoring-and-flow FR-018/FR-020/FR-021: 次戦の自動サジェスト
    * (computeNextMatchSuggestions)の対象から一時的に外れているか。
    * 一覧からの直接選択には影響しない。

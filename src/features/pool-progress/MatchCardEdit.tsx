@@ -50,6 +50,8 @@ export function MatchCardEdit({
           entrant2Score: card.entrant2Score,
           entrant1DQ: card.entrant1DQ,
           entrant2DQ: card.entrant2DQ,
+          entrant1W: card.entrant1W,
+          entrant2W: card.entrant2W,
         }}
         onSubmit={(result) => {
           onRecordResult(card.id, result);

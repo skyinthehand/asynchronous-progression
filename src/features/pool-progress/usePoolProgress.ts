@@ -219,6 +219,8 @@ export function usePoolProgress(): UsePoolProgressResult {
         entrant2Score: result.entrant2Score,
         entrant1DQ: result.entrant1DQ,
         entrant2DQ: result.entrant2DQ,
+        entrant1W: result.entrant1W,
+        entrant2W: result.entrant2W,
         winnerId: result.winnerId,
         score: result.score,
         status: "COMPLETED",
