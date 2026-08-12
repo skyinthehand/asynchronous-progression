@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Modal } from "../../components/index.js";
+import type { Pool } from "../../domain/entities/pool.js";
 import { PrintPage } from "../print/PrintPage.js";
 import { AttendancePanel } from "./AttendancePanel.js";
 import { AwayPeriodPanel } from "./AwayPeriodPanel.js";
@@ -18,6 +19,23 @@ const PANEL_TITLES: Record<PanelKey, string> = {
   away: "離席記録",
   entrants: "選手一覧・次戦案内",
 };
+
+/**
+ * 画面ヘッダーに「トーナメント名 - イベント名 - フェーズ名 - プール名」を
+ * 表示する。いずれかが未取得(null)の場合はその部分を省く(古いレコード
+ * 等でtournamentName/eventName/phaseNameが空のことがあるため)。
+ */
+function poolHeading(pool: Pool | null, poolId: string): string {
+  if (!pool) return poolId;
+  return [
+    pool.tournamentName,
+    pool.eventName,
+    pool.phaseName,
+    pool.displayIdentifier,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(" - ");
+}
 
 /**
  * US2/US7: 予選プール進行のオフライン入力・保持と印刷ページ切り替え。
@@ -78,7 +96,7 @@ export function PoolProgressScreen() {
 
   return (
     <div className="pool-progress-screen">
-      <h2>{pool?.displayIdentifier ?? poolId}</h2>
+      <h2>{poolHeading(pool, poolId)}</h2>
       <div className="pool-progress-toolbar no-print">
         <button type="button" onClick={() => setActivePanel("staff")}>
           進行担当者

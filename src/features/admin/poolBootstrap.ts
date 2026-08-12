@@ -22,6 +22,7 @@ export async function ensurePoolFromOption(
     lastSyncedAt: existing?.lastSyncedAt ?? null,
     tournamentName: option.tournamentName,
     eventName: option.eventName,
+    phaseName: option.phaseName,
     onboardingCompletedAt: existing?.onboardingCompletedAt ?? null,
     tableNumbers: existing?.tableNumbers ?? [],
   });

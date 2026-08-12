@@ -95,6 +95,28 @@ describe("Pool progress offline persistence (User Story 2)", () => {
     expect(await screen.findByText(/Alice vs Bob/)).toBeInTheDocument();
   });
 
+  it("shows tournament/event/phase/pool names in the header when available", async () => {
+    const db = await getDb();
+    const pool = await db.get("pools", "pool-1");
+    await db.put("pools", {
+      ...pool,
+      tournamentName: "IMPACT MAJOR #4",
+      eventName: "Ultimate Singles",
+      phaseName: "予選プール",
+    });
+
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: "IMPACT MAJOR #4 - Ultimate Singles - 予選プール - Pool 1",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("hides staff/attendance/away/entrant panels behind toolbar buttons by default", async () => {
     const user = userEvent.setup();
     render(<App />);
