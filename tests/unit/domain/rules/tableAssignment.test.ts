@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { MatchCard } from "../../../../src/domain/entities/matchCard.js";
-import { isTableOccupied } from "../../../../src/domain/rules/tableAssignment.js";
+import {
+  findOccupyingMatchCard,
+  isTableOccupied,
+} from "../../../../src/domain/rules/tableAssignment.js";
 
 function makeCard(overrides: Partial<MatchCard>): MatchCard {
   return {
@@ -64,5 +67,40 @@ describe("isTableOccupied", () => {
       makeCard({ id: "a", tableNumber: "2", status: "NOT_STARTED" }),
     ];
     expect(isTableOccupied("1", cards)).toBe(false);
+  });
+});
+
+describe("findOccupyingMatchCard", () => {
+  it("returns the incomplete card assigned to the table", () => {
+    const cards = [
+      makeCard({
+        id: "a",
+        identifier: "R1-1",
+        tableNumber: "1",
+        status: "IN_PROGRESS",
+      }),
+    ];
+    expect(findOccupyingMatchCard("1", cards)?.id).toBe("a");
+  });
+
+  it("returns null when the only card on the table is completed", () => {
+    const cards = [
+      makeCard({ id: "a", tableNumber: "1", status: "COMPLETED" }),
+    ];
+    expect(findOccupyingMatchCard("1", cards)).toBeNull();
+  });
+
+  it("excludes the card being reassigned itself", () => {
+    const cards = [
+      makeCard({ id: "a", tableNumber: "1", status: "NOT_STARTED" }),
+    ];
+    expect(findOccupyingMatchCard("1", cards, "a")).toBeNull();
+  });
+
+  it("returns null when no card uses the table", () => {
+    const cards = [
+      makeCard({ id: "a", tableNumber: "2", status: "NOT_STARTED" }),
+    ];
+    expect(findOccupyingMatchCard("1", cards)).toBeNull();
   });
 });

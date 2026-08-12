@@ -207,6 +207,35 @@ describe("Table count setting and assignment (User Story 2)", () => {
     expect(card2?.tableNumber).toBeNull();
   });
 
+  it("greys out (disables) a table option already in use and shows which match is using it, without affecting the assigning card's own table", async () => {
+    await seedPool(["1", "2", "3"]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("R1-1");
+
+    const select1 = screen.getByLabelText("R1-1の対戦台");
+    await user.selectOptions(select1, "2");
+
+    const select2 = await screen.findByLabelText("R1-2の対戦台");
+    const occupiedOption = within(select2).getByRole("option", {
+      name: "2(進行中: R1-1)",
+    }) as HTMLOptionElement;
+    expect(occupiedOption.disabled).toBe(true);
+    // 空いている対戦台はそのまま選択できる。
+    const freeOption = within(select2).getByRole("option", {
+      name: "3",
+    }) as HTMLOptionElement;
+    expect(freeOption.disabled).toBe(false);
+
+    // 自分自身が使用中の対戦台("2")は、select1自身の選択肢としては
+    // 占有中扱いにならない(選び直しができる)。
+    const ownOption = within(select1).getByRole("option", {
+      name: "2",
+    }) as HTMLOptionElement;
+    expect(ownOption.disabled).toBe(false);
+  });
+
   it("keeps a locally-assigned table number after a sync merges remote data (FR-016)", async () => {
     await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();

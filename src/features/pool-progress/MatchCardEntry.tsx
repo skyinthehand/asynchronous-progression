@@ -4,6 +4,7 @@ import type { MatchCard } from "../../domain/entities/matchCard.js";
 import { MatchCardEdit } from "./MatchCardEdit.js";
 import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 import { ScoreEntryForm } from "./ScoreEntryForm.js";
+import { TableNumberOptions } from "./TableNumberOptions.js";
 
 interface MatchCardEntryProps {
   card: MatchCard;
@@ -12,6 +13,8 @@ interface MatchCardEntryProps {
   onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
   /** FR-011/FR-013: プールに設定された対戦台番号の一覧(選択候補)。 */
   tableNumbers: string[];
+  /** 対戦台選択肢の占有判定に使う、プール全体の対戦カード一覧。 */
+  matchCards: MatchCard[];
   onAssignTable: (
     matchCardId: string,
     tableNumber: string | null,
@@ -61,6 +64,7 @@ export function MatchCardEntry({
   isNext,
   onRecordResult,
   tableNumbers,
+  matchCards,
   onAssignTable,
   onSetInProgress,
   style,
@@ -101,11 +105,11 @@ export function MatchCardEntry({
             }
           >
             <option value="">未設定</option>
-            {tableNumbers.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
+            <TableNumberOptions
+              tableNumbers={tableNumbers}
+              matchCards={matchCards}
+              excludeCardId={card.id}
+            />
           </select>
         </label>
       )}

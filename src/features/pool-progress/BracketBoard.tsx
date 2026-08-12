@@ -200,6 +200,7 @@ export function BracketBoard({
                           isNext={nextCardIds.has(match.card.id)}
                           onRecordResult={onRecordResult}
                           tableNumbers={tableNumbers}
+                          matchCards={matchCards}
                           onAssignTable={onAssignTable}
                           onSetInProgress={onSetInProgress}
                           note={note}

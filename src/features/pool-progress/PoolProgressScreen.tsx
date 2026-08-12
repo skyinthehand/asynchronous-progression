@@ -166,6 +166,7 @@ export function PoolProgressScreen() {
               table={nextMatchSuggestion.table}
               entrantById={entrantById}
               tableNumbers={pool?.tableNumbers ?? []}
+              matchCards={matchCards}
               onStart={(tableNumber) =>
                 callSuggestedMatch(suggestedCard.id, tableNumber)
               }

@@ -2,12 +2,15 @@ import { useState } from "react";
 import { Modal } from "../../components/index.js";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
+import { TableNumberOptions } from "./TableNumberOptions.js";
 
 interface NextMatchModalProps {
   card: MatchCard;
   table: string | null;
   entrantById: Map<string, Entrant>;
   tableNumbers: string[];
+  /** 対戦台選択肢の占有判定に使う、プール全体の対戦カード一覧。 */
+  matchCards: MatchCard[];
   onStart: (tableNumber: string | null) => void;
   onClose: () => void;
 }
@@ -29,6 +32,7 @@ export function NextMatchModal({
   table,
   entrantById,
   tableNumbers,
+  matchCards,
   onStart,
   onClose,
 }: NextMatchModalProps) {
@@ -55,11 +59,11 @@ export function NextMatchModal({
             onChange={(event) => setTableNumber(event.target.value)}
           >
             <option value="">未設定</option>
-            {tableNumbers.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
+            <TableNumberOptions
+              tableNumbers={tableNumbers}
+              matchCards={matchCards}
+              excludeCardId={card.id}
+            />
           </select>
         </label>
       )}

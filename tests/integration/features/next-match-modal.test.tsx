@@ -171,6 +171,37 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     expect(suggested?.tableNumber).toBeNull();
   });
 
+  it("disables an already-occupied table option in the modal's table select and shows which match is using it", async () => {
+    await seedPool(["1", "2", "3"]);
+    const db = await getDb();
+    // card-3をあらかじめ対戦台3で進行中にしておく。
+    const card3 = await db.get("matchCards", "card-3");
+    await db.put("matchCards", {
+      ...card3,
+      tableNumber: "3",
+      status: "IN_PROGRESS",
+    });
+
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await completeCard1(user);
+
+    const modalHeading = await screen.findByRole("heading", {
+      name: "次戦候補",
+    });
+    const modal = modalHeading.closest(".app-modal") as HTMLElement;
+    const select = within(modal).getByLabelText("次戦の対戦台");
+    const occupiedOption = within(select).getByRole("option", {
+      name: "3(進行中: R1-3)",
+    }) as HTMLOptionElement;
+    expect(occupiedOption.disabled).toBe(true);
+    const freeOption = within(select).getByRole("option", {
+      name: "2",
+    }) as HTMLOptionElement;
+    expect(freeOption.disabled).toBe(false);
+  });
+
   it("leaves the match unchanged when the modal is closed without a selection (FR-025)", async () => {
     await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();

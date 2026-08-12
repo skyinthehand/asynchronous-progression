@@ -45,6 +45,7 @@ export function MatchTable({
             isNext={nextCardIds.has(card.id)}
             onRecordResult={onRecordResult}
             tableNumbers={tableNumbers}
+            matchCards={matchCards}
             onAssignTable={onAssignTable}
             onSetInProgress={onSetInProgress}
           />
