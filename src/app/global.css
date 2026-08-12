@@ -469,10 +469,15 @@ label {
 }
 
 /* 画面内ボタンから開くモーダル(進行担当者・出欠確認・離席記録・選手一覧、
-   オンボーディングウィザード等)。タブレットの画面幅に合わせて中央寄せ。 */
+   オンボーディングウィザード等)。タブレットの画面幅に合わせて中央寄せ。
+   z-indexを明示しないと(`position: fixed`だけではスタッキングコンテキストが
+   生まれないため)、ブラケット表示のスコア入力カード(z-index: 5、下記
+   `:has(.score-entry-form)`規則)等ページ内の他要素の裏に隠れてしまう
+   ことがあった。モーダルは常に他の表示物より前面に出す。 */
 .app-modal {
   position: fixed;
   inset: 0;
+  z-index: 100;
   width: min(90vw, 640px);
   max-height: 85vh;
   margin: auto;
@@ -525,11 +530,13 @@ label {
   background: #fff;
 }
 
-/* 注意書き・印刷プレビュー等で使う、通知/確認用のダイアログ全般。 */
+/* 注意書き・印刷プレビュー等で使う、通知/確認用のダイアログ全般。
+   .app-modalと同様、他の表示物より常に前面に出るようz-indexを明示する。 */
 .notice-gate,
 .notice-viewer {
   position: fixed;
   inset: 0;
+  z-index: 100;
   width: min(90vw, 640px);
   max-height: 85vh;
   margin: auto;
