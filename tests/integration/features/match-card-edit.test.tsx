@@ -130,17 +130,17 @@ describe("Match result correction (User Story 6)", () => {
     render(<App />);
     await acknowledgeNotice(user);
 
-    await screen.findByText("R1-1");
-    await user.click(screen.getByRole("button", { name: "結果を修正" }));
-    // ユーザーフィードバック: 修正フォームをカード内にインライン展開すると
-    // 高さが対戦カード枠を超え、下のカードに重なることがあったため、
-    // 修正フォームもモーダルで表示する。
-    await screen.findByRole("heading", { name: "R1-1の結果を修正" });
+    const r1 = (await screen.findByText("R1-1")).closest("li");
+    if (!r1) throw new Error("round 1 card not found");
+    // カード自体には操作可能な要素がなく、カード全体のタップで編集
+    // モーダル(修正フォームを含む)が開く。
+    await user.click(r1);
+    await screen.findByRole("heading", { name: "R1-1の編集" });
     await selectScore(user, document.body, "Bob", "1");
     await user.click(screen.getByRole("button", { name: "修正を確定" }));
 
     expect(
-      screen.queryByRole("heading", { name: "R1-1の結果を修正" }),
+      screen.queryByRole("heading", { name: "R1-1の編集" }),
     ).not.toBeInTheDocument();
     const db = await getDb();
     const card = await db.get("matchCards", "card-1");
@@ -155,14 +155,21 @@ describe("Match result correction (User Story 6)", () => {
     // 後続(R2)の結果を先に入力し、R1をロック状態にする。
     const r2 = (await screen.findByText("R2-1")).closest("li");
     if (!r2) throw new Error("round 2 card not found");
-    await user.click(within(r2).getByRole("button", { name: "結果を入力" }));
+    await user.click(r2);
     await selectScore(user, document.body, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
     const r1 = (await screen.findByText("R1-1")).closest("li");
     if (!r1) throw new Error("round 1 card not found");
+    // 後続対戦が進行済みのため修正できず、カード自体もタップ不可
+    // (role="button"を持たず、鉛筆アイコンも表示されない)になる。
+    expect(r1.getAttribute("role")).toBeNull();
     expect(
-      within(r1).queryByRole("button", { name: "結果を修正" }),
+      within(r1).queryByText("✏️", { selector: ".match-card-edit-icon" }),
+    ).not.toBeInTheDocument();
+    await user.click(r1);
+    expect(
+      screen.queryByRole("heading", { name: "R1-1の編集" }),
     ).not.toBeInTheDocument();
     expect(
       within(r1).getByText(/後続の対戦が進行しているため/),

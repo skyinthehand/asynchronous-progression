@@ -439,8 +439,11 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
-    await screen.findByText("WA");
-    await user.click(screen.getByRole("button", { name: "結果を入力" }));
+    const waCard = (await screen.findByText("WA")).closest("li");
+    if (!waCard) throw new Error("WA card not found");
+    // カード自体には操作可能な要素がなく、カード全体のタップで編集
+    // モーダルが開く。
+    await user.click(waCard);
     await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
@@ -481,8 +484,11 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
-    await screen.findByText("WA");
-    await user.click(screen.getByRole("button", { name: "結果を入力" }));
+    const waCard = (await screen.findByText("WA")).closest("li");
+    if (!waCard) throw new Error("WA card not found");
+    // カード自体には操作可能な要素がなく、カード全体のタップで編集
+    // モーダルが開く。
+    await user.click(waCard);
     await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
@@ -514,8 +520,11 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
-    await screen.findByText("WA");
-    await user.click(screen.getByRole("button", { name: "結果を入力" }));
+    const waCard = (await screen.findByText("WA")).closest("li");
+    if (!waCard) throw new Error("WA card not found");
+    // カード自体には操作可能な要素がなく、カード全体のタップで編集
+    // モーダルが開く。
+    await user.click(waCard);
     await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
@@ -540,8 +549,11 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
-    await screen.findByText("WA");
-    await user.click(screen.getByRole("button", { name: "結果を入力" }));
+    const waCard = (await screen.findByText("WA")).closest("li");
+    if (!waCard) throw new Error("WA card not found");
+    // カード自体には操作可能な要素がなく、カード全体のタップで編集
+    // モーダルが開く。
+    await user.click(waCard);
     await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 

@@ -266,21 +266,54 @@ label {
   outline-offset: 1px;
 }
 
+/* ユーザーフィードバック: カード自体には操作可能な要素を置かず、
+   カード全体をタップすると編集モーダルが開く。タップできることが
+   分かるよう、ホバー/フォーカス時に軽い強調を付ける。 */
+.bracket-tree-matches .match-card-clickable {
+  cursor: pointer;
+}
+
+.bracket-tree-matches .match-card-clickable:hover,
+.bracket-tree-matches .match-card-clickable:focus-visible {
+  border-color: var(--accent-color);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.bracket-tree-matches .match-card-clickable:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 1px;
+}
+
 /* 識別子行は高さを固定(1行・折り返し禁止・はみ出しは省略)し、
-   BracketBoard.tsxのROW_HEIGHT計算に含まれる分だけの高さに収める。 */
+   BracketBoard.tsxのROW_HEIGHT計算に含まれる分だけの高さに収める。
+   右端の鉛筆アイコン(タップできることを示す視覚的な合図)と識別子文字列を
+   横並びにする。 */
 .bracket-tree-matches .match-card-identifier {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
   height: 20px;
-  line-height: 20px;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
   font-size: 0.7rem;
   font-weight: 700;
   color: #fff;
   background: #3b4350;
   padding: 0 0.4rem;
   border-radius: 3px 3px 0 0;
+}
+
+.match-card-identifier-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.match-card-edit-icon {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  line-height: 1;
 }
 
 .match-card-players {
@@ -341,12 +374,11 @@ label {
   font-size: 0.75rem;
 }
 
-/* 対戦カード内の「後続の対戦が進行しているため修正できません」表示・
-   カード内の各種ボタン(進行中にする・不戦勝で確定・結果を入力・結果を
-   修正等)。結果入力・修正のフォーム自体(ScoreEntryForm)はモーダルに
-   分離しているため、ここでの折り返しを見込む必要はない。 */
-.bracket-tree-matches .match-card-edit-locked,
-.bracket-tree-matches > li > button {
+/* 対戦カード内の「後続の対戦が進行しているため修正できません」表示。
+   操作可能な要素(進行中にする・対戦台選択・不戦勝で確定・結果入力/修正の
+   フォーム)はすべて編集モーダル内に分離しているため、カード自体には
+   この非操作の案内文以外の折り返しを見込む必要はない。 */
+.bracket-tree-matches .match-card-edit-locked {
   display: block;
   width: 100%;
   box-sizing: border-box;
@@ -406,26 +438,9 @@ label {
   margin: 0.2rem 0;
 }
 
-/* ユーザーフィードバック: 「進行中」表記(バッジ・「進行中にする」
-   ボタン)と対戦台表示が縦に積まれて分かりにくかったため、横並びの
-   1行にまとめる(どちらか片方だけの場合はその要素のみ左寄せ)。 */
-.match-card-status-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.3rem;
-  padding: 0.3rem 0.5rem;
-  border-top: 1px solid #e6e6e6;
-}
-
-.match-card-status-row button {
-  min-height: 1.6rem;
-  padding: 0.1rem 0.5rem;
-  font-size: 0.7rem;
-}
-
-/* 002-match-scoring-and-flow FR-009: 「進行中」ステータスの視覚的な区別。 */
+/* 002-match-scoring-and-flow FR-009: 「進行中」ステータスの視覚的な区別。
+   進行中への切替操作自体は編集モーダル内にあるが、バッジ表示(非操作)は
+   カードを開かなくても分かるようそのままカード上に残す。 */
 .match-card-status-badge {
   display: inline-block;
   font-size: 0.7rem;
@@ -433,6 +448,7 @@ label {
   color: #fff;
   background: var(--accent-color);
   padding: 0.05rem 0.4rem;
+  margin: 0.3rem 0.5rem 0;
   border-radius: 3px;
 }
 
@@ -440,14 +456,21 @@ label {
   border-color: var(--accent-color);
 }
 
-/* 002-match-scoring-and-flow FR-012/FR-013: 対戦カードへの対戦台番号入力。
-   横並びの行(.match-card-status-row)内に収まるため、自身の余白は
-   持たない。 */
+/* 割り当て済みの対戦台も、選択操作自体は編集モーダル内だが、カードを
+   開かなくても分かるよう非操作の表示としてカード上に残す。 */
+.match-card-table-badge {
+  display: block;
+  font-size: 0.7rem;
+  color: #475467;
+  padding: 0.2rem 0.5rem 0;
+}
+
+/* 002-match-scoring-and-flow FR-012/FR-013: 対戦台番号選択(編集モーダル内)。 */
 .match-card-table-select {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.7rem;
+  font-size: 0.85rem;
 }
 
 /* 別の側(勝者側の敗者など)から出場者が来ている場合の注記。最大2行に

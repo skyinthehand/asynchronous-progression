@@ -23,14 +23,17 @@ async function acknowledgeNotice(user: ReturnType<typeof userEvent.setup>) {
 }
 
 /**
- * ユーザーフィードバック: ブラケット表示の対戦カードはJS側の絶対配置で
- * 積み上げているため、スコア入力フォーム(進行中バッジ・対戦台選択・
- * 両選手分のDQ/0/1/2/3/Wボタン・エラーメッセージ・結果を確定ボタン)を
- * インライン展開すると高さが対戦カード枠を超え、下の対戦カードに重なって
- * ボタンが押せなくなることがあった。対戦カード自体は「識別子・選手名・
- * ボタン」のみの一定の高さに保ち、詳細な結果入力はモーダルに分離する。
+ * ユーザーフィードバック(累積):
+ * (1) ブラケット表示の対戦カードはJS側の絶対配置で積み上げているため、
+ *     結果入力・進行中切替・対戦台選択等をカード内にインライン展開すると
+ *     高さが対戦カード枠を超え、下の対戦カードに重なってボタンが押せなく
+ *     なることがあった。
+ * (2) カード自体には操作可能な要素(ボタン・プルダウン)を一切置かず、
+ *     カード全体をタップすると編集モーダルが開く形に統一する。タップ
+ *     できることを示す視覚的な合図として、右上(識別子の右端)に鉛筆
+ *     アイコンを置くが、実際のタップ判定はカード全体。
  */
-async function seedBracketPool() {
+async function seedBracketPool(tableNumbers: string[] = ["1"]) {
   const db = await getDb();
   await db.put(
     "startggConfig",
@@ -55,7 +58,7 @@ async function seedBracketPool() {
     staffName: null,
     lastSyncedAt: null,
     onboardingCompletedAt: new Date().toISOString(),
-    tableNumbers: ["1"],
+    tableNumbers,
   });
   for (const [id, name] of [
     ["e1", "Alice"],
@@ -92,13 +95,13 @@ async function seedBracketPool() {
   });
 }
 
-describe("Score entry is collapsed into a modal on the bracket board", () => {
+describe("Match cards on the bracket board have no operable elements; tapping the card opens an edit modal", () => {
   beforeEach(async () => {
     await resetDb();
-    await seedBracketPool();
   });
 
-  it("does not render the score-entry form inline; opens it in a modal via a compact button", async () => {
+  it("does not render any button or select directly on the card, only a pencil icon as a tap affordance", async () => {
+    await seedBracketPool();
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
@@ -106,22 +109,31 @@ describe("Score entry is collapsed into a modal on the bracket board", () => {
     const card = (await screen.findByText("WF")).closest("li");
     if (!card) throw new Error("card not found");
 
-    // 初期表示では、対戦カードにスコア入力用のgroup(選手ごとのDQ/0/1/2/3/W
-    // ボタン群)が展開されていない。
-    expect(
-      within(card).queryByRole("group", { name: "Aliceのスコア" }),
-    ).not.toBeInTheDocument();
-    // 対戦台選択・進行中トグル等、軽量な操作はそのままカード内にある。
-    expect(
-      within(card).getByRole("button", { name: "進行中にする" }),
-    ).toBeInTheDocument();
+    expect(within(card).queryAllByRole("button")).toHaveLength(0);
+    expect(within(card).queryByRole("combobox")).not.toBeInTheDocument();
+    expect(card.getAttribute("role")).toBe("button");
+    expect(card).toHaveTextContent("✏️");
+  });
 
-    await user.click(within(card).getByRole("button", { name: "結果を入力" }));
+  it("opens the edit modal when tapping anywhere on the card, and it contains the progress toggle, table select, and score entry", async () => {
+    await seedBracketPool();
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const card = (await screen.findByText("WF")).closest("li");
+    if (!card) throw new Error("card not found");
+    // カードのどこ(選手名部分)をタップしても開く。
+    await user.click(within(card).getByText("Alice"));
 
     const modalHeading = await screen.findByRole("heading", {
-      name: "WFの結果",
+      name: "WFの編集",
     });
     const modal = modalHeading.closest(".app-modal") as HTMLElement;
+    expect(
+      within(modal).getByRole("button", { name: "進行中にする" }),
+    ).toBeInTheDocument();
+    expect(within(modal).getByLabelText("対戦台:")).toBeInTheDocument();
     expect(
       within(modal).getByRole("group", { name: "Aliceのスコア" }),
     ).toBeInTheDocument();
@@ -130,41 +142,44 @@ describe("Score entry is collapsed into a modal on the bracket board", () => {
     ).toBeInTheDocument();
   });
 
-  it("leaves the result unchanged when the score-entry modal is closed without submitting", async () => {
+  it("leaves the result unchanged when the edit modal is closed without submitting", async () => {
+    await seedBracketPool();
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
 
     const card = (await screen.findByText("WF")).closest("li");
     if (!card) throw new Error("card not found");
-    await user.click(within(card).getByRole("button", { name: "結果を入力" }));
+    await user.click(card);
 
     const modalHeading = await screen.findByRole("heading", {
-      name: "WFの結果",
+      name: "WFの編集",
     });
     const modal = modalHeading.closest(".app-modal") as HTMLElement;
     await user.click(within(modal).getByRole("button", { name: "閉じる" }));
 
     expect(
-      screen.queryByRole("heading", { name: "WFの結果" }),
+      screen.queryByRole("heading", { name: "WFの編集" }),
     ).not.toBeInTheDocument();
     const db = await getDb();
     const card1 = await db.get("matchCards", "card-1");
     expect(card1?.status).toBe("NOT_STARTED");
     expect(card1?.winnerId).toBeNull();
+    expect(card1?.tableNumber).toBeNull();
   });
 
   it("submits the result and closes the modal when a score is confirmed", async () => {
+    await seedBracketPool();
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
 
     const card = (await screen.findByText("WF")).closest("li");
     if (!card) throw new Error("card not found");
-    await user.click(within(card).getByRole("button", { name: "結果を入力" }));
+    await user.click(card);
 
     const modalHeading = await screen.findByRole("heading", {
-      name: "WFの結果",
+      name: "WFの編集",
     });
     const modal = modalHeading.closest(".app-modal") as HTMLElement;
     const aliceGroup = within(modal).getByRole("group", {
@@ -174,7 +189,7 @@ describe("Score entry is collapsed into a modal on the bracket board", () => {
     await user.click(within(modal).getByRole("button", { name: "結果を確定" }));
 
     expect(
-      screen.queryByRole("heading", { name: "WFの結果" }),
+      screen.queryByRole("heading", { name: "WFの編集" }),
     ).not.toBeInTheDocument();
     const db = await getDb();
     const card1 = await db.get("matchCards", "card-1");
@@ -182,44 +197,134 @@ describe("Score entry is collapsed into a modal on the bracket board", () => {
     expect(card1?.winnerId).toBe("e1");
   });
 
-  it("places the '進行中にする' button and the table select side by side in the same row", async () => {
+  it("sets the match to in-progress and assigns a table from inside the modal", async () => {
+    await seedBracketPool(["1", "2"]);
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
 
     const card = (await screen.findByText("WF")).closest("li");
     if (!card) throw new Error("card not found");
+    await user.click(card);
 
-    const progressButton = within(card).getByRole("button", {
-      name: "進行中にする",
+    const modalHeading = await screen.findByRole("heading", {
+      name: "WFの編集",
     });
-    const tableSelect = within(card).getByLabelText("対戦台:");
-    // ユーザーフィードバック: 進行中表記と対戦台表示は横並びにする。
-    expect(progressButton.parentElement).toBe(
-      tableSelect.closest("label")?.parentElement,
+    const modal = modalHeading.closest(".app-modal") as HTMLElement;
+    await user.click(
+      within(modal).getByRole("button", { name: "進行中にする" }),
     );
-    expect(progressButton.parentElement?.className).toContain(
-      "match-card-status-row",
-    );
-  });
+    await user.selectOptions(within(modal).getByLabelText("対戦台:"), "2");
 
-  it("places the '進行中' badge and the table select side by side once the match is in progress", async () => {
     const db = await getDb();
     const card1 = await db.get("matchCards", "card-1");
-    await db.put("matchCards", { ...card1, status: "IN_PROGRESS" });
+    expect(card1?.status).toBe("IN_PROGRESS");
+    expect(card1?.tableNumber).toBe("2");
+
+    // 進行中バッジ・対戦台の表示は、カードを開かなくても分かるよう
+    // モーダルを閉じた後もカード上に残る(操作自体は不可)。
+    await user.click(within(modal).getByRole("button", { name: "閉じる" }));
+    expect(within(card).getByText("進行中")).toBeInTheDocument();
+    expect(within(card).getByText("対戦台: 2")).toBeInTheDocument();
+    expect(within(card).queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("does not make a locked completed card clickable (nothing left to edit)", async () => {
+    const db = await getDb();
+    await db.put(
+      "startggConfig",
+      {
+        tournamentSlug: "impact-major-4",
+        eventId: "1",
+        phaseId: "1",
+        poolId: "pool-1",
+        syncToken: "test-token",
+        tokenUpdatedAt: null,
+      },
+      SINGLETON_KEY,
+    );
+    await db.put("pools", {
+      id: "pool-1",
+      displayIdentifier: "Pool 1",
+      tournamentSlug: "impact-major-4",
+      eventId: "1",
+      phaseId: "1",
+      className: null,
+      bracketType: "SINGLE_ELIMINATION",
+      staffName: null,
+      lastSyncedAt: null,
+      onboardingCompletedAt: new Date().toISOString(),
+      tableNumbers: [],
+    });
+    for (const [id, name] of [
+      ["e1", "Alice"],
+      ["e2", "Bob"],
+      ["e3", "Carol"],
+    ]) {
+      await db.put("entrants", {
+        id,
+        poolId: "pool-1",
+        name,
+        attendance: "PRESENT",
+        attendanceRecordedAt: null,
+        poolFinished: false,
+        nextMatch: null,
+        awayPeriods: [],
+      });
+    }
+    await db.put("matchCards", {
+      id: "card-1",
+      poolId: "pool-1",
+      identifier: "R1-1",
+      round: 1,
+      bracketSide: "WINNERS",
+      tableNumber: null,
+      entrant1Id: "e1",
+      entrant2Id: "e2",
+      winnerId: "e1",
+      score: "1-0",
+      status: "COMPLETED",
+      // 後続(R2)が既に完了しているため修正不可(computeIsLocked相当)。
+      isLocked: true,
+      editHistory: [],
+      localOnly: true,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
+    });
+    await db.put("matchCards", {
+      id: "card-2",
+      poolId: "pool-1",
+      identifier: "R2-1",
+      round: 2,
+      bracketSide: "WINNERS",
+      tableNumber: null,
+      entrant1Id: "e1",
+      entrant2Id: "e3",
+      winnerId: "e3",
+      score: "0-1",
+      status: "COMPLETED",
+      isLocked: false,
+      editHistory: [],
+      localOnly: true,
+      entrant1SourceMatchId: "card-1",
+      entrant2SourceMatchId: null,
+    });
 
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
 
-    const card = (await screen.findByText("WF")).closest("li");
-    if (!card) throw new Error("card not found");
+    const r1 = (await screen.findByText("R1-1")).closest("li");
+    if (!r1) throw new Error("R1-1 card not found");
+    expect(r1.getAttribute("role")).toBeNull();
+    expect(r1).not.toHaveTextContent("✏️");
+    expect(
+      within(r1).getByText(/後続の対戦が進行しているため/),
+    ).toBeInTheDocument();
 
-    const badge = within(card).getByText("進行中");
-    const tableSelect = within(card).getByLabelText("対戦台:");
-    expect(badge.parentElement).toBe(
-      tableSelect.closest("label")?.parentElement,
-    );
-    expect(badge.parentElement?.className).toContain("match-card-status-row");
+    await user.click(r1);
+    expect(
+      screen.queryByRole("heading", { name: "R1-1の編集" }),
+    ).not.toBeInTheDocument();
   });
 });
