@@ -133,6 +133,132 @@ async function completeCard1(user: ReturnType<typeof userEvent.setup>) {
   await user.click(within(row).getByRole("button", { name: "結果を確定" }));
 }
 
+async function selectScore(
+  user: ReturnType<typeof userEvent.setup>,
+  entrantName: string,
+  option: "DQ" | "0" | "1" | "2" | "3" | "W",
+) {
+  const group = screen.getByRole("group", { name: `${entrantName}のスコア` });
+  await user.click(within(group).getByRole("button", { name: option }));
+}
+
+/**
+ * WAの結果確定が、勝者側(WB)・敗者側(LA)の両方を同時に進行可能にする
+ * 構成(ユーザーフィードバック: 複数のマッチが同時に進行開始になる
+ * ケースの検証用)。対戦台を2つ設定し、WAの結果確定によりWB・LAの
+ * どちらも(片方の枠はあらかじめ埋めておくことで)両方の枠が確定する。
+ */
+async function seedChainingPool() {
+  const db = await getDb();
+  await db.put(
+    "startggConfig",
+    {
+      tournamentSlug: "impact-major-4",
+      eventId: "1",
+      phaseId: "1",
+      poolId: "pool-1",
+      syncToken: "test-token",
+      tokenUpdatedAt: null,
+    },
+    SINGLETON_KEY,
+  );
+  await db.put("pools", {
+    id: "pool-1",
+    displayIdentifier: "Pool 1",
+    tournamentSlug: "impact-major-4",
+    eventId: "1",
+    phaseId: "1",
+    className: null,
+    bracketType: "DOUBLE_ELIMINATION",
+    staffName: null,
+    lastSyncedAt: null,
+    onboardingCompletedAt: new Date().toISOString(),
+    tableNumbers: ["1", "2"],
+  });
+  for (const [id, name] of [
+    ["e1", "Alice"],
+    ["e2", "Bob"],
+    ["e3", "Carol"],
+    ["e4", "Dave"],
+  ]) {
+    await db.put("entrants", {
+      id,
+      poolId: "pool-1",
+      name,
+      attendance: "UNKNOWN",
+      attendanceRecordedAt: null,
+      poolFinished: false,
+      nextMatch: null,
+      awayPeriods: [],
+    });
+  }
+  await db.put(
+    "matchCards",
+    card({
+      id: "wa",
+      identifier: "WA",
+      round: 1,
+      bracketSide: "WINNERS",
+      tableNumber: "1",
+      entrant1Id: "e1",
+      entrant2Id: "e2",
+    }),
+  );
+  await db.put(
+    "matchCards",
+    card({
+      id: "wb",
+      identifier: "WB",
+      round: 2,
+      bracketSide: "WINNERS",
+      entrant1Id: null,
+      entrant2Id: "e3",
+      entrant1SourceMatchId: "wa",
+    }),
+  );
+  await db.put(
+    "matchCards",
+    card({
+      id: "la",
+      identifier: "LA",
+      round: -1,
+      bracketSide: "LOSERS",
+      entrant1Id: "e4",
+      entrant2Id: null,
+      entrant2SourceMatchId: "wa",
+    }),
+  );
+}
+
+async function seedEmptyPool() {
+  const db = await getDb();
+  await db.put(
+    "startggConfig",
+    {
+      tournamentSlug: "impact-major-4",
+      eventId: "1",
+      phaseId: "1",
+      poolId: "pool-1",
+      syncToken: "test-token",
+      tokenUpdatedAt: null,
+    },
+    SINGLETON_KEY,
+  );
+  await db.put("pools", {
+    id: "pool-1",
+    displayIdentifier: "Pool 1",
+    tournamentSlug: "impact-major-4",
+    eventId: "1",
+    phaseId: "1",
+    className: null,
+    bracketType: "ROUND_ROBIN",
+    staffName: null,
+    lastSyncedAt: null,
+    onboardingCompletedAt: new Date().toISOString(),
+    tableNumbers: [],
+  });
+}
+
 describe("Next-match suggestion modal (User Story 3)", () => {
   beforeEach(async () => {
     await resetDb();
@@ -306,5 +432,107 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     expect(
       screen.queryByRole("heading", { name: "次戦候補" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows every newly-startable match one at a time, advancing only when '対戦開始' is pressed", async () => {
+    await seedChainingPool();
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("WA");
+    await selectScore(user, "Alice", "1");
+    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+
+    // WAの結果確定により、勝者側のWBと敗者側のLAが同時に進行可能になる。
+    let modalHeading = await screen.findByRole("heading", {
+      name: "次戦候補",
+    });
+    let modal = modalHeading.closest(".app-modal") as HTMLElement;
+    const firstIdentifier = within(modal).getByText(/^(WB|LA)$/).textContent;
+    expect(["WB", "LA"]).toContain(firstIdentifier);
+
+    await user.click(within(modal).getByRole("button", { name: "対戦開始" }));
+
+    // 「対戦開始」を押した場合のみ、残っているもう一方の候補が続けて
+    // 表示される。
+    modalHeading = await screen.findByRole("heading", { name: "次戦候補" });
+    modal = modalHeading.closest(".app-modal") as HTMLElement;
+    const secondIdentifier = within(modal).getByText(/^(WB|LA)$/).textContent;
+    expect(secondIdentifier).not.toBe(firstIdentifier);
+    expect(["WB", "LA"]).toContain(secondIdentifier);
+
+    await user.click(within(modal).getByRole("button", { name: "対戦開始" }));
+
+    // 2件とも開始済みになったので、もうモーダルは表示されない。
+    expect(
+      screen.queryByRole("heading", { name: "次戦候補" }),
+    ).not.toBeInTheDocument();
+
+    const db = await getDb();
+    const wb = await db.get("matchCards", "wb");
+    const la = await db.get("matchCards", "la");
+    expect(wb?.status).toBe("IN_PROGRESS");
+    expect(la?.status).toBe("IN_PROGRESS");
+  });
+
+  it("does not auto-chain to the remaining suggestion when the modal is closed instead of started", async () => {
+    await seedChainingPool();
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("WA");
+    await selectScore(user, "Alice", "1");
+    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+
+    const modalHeading = await screen.findByRole("heading", {
+      name: "次戦候補",
+    });
+    const modal = modalHeading.closest(".app-modal") as HTMLElement;
+    await user.click(within(modal).getByRole("button", { name: "閉じる" }));
+
+    // 閉じただけでは、残りの候補があっても自動では再表示されない。
+    expect(
+      screen.queryByRole("heading", { name: "次戦候補" }),
+    ).not.toBeInTheDocument();
+
+    // ただし候補自体は残っているため、ツールバーの「次戦候補」ボタンは
+    // 有効なまま。
+    expect(screen.getByRole("button", { name: "次戦候補" })).not.toBeDisabled();
+  });
+
+  it("reopens the modal for remaining suggestions via the '次戦候補' toolbar button", async () => {
+    await seedChainingPool();
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("WA");
+    await selectScore(user, "Alice", "1");
+    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+
+    const firstModalHeading = await screen.findByRole("heading", {
+      name: "次戦候補",
+    });
+    const firstModal = firstModalHeading.closest(".app-modal") as HTMLElement;
+    await user.click(
+      within(firstModal).getByRole("button", { name: "閉じる" }),
+    );
+    expect(
+      screen.queryByRole("heading", { name: "次戦候補" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "次戦候補" }));
+    expect(
+      await screen.findByRole("heading", { name: "次戦候補" }),
+    ).toBeInTheDocument();
+  });
+
+  it("disables the '次戦候補' toolbar button when there are no pending suggestions", async () => {
+    await seedEmptyPool();
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("対戦カードがまだありません。");
+
+    expect(screen.getByRole("button", { name: "次戦候補" })).toBeDisabled();
   });
 });

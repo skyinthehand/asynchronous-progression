@@ -51,11 +51,22 @@ interface UsePoolProgressResult {
     tableNumber: string | null,
   ) => Promise<boolean>;
   /**
-   * FR-022: 結果確定直後に自動的に提示される、次戦候補のモーダル用state。
-   * FR-025: 「対戦開始」を選ばず閉じた場合はnullに戻すだけで、対戦カードの
-   * 状態は変更しない。
+   * FR-017/FR-018/FR-026: 対戦台単位(複数)に、現在提示できる次戦候補の
+   * 一覧。対戦カード一覧・組合せ図の強調表示(MatchCardList.tsx)と同じ
+   * 計算を、モーダルに表示する候補の判定にも用いる。
    */
-  nextMatchSuggestion: NextMatchSuggestion | null;
+  nextMatchSuggestions: NextMatchSuggestion[];
+  /**
+   * FR-022: 結果確定直後、次戦候補が1件以上あれば自動的にtrueになる。
+   * ユーザーフィードバック: 結果確定によって複数の対戦が同時に進行可能に
+   * なった場合、「対戦開始」を押すたびに残りの候補へ自動的に進む(全て
+   * 表示し終えるか閉じるまでモーダルが開いたまま)。ただしモーダルを
+   * 何も選ばずに閉じた場合は、残りの候補があっても自動では再表示しない
+   * (「次戦候補」ボタン(openSuggestionModal)から手動で開き直す)。
+   */
+  suggestionModalOpen: boolean;
+  /** 次戦候補が残っている場合に、モーダルを手動で開き直す(ツールバーの「次戦候補」ボタン用)。 */
+  openSuggestionModal: () => void;
   /** FR-024: サジェストされた対戦を「進行中」に変更する(対戦台番号は任意)。 */
   callSuggestedMatch: (
     matchCardId: string,
@@ -77,8 +88,13 @@ export function usePoolProgress(): UsePoolProgressResult {
   const [pool, setPool] = useState<Pool | null>(null);
   const [entrants, setEntrants] = useState<Entrant[]>([]);
   const [matchCards, setMatchCards] = useState<MatchCard[]>([]);
-  const [nextMatchSuggestion, setNextMatchSuggestion] =
-    useState<NextMatchSuggestion | null>(null);
+  const [suggestionModalOpen, setSuggestionModalOpen] = useState(false);
+  // MatchCardList.tsxの強調表示と同じ計算を都度そのまま使う(専用のstateに
+  // 保持しない。永続化された対戦カード一覧から常に導出可能なため)。
+  const nextMatchSuggestions = computeNextMatchSuggestions(
+    matchCards,
+    pool?.tableNumbers ?? [],
+  );
 
   const reload = useCallback(async (targetPoolId: string) => {
     const [loadedPool, loadedEntrants, rawCards] = await Promise.all([
@@ -243,16 +259,16 @@ export function usePoolProgress(): UsePoolProgressResult {
       await saveMatchCards(relocked);
       setMatchCards(relocked);
 
-      // FR-017/FR-022: 結果確定直後、その対戦台(割り当てられていれば)へ
-      // 次に呼ぶべき対戦カードを1件、モーダル用stateにセットする。
-      const tableNumbers = pool?.tableNumbers ?? [];
-      const suggestions = computeNextMatchSuggestions(relocked, tableNumbers);
-      const completedTable = updated.tableNumber;
-      const forThisTable =
-        tableNumbers.length > 0 && completedTable != null
-          ? (suggestions.find((s) => s.table === completedTable) ?? null)
-          : (suggestions[0] ?? null);
-      setNextMatchSuggestion(forThisTable);
+      // FR-017/FR-022: 結果確定直後、次戦候補が1件以上あればモーダルを
+      // 開く。結果確定によって複数の対戦台分の候補が同時に進行可能になる
+      // 場合もあるため、対戦台単位の件数に関わらずここでは「1件以上
+      // あるか」だけを判定し、実際にどれを表示するかはnextMatchSuggestions
+      // (常に対戦カード一覧から都度導出)を参照する。
+      const suggestions = computeNextMatchSuggestions(
+        relocked,
+        pool?.tableNumbers ?? [],
+      );
+      setSuggestionModalOpen(suggestions.length > 0);
     },
     [matchCards, pool],
   );
@@ -291,17 +307,30 @@ export function usePoolProgress(): UsePoolProgressResult {
         status: "IN_PROGRESS",
         tableNumber: tableNumber ?? target.tableNumber,
       };
-      await saveMatchCard(updated);
-      setMatchCards((prev) =>
-        prev.map((card) => (card.id === matchCardId ? updated : card)),
+      const nextCards = matchCards.map((card) =>
+        card.id === matchCardId ? updated : card,
       );
-      setNextMatchSuggestion(null);
+      await saveMatchCard(updated);
+      setMatchCards(nextCards);
+
+      // ユーザーフィードバック: 「対戦開始」を押した場合のみ、残りの次戦
+      // 候補があれば続けてモーダルに表示する(閉じた場合は自動再表示
+      // しない、dismissSuggestion参照)。
+      const remaining = computeNextMatchSuggestions(
+        nextCards,
+        pool?.tableNumbers ?? [],
+      );
+      setSuggestionModalOpen(remaining.length > 0);
     },
-    [matchCards],
+    [matchCards, pool],
   );
 
   const dismissSuggestion = useCallback(() => {
-    setNextMatchSuggestion(null);
+    setSuggestionModalOpen(false);
+  }, []);
+
+  const openSuggestionModal = useCallback(() => {
+    setSuggestionModalOpen(true);
   }, []);
 
   const setInProgress = useCallback(
@@ -340,7 +369,9 @@ export function usePoolProgress(): UsePoolProgressResult {
     recordResult,
     completeOnboarding,
     assignTable,
-    nextMatchSuggestion,
+    nextMatchSuggestions,
+    suggestionModalOpen,
+    openSuggestionModal,
     callSuggestedMatch,
     dismissSuggestion,
     setInProgress,

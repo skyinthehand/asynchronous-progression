@@ -2,7 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
+import { PrintPage } from "../../../src/features/print/PrintPage.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
+import { getEntrantsByPool } from "../../../src/infra/storage/entrantRepository.js";
+import { getMatchCardsByPool } from "../../../src/infra/storage/matchCardRepository.js";
+import { getPool } from "../../../src/infra/storage/poolRepository.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchTournamentRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -58,6 +62,29 @@ async function seedConfig() {
   });
 }
 
+/**
+ * 印刷用ページへの入口ボタン(PoolProgressScreenの「印刷用ページ」)は
+ * 現在disabledのため(ユーザーフィードバック: 現状動作していない)、
+ * PrintPage自体の描画ロジックはApp経由ではなく直接レンダリングして
+ * 検証する。
+ */
+async function renderPrintPage() {
+  const [pool, matchCards, entrants] = await Promise.all([
+    getPool("pool-1"),
+    getMatchCardsByPool("pool-1"),
+    getEntrantsByPool("pool-1"),
+  ]);
+  if (!pool) throw new Error("pool-1 not found");
+  render(
+    <PrintPage
+      pool={pool}
+      matchCards={matchCards}
+      entrants={entrants}
+      onClose={() => {}}
+    />,
+  );
+}
+
 describe("Print page (User Story 7)", () => {
   beforeEach(async () => {
     await resetDb();
@@ -99,11 +126,7 @@ describe("Print page (User Story 7)", () => {
       entrant2SourceMatchId: null,
     });
 
-    const user = userEvent.setup();
-    render(<App />);
-    await acknowledgeNotice(user);
-    await screen.findByText("R1-1");
-    await user.click(screen.getByRole("button", { name: "印刷用ページ" }));
+    await renderPrintPage();
 
     expect(screen.getByText("Pool 1")).toBeInTheDocument();
     expect(screen.getByText("IMPACT MAJOR #4")).toBeInTheDocument();
@@ -148,11 +171,7 @@ describe("Print page (User Story 7)", () => {
       entrant2SourceMatchId: null,
     });
 
-    const user = userEvent.setup();
-    render(<App />);
-    await acknowledgeNotice(user);
-    await screen.findByText(/Alice vs Bob/);
-    await user.click(screen.getByRole("button", { name: "印刷用ページ" }));
+    await renderPrintPage();
 
     expect(screen.queryByText("Winners")).not.toBeInTheDocument();
     expect(screen.getByRole("table")).toBeInTheDocument();
@@ -176,11 +195,7 @@ describe("Print page (User Story 7)", () => {
       onboardingCompletedAt: new Date().toISOString(),
     });
 
-    const user = userEvent.setup();
-    render(<App />);
-    await acknowledgeNotice(user);
-    await screen.findByText(/Alice vs Bob/);
-    await user.click(screen.getByRole("button", { name: "印刷用ページ" }));
+    await renderPrintPage();
 
     const printButton = screen.getByRole("button", { name: "印刷" });
     expect(printButton.closest(".no-print")).not.toBeNull();
@@ -228,11 +243,7 @@ describe("Print page (User Story 7)", () => {
       entrant2DQ: true,
     });
 
-    const user = userEvent.setup();
-    render(<App />);
-    await acknowledgeNotice(user);
-    await screen.findByText(/Alice vs Bob/);
-    await user.click(screen.getByRole("button", { name: "印刷用ページ" }));
+    await renderPrintPage();
 
     expect(screen.getByText(/勝者: Alice \(0-DQ\)/)).toBeInTheDocument();
   });
@@ -279,12 +290,34 @@ describe("Print page (User Story 7)", () => {
       entrant2W: false,
     });
 
+    await renderPrintPage();
+
+    expect(screen.getByText(/勝者: Alice \(W-0\)/)).toBeInTheDocument();
+  });
+
+  it("disables the '印刷用ページ' entry button on the pool progress screen (currently non-functional)", async () => {
+    const db = await getDb();
+    await db.put("pools", {
+      id: "pool-1",
+      displayIdentifier: "Pool 1",
+      tournamentSlug: "impact-major-4",
+      eventId: "1",
+      phaseId: "1",
+      className: null,
+      bracketType: "ROUND_ROBIN",
+      staffName: null,
+      lastSyncedAt: null,
+      tournamentName: "IMPACT MAJOR #4",
+      eventName: "Ultimate Singles",
+      onboardingCompletedAt: new Date().toISOString(),
+    });
+
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
     await screen.findByText(/Alice vs Bob/);
-    await user.click(screen.getByRole("button", { name: "印刷用ページ" }));
 
-    expect(screen.getByText(/勝者: Alice \(W-0\)/)).toBeInTheDocument();
+    const printButton = screen.getByRole("button", { name: "印刷用ページ" });
+    expect(printButton).toBeDisabled();
   });
 });

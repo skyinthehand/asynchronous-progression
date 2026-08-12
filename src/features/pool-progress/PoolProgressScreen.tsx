@@ -57,7 +57,9 @@ export function PoolProgressScreen() {
     recordResult,
     completeOnboarding,
     assignTable,
-    nextMatchSuggestion,
+    nextMatchSuggestions,
+    suggestionModalOpen,
+    openSuggestionModal,
     callSuggestedMatch,
     dismissSuggestion,
     setInProgress,
@@ -109,7 +111,14 @@ export function PoolProgressScreen() {
         <button type="button" onClick={() => setActivePanel("entrants")}>
           選手一覧
         </button>
-        <button type="button" onClick={() => setPrinting(true)}>
+        <button
+          type="button"
+          onClick={openSuggestionModal}
+          disabled={nextMatchSuggestions.length === 0}
+        >
+          次戦候補
+        </button>
+        <button type="button" disabled title="現在利用できません">
           印刷用ページ
         </button>
       </div>
@@ -151,10 +160,12 @@ export function PoolProgressScreen() {
         </Modal>
       )}
 
-      {nextMatchSuggestion &&
+      {suggestionModalOpen &&
+        nextMatchSuggestions[0] &&
         (() => {
+          const activeSuggestion = nextMatchSuggestions[0];
           const suggestedCard = matchCards.find(
-            (card) => card.id === nextMatchSuggestion.matchCardId,
+            (card) => card.id === activeSuggestion.matchCardId,
           );
           if (!suggestedCard) return null;
           const entrantById = new Map(
@@ -163,7 +174,7 @@ export function PoolProgressScreen() {
           return (
             <NextMatchModal
               card={suggestedCard}
-              table={nextMatchSuggestion.table}
+              table={activeSuggestion.table}
               entrantById={entrantById}
               tableNumbers={pool?.tableNumbers ?? []}
               matchCards={matchCards}
