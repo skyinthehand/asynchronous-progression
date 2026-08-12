@@ -31,7 +31,7 @@ Single project構成（plan.mdのProject Structureを踏襲）:
 
 **Purpose**: 本featureは新しいプロジェクト初期化・依存追加・lint設定を必要としない（plan.mdのTechnical Context: 新規ライブラリ・新規永続データ・新規UI層の変更なし）。
 
-- [ ] T001 `src/domain/rules/nextMatchSuggestion.ts`と`tests/unit/domain/rules/nextMatchSuggestion.test.ts`の現状（既存の`pickBest`ロジックと既存テストケース）を確認し、Phase 3以降で書き換える範囲を把握する。
+- [X] T001 `src/domain/rules/nextMatchSuggestion.ts`と`tests/unit/domain/rules/nextMatchSuggestion.test.ts`の現状（既存の`pickBest`ロジックと既存テストケース）を確認し、Phase 3以降で書き換える範囲を把握する。
 
 **Checkpoint**: Setup完了。プロジェクト構造・依存関係の変更は不要なため、直ちにFoundationalへ進める。
 
@@ -43,8 +43,8 @@ Single project構成（plan.mdのProject Structureを踏襲）:
 
 **⚠️ CRITICAL**: このフェーズが完了するまでUS1・US2の実装（`nextMatchSuggestion.ts`の書き換え）は開始できない。
 
-- [ ] T002 `src/domain/rules/matchDistance.ts`を新規作成し、`computeMatchDistances(matchCards: MatchCard[]): Map<string, number>`をexportする。data-model.md §1のアルゴリズムに従う: (a) `bracketSide`（`"WINNERS"`/`"LOSERS"`）ごとに、その側に属するカードのうち`Math.abs(round)`が最大のものを基準点とし距離1を割り当てる（複数タイの場合は全て基準点にする）。(b) `entrant1SourceMatchId`/`entrant2SourceMatchId`が指す対戦を「出場元」とする有向辺（出場元→この対戦）を全カードから構築し、基準点群からの多始点BFSで逆方向（この対戦→出場元）にたどり、既に距離が確定した対戦の出場元となる各対戦に「+1」した距離を割り当てる（複数経路がある場合はBFSにより自動的に最短距離が採用される）。(c) `bracketSide`が全カードで`"N/A"`（総当り形式）の場合は空のMapを返す。
-- [ ] T003 [P] `tests/unit/domain/rules/matchDistance.test.ts`を新規作成し、`computeMatchDistances`のユニットテストを書く。既存の`makeCard(overrides)`ヘルパーパターン（`tests/unit/domain/rules/nextMatchSuggestion.test.ts`と同じ形）を使う。最低限のケース: (1) spec.mdの例（WF/LSFが距離1、WSF/LQFが距離2）を`entrant1SourceMatchId`/`entrant2SourceMatchId`で構成し正しい距離が返ることを確認、(2) 勝者側から敗者側への「落ち」エッジ（`entrant2SourceMatchId`が別サイドの対戦を指す等）を含む構成で距離が正しく伝播することを確認、(3) 総当り形式（`bracketSide`が全て`"N/A"`）で空のMapが返ることを確認、(4) シングルイリミネーション（`LOSERS`側のカードが存在しない）で勝者側のみ距離が算出されることを確認。
+- [X] T002 `src/domain/rules/matchDistance.ts`を新規作成し、`computeMatchDistances(matchCards: MatchCard[]): Map<string, number>`をexportする。data-model.md §1のアルゴリズムに従う: (a) `bracketSide`（`"WINNERS"`/`"LOSERS"`）ごとに、その側に属するカードのうち`Math.abs(round)`が最大のものを基準点とし距離1を割り当てる（複数タイの場合は全て基準点にする）。(b) `entrant1SourceMatchId`/`entrant2SourceMatchId`が指す対戦を「出場元」とする有向辺（出場元→この対戦）を全カードから構築し、基準点群からの多始点BFSで逆方向（この対戦→出場元）にたどり、既に距離が確定した対戦の出場元となる各対戦に「+1」した距離を割り当てる（複数経路がある場合はBFSにより自動的に最短距離が採用される）。(c) `bracketSide`が全カードで`"N/A"`（総当り形式）の場合は空のMapを返す。
+- [X] T003 [P] `tests/unit/domain/rules/matchDistance.test.ts`を新規作成し、`computeMatchDistances`のユニットテストを書く。既存の`makeCard(overrides)`ヘルパーパターン（`tests/unit/domain/rules/nextMatchSuggestion.test.ts`と同じ形）を使う。最低限のケース: (1) spec.mdの例（WF/LSFが距離1、WSF/LQFが距離2）を`entrant1SourceMatchId`/`entrant2SourceMatchId`で構成し正しい距離が返ることを確認、(2) 勝者側から敗者側への「落ち」エッジ（`entrant2SourceMatchId`が別サイドの対戦を指す等）を含む構成で距離が正しく伝播することを確認、(3) 総当り形式（`bracketSide`が全て`"N/A"`）で空のMapが返ることを確認、(4) シングルイリミネーション（`LOSERS`側のカードが存在しない）で勝者側のみ距離が算出されることを確認。
 
 **Checkpoint**: `matchDistance.ts`が独立してテスト済みの状態になれば、US1・US2の実装を開始できる。
 
@@ -60,18 +60,19 @@ Single project構成（plan.mdのProject Structureを踏襲）:
 
 > **NOTE: 実装前にこれらのテストを書き、FAILすることを確認する**
 
-- [ ] T004 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、FR-001（適格条件）の新規テストケースを追加する: (a) `entrant1Id`または`entrant2Id`のいずれかが`null`の未着手カードが候補から除外されること（Acceptance Scenario 1）、(b) 不戦勝(BYE)相当（片方の枠のみ埋まっている）カードも同様に除外されること（Acceptance Scenario 2、ユーザー訂正済みの仕様）。既存の「両者確定済みなら候補になる」ケースは維持しつつ、除外系のケースを追加する。
-- [ ] T005 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、FR-004（遠さ優先）のテストケースを追加する: spec.mdの例（WF/LSF距離1・WSF/LQF距離2相当の`entrant1SourceMatchId`/`entrant2SourceMatchId`構成）で、WF/LSFがまだ出場者未確定、WSF/LQFが出場者確定済みの状態を作り、距離の大きいWSF/LQFが優先して候補になることを確認する（Acceptance Scenario 3）。
-- [ ] T006 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、FR-005（敗者側優先タイブレーク）のテストケースを追加する: 勝者側・敗者側で遠さが等しい出場者確定済みカードが1つずつあり、対戦台が1つしか空いていない状態で、敗者側のカードが優先されることを確認する（Acceptance Scenario 4）。
-- [ ] T007 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、FR-006（表示順タイブレーク）のテストケースを追加する: 遠さ・側とも等しい出場者確定済みカードが複数あり、`bracketLayout.ts`の`computeBracketLayout`が算出する`slot`が異なる状態で、`slot`が小さい（＝組合せ図上で上に表示される）方が優先されることを確認する（Acceptance Scenario 5）。テスト内で`computeBracketLayout`を呼び出して対象カードの`slot`差を検証してから、`computeNextMatchSuggestions`の結果と突き合わせる。
-- [ ] T008 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、プール開始直後（初戦のみ出場者確定済み）のテストケースを追加する: ラウンド1のみ出場者が確定しており、ラウンド2以降は未確定の状態で、候補が必ずラウンド1のカードの中から選ばれることを確認する（Acceptance Scenario 6）。
-- [ ] T009 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、FR-008（総当り・単一エリミネーションのフォールバック）のテストケースを追加する: `bracketSide`が全て`"N/A"`のカード群で、既存どおり`round`→`identifier`昇順で候補が決まること（距離ベースの優先順位が適用されないこと）を確認する。あわせて、`LOSERS`側のカードが1件も存在しない（シングルイリミネーション相当）構成で、勝者側のみで距離に基づく優先順位が正しく機能することも確認する。
+- [X] T004 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、FR-001（適格条件）の新規テストケースを追加する: (a) `entrant1Id`または`entrant2Id`のいずれかが`null`の未着手カードが候補から除外されること（Acceptance Scenario 1）、(b) 不戦勝(BYE)相当（片方の枠のみ埋まっている）カードも同様に除外されること（Acceptance Scenario 2、ユーザー訂正済みの仕様）。既存の「両者確定済みなら候補になる」ケースは維持しつつ、除外系のケースを追加する。
+- [X] T005 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、FR-004（遠さ優先）のテストケースを追加する: spec.mdの例（WF/LSF距離1・WSF/LQF距離2相当の`entrant1SourceMatchId`/`entrant2SourceMatchId`構成）で、WF/LSFがまだ出場者未確定、WSF/LQFが出場者確定済みの状態を作り、距離の大きいWSF/LQFが優先して候補になることを確認する（Acceptance Scenario 3）。
+- [X] T006 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、FR-005（敗者側優先タイブレーク）のテストケースを追加する: 勝者側・敗者側で遠さが等しい出場者確定済みカードが1つずつあり、対戦台が1つしか空いていない状態で、敗者側のカードが優先されることを確認する（Acceptance Scenario 4）。
+- [X] T007 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、FR-006（表示順タイブレーク）のテストケースを追加する: 遠さ・側とも等しい出場者確定済みカードが複数あり、`bracketLayout.ts`の`computeBracketLayout`が算出する`slot`が異なる状態で、`slot`が小さい（＝組合せ図上で上に表示される）方が優先されることを確認する（Acceptance Scenario 5）。テスト内で`computeBracketLayout`を呼び出して対象カードの`slot`差を検証してから、`computeNextMatchSuggestions`の結果と突き合わせる。
+- [X] T008 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、プール開始直後（初戦のみ出場者確定済み）のテストケースを追加する: ラウンド1のみ出場者が確定しており、ラウンド2以降は未確定の状態で、候補が必ずラウンド1のカードの中から選ばれることを確認する（Acceptance Scenario 6）。
+- [X] T009 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、FR-008（総当り・単一エリミネーションのフォールバック）のテストケースを追加する: `bracketSide`が全て`"N/A"`のカード群で、既存どおり`round`→`identifier`昇順で候補が決まること（距離ベースの優先順位が適用されないこと）を確認する。あわせて、`LOSERS`側のカードが1件も存在しない（シングルイリミネーション相当）構成で、勝者側のみで距離に基づく優先順位が正しく機能することも確認する。
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] `src/domain/rules/nextMatchSuggestion.ts`の`pickBest`を書き換える。（依存: T002）具体的には: (a) 適格条件に`card.entrant1Id !== null && card.entrant2Id !== null`を追加（既存の`status === "NOT_STARTED"`フィルタと組み合わせる）。(b) `matchDistance.ts`の`computeMatchDistances(matchCards)`を呼び出し、距離Mapを取得する。(c) 距離Mapが空（総当り形式、data-model.md §3）の場合は既存の`round`→`identifier`昇順ロジックをそのまま使う。(d) 距離Mapが非空の場合は、比較関数を「距離降順 → `bracketSide === "LOSERS"`優先 → `bracketLayout.ts`の`computeBracketLayout`から得た`slot`昇順 → `round`→`identifier`昇順（フォールバック）」の順に適用する。既存の`skippedFromSuggestion`による2群分け（`notSkipped`優先、全滅時のみスキップ済み群を使う）はそのまま維持し、新しい比較ロジックは各群内のソートにのみ適用する。
-- [ ] T011 [US1] `src/domain/rules/nextMatchSuggestion.ts`内で、`computeBracketLayout`（`bracketLayout.ts`からimport）の呼び出し結果から対戦カードID→`slot`の対応を作るヘルパー（ローカル関数で可、新規exportは不要）を追加し、T010の比較関数から参照できるようにする。`bracketLayout.ts`自体は変更しない（plan.mdのProject Structureどおり）。
-- [ ] T012 [US1] T004〜T009で追加したテストがすべてPASSすることを確認する。既存の（本feature以前からある）テストケースで、新しい適格条件・優先順位により意味が変わってしまうものがあれば、spec.mdの規則に合わせて更新する（過去の挙動保持が目的ではなく、正しい挙動への修正が目的であるため）。
+- [X] T010 [US1] `src/domain/rules/nextMatchSuggestion.ts`の`pickBest`を書き換える。（依存: T002）具体的には: (a) 適格条件に`card.entrant1Id !== null && card.entrant2Id !== null`を追加（既存の`status === "NOT_STARTED"`フィルタと組み合わせる）。(b) `matchDistance.ts`の`computeMatchDistances(matchCards)`を呼び出し、距離Mapを取得する。(c) 距離Mapが空（総当り形式、data-model.md §3）の場合は既存の`round`→`identifier`昇順ロジックをそのまま使う。(d) 距離Mapが非空の場合は、比較関数を「距離降順 → `bracketSide === "LOSERS"`優先 → `bracketLayout.ts`の`computeBracketLayout`から得た`slot`昇順 → `round`→`identifier`昇順（フォールバック）」の順に適用する。既存の`skippedFromSuggestion`による2群分け（`notSkipped`優先、全滅時のみスキップ済み群を使う）はそのまま維持し、新しい比較ロジックは各群内のソートにのみ適用する。
+- [X] T011 [US1] `src/domain/rules/nextMatchSuggestion.ts`内で、`computeBracketLayout`（`bracketLayout.ts`からimport）の呼び出し結果から対戦カードID→`slot`の対応を作るヘルパー（ローカル関数で可、新規exportは不要）を追加し、T010の比較関数から参照できるようにする。`bracketLayout.ts`自体は変更しない（plan.mdのProject Structureどおり）。
+- [X] T012 [US1] T004〜T009で追加したテストがすべてPASSすることを確認する。既存の（本feature以前からある）テストケースで、新しい適格条件・優先順位により意味が変わってしまうものがあれば、spec.mdの規則に合わせて更新する（過去の挙動保持が目的ではなく、正しい挙動への修正が目的であるため）。
+  - 実施結果: `tests/integration/features/match-progression.test.tsx`の「敗者側への反映」テストが、出場者2名のみのプールで敗者側対戦カード(J)が片方の枠(Bobのみ)しか埋まらない構成になっており、旧ロジックでは(誤って)次戦候補として自動提示されモーダルが開いていた。新しいFR-001の適格条件では正しく対象外となりモーダルが開かなくなるため、テストの前提コメントとアサーションを実際の挙動(モーダルは表示されない)に合わせて更新した。それ以外の既存テストケースは変更なしでPASS。
 
 **Checkpoint**: この時点でUser Story 1は独立して機能し、テスト可能な状態になっている（次戦候補の適格条件・優先順位が仕様どおりに動作する）。
 
@@ -87,12 +88,12 @@ Single project構成（plan.mdのProject Structureを踏襲）:
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T013 [P] [US2] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、対戦台が3つ設定されているが出場者両方確定済みの未着手カードが1つしかない状態のテストケースを追加し、1つの対戦台にのみ候補が提示され、残り2つの対戦台には候補が提示されず、かつ関数が例外を投げないことを確認する（Acceptance Scenario 1）。
-- [ ] T014 [P] [US2] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、出場者両方確定済みの未着手カードが1つもない状態のテストケースを追加し、`computeNextMatchSuggestions`が空配列を返すこと（どの対戦台にも候補が提示されないこと）を確認する（Acceptance Scenario 2）。
+- [X] T013 [P] [US2] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、対戦台が3つ設定されているが出場者両方確定済みの未着手カードが1つしかない状態のテストケースを追加し、1つの対戦台にのみ候補が提示され、残り2つの対戦台には候補が提示されず、かつ関数が例外を投げないことを確認する（Acceptance Scenario 1）。
+- [X] T014 [P] [US2] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`に、出場者両方確定済みの未着手カードが1つもない状態のテストケースを追加し、`computeNextMatchSuggestions`が空配列を返すこと（どの対戦台にも候補が提示されないこと）を確認する（Acceptance Scenario 2）。
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] T013〜T014を実行し、FAILする場合のみ`src/domain/rules/nextMatchSuggestion.ts`の対戦台ループ処理を調整する。（想定: 既存ループ構造で既にPASSするはずのため、追加実装は不要な可能性が高い。PASSする場合はこのタスクは検証のみで完了とする。）
+- [X] T015 [US2] T013〜T014を実行し、FAILする場合のみ`src/domain/rules/nextMatchSuggestion.ts`の対戦台ループ処理を調整する。（想定: 既存ループ構造で既にPASSするはずのため、追加実装は不要な可能性が高い。PASSする場合はこのタスクは検証のみで完了とする。）
 
 **Checkpoint**: User Story 1・2の両方が独立して機能する状態になる。
 
@@ -102,10 +103,10 @@ Single project構成（plan.mdのProject Structureを踏襲）:
 
 **Purpose**: 全体の整合性確認と最終検証。
 
-- [ ] T016 [P] リポジトリ全体で`npm run lint`（Biome）を実行し、新規・変更ファイル（`matchDistance.ts`, `nextMatchSuggestion.ts`, 対応するテストファイル）に指摘がないことを確認する。
-- [ ] T017 [P] `npx tsc --noEmit`でTypeScript strictモードの型チェックが通ることを確認する（`any`不使用、plan.mdのConstitution Check原則Iに対応）。
-- [ ] T018 `npx vitest run`でテストスイート全体を実行し、T003〜T009・T013〜T014の新規テストを含む全テストがPASSすることを確認する（既知の`tests/integration/features/admin.test.tsx`のフレーク以外に失敗がないこと）。
-- [ ] T019 quickstart.mdのシナリオ1〜6を、実際の開発サーバー（`npm run dev`）またはstart.gg同期済みテストプールで手動確認する（可能な範囲で。特にシナリオ2〜4は組合せ図上での目視確認が有効）。
+- [X] T016 [P] リポジトリ全体で`npm run lint`（Biome）を実行し、新規・変更ファイル（`matchDistance.ts`, `nextMatchSuggestion.ts`, 対応するテストファイル）に指摘がないことを確認する。
+- [X] T017 [P] `npx tsc --noEmit`でTypeScript strictモードの型チェックが通ることを確認する（`any`不使用、plan.mdのConstitution Check原則Iに対応）。
+- [X] T018 `npx vitest run`でテストスイート全体を実行し、T003〜T009・T013〜T014の新規テストを含む全テストがPASSすることを確認する（既知の`tests/integration/features/admin.test.tsx`のフレーク以外に失敗がないこと）。
+- [X] T019 quickstart.mdのシナリオ1〜6を、実際の開発サーバー（`npm run dev`）またはstart.gg同期済みテストプールで手動確認する（可能な範囲で。特にシナリオ2〜4は組合せ図上での目視確認が有効）。
 
 ---
 

@@ -247,9 +247,10 @@ describe("Loser drop into the losers bracket (FR-023)", () => {
     await selectScore(user, "Alice", "1");
     await user.click(screen.getByRole("button", { name: "結果を確定" }));
 
-    // 結果確定直後は次戦候補のモーダルが自動表示される(FR-022)ため、
-    // 一覧側の要素を一意に特定できるよう閉じておく。
-    await user.click(await screen.findByRole("button", { name: "閉じる" }));
+    // このプールは出場者が2名しかおらず、Jはentrant1(Bob)しか埋まらない
+    // (対戦相手が存在しない、不戦勝相当の状態)。003-next-match-priority-fix
+    // のFR-001により、両方の枠が確定していない対戦は次戦候補として自動
+    // 表示されないため、次戦候補モーダルは表示されない。
 
     await screen.findByText("J");
     const db = await getDb();
