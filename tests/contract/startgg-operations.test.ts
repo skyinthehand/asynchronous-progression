@@ -2,13 +2,16 @@ import type { GraphQLClient } from "graphql-request";
 import { describe, expect, it, vi } from "vitest";
 import type { MatchCard } from "../../src/domain/entities/matchCard.js";
 import {
+  assignStationToSet,
   buildReportBracketSetInput,
   fetchNextMatch,
   fetchPoolDetail,
+  fetchStations,
   fetchTournamentRules,
   listMyTournaments,
   listPhasePools,
   listTournamentEvents,
+  markSetInProgress,
   reportMatchResult,
 } from "../../src/infra/startgg/operations.js";
 
@@ -36,6 +39,7 @@ function makeCard(overrides: Partial<MatchCard>): MatchCard {
     entrant2DQ: false,
     entrant1W: false,
     entrant2W: false,
+    statusLocalOnly: false,
     ...overrides,
   };
 }
@@ -638,5 +642,69 @@ describe("buildReportBracketSetInput", () => {
       winnerId: "e1",
       isDQ: false,
     });
+  });
+});
+
+describe("Q5: fetchStations", () => {
+  it("maps Tournament.stations into number-keyed StationOptions", async () => {
+    const client = fakeClient({
+      tournament: {
+        stations: {
+          nodes: [
+            { id: 900, number: 1 },
+            { id: 901, number: 2 },
+          ],
+        },
+      },
+    });
+
+    const stations = await fetchStations(client, "impact-major-4");
+
+    expect(stations).toEqual([
+      { stationId: "900", number: "1" },
+      { stationId: "901", number: "2" },
+    ]);
+  });
+
+  it("excludes stations without a number", async () => {
+    const client = fakeClient({
+      tournament: {
+        stations: { nodes: [{ id: 900, number: null }] },
+      },
+    });
+
+    expect(await fetchStations(client, "impact-major-4")).toEqual([]);
+  });
+});
+
+describe("M2: markSetInProgress (2026-08-13: reflect in-progress status to start.gg)", () => {
+  it("sends the setId as a mutation variable", async () => {
+    const requestMock = vi
+      .fn()
+      .mockResolvedValue({ markSetInProgress: { id: 5000, state: 2 } });
+    const client = { request: requestMock } as unknown as GraphQLClient;
+
+    await markSetInProgress(client, "5000");
+
+    expect(requestMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ setId: "5000" }),
+    );
+  });
+});
+
+describe("M3: assignStationToSet (2026-08-13: reflect table number to start.gg)", () => {
+  it("sends setId/stationId as mutation variables", async () => {
+    const requestMock = vi
+      .fn()
+      .mockResolvedValue({ assignStation: { id: 5000 } });
+    const client = { request: requestMock } as unknown as GraphQLClient;
+
+    await assignStationToSet(client, "5000", "900");
+
+    expect(requestMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ setId: "5000", stationId: "900" }),
+    );
   });
 });

@@ -40,5 +40,5 @@ export async function getPendingMatchCards(
   poolId: string,
 ): Promise<MatchCard[]> {
   const all = await getMatchCardsByPool(poolId);
-  return all.filter((card) => card.localOnly);
+  return all.filter((card) => card.localOnly || card.statusLocalOnly);
 }

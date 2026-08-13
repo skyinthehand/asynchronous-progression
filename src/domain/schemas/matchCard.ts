@@ -65,6 +65,15 @@ export const MatchCardSchema = z.object({
    */
   entrant1W: z.boolean().default(false),
   entrant2W: z.boolean().default(false),
+  /**
+   * ユーザーフィードバック(2026-08-13): 対戦を「進行中にする」際、
+   * ステータス(IN_PROGRESS)と対戦台番号をstartgg側にも反映できるように
+   * する。winnerId(結果)の送信キューであるlocalOnlyとは別に管理する
+   * (対戦台番号のみの変更にlocalOnlyを流用すると、結果確定までの間
+   * 他のフィールドの同期が永久に止まってしまう問題が過去にあったため。
+   * syncRunner.tsのmergeMatchCard参照)。
+   */
+  statusLocalOnly: z.boolean().default(false),
 });
 
 export type MatchCard = z.infer<typeof MatchCardSchema>;

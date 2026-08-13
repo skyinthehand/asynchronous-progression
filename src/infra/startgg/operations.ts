@@ -455,6 +455,7 @@ export async function fetchPoolDetail(
       entrant2DQ: false,
       entrant1W: false,
       entrant2W: false,
+      statusLocalOnly: false,
     };
   });
 
@@ -559,6 +560,66 @@ export async function fetchTournamentRules(
   });
   const parsed = TournamentRulesResponseSchema.parse(raw);
   return parsed.tournament?.rules ?? "";
+}
+
+// --- Q5: tournament stations (for table-number → station-id resolution) ---
+
+const StationNodeSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  number: z.union([z.string(), z.number()]).nullable(),
+});
+
+const TournamentStationsResponseSchema = z.object({
+  tournament: z
+    .object({
+      stations: z.object({ nodes: z.array(StationNodeSchema) }).nullable(),
+    })
+    .nullable(),
+});
+
+const TOURNAMENT_STATIONS_QUERY = /* GraphQL */ `
+  query TournamentStations($slug: String!, $perPage: Int!) {
+    tournament(slug: $slug) {
+      stations(perPage: $perPage) {
+        nodes {
+          id
+          number
+        }
+      }
+    }
+  }
+`;
+
+const STATIONS_PER_PAGE = 100;
+
+export interface StationOption {
+  stationId: string;
+  number: string;
+}
+
+/**
+ * ユーザーフィードバック(2026-08-13): 対戦を「進行中にする」際、
+ * ローカルの対戦台番号(単純な数値ラベル)をstart.ggの`assignStation`
+ * mutationへ渡すには、ラベルではなくstart.gg側のStation.id(内部ID)が
+ * 必要になる。この対応表を得るためのクエリ。トーナメント全体で共通の
+ * Station一覧のため、プール単位ではなくtournamentSlugで取得する。
+ */
+export async function fetchStations(
+  client: GraphQLClient,
+  tournamentSlug: string,
+): Promise<StationOption[]> {
+  const raw = await client.request(TOURNAMENT_STATIONS_QUERY, {
+    slug: tournamentSlug,
+    perPage: STATIONS_PER_PAGE,
+  });
+  const parsed = TournamentStationsResponseSchema.parse(raw);
+  const nodes = parsed.tournament?.stations?.nodes ?? [];
+  return nodes
+    .filter(
+      (node): node is typeof node & { number: string | number } =>
+        node.number !== null,
+    )
+    .map((node) => ({ stationId: node.id, number: String(node.number) }));
 }
 
 // --- M1: report/edit a match result ---
@@ -672,4 +733,67 @@ export async function reportMatchResult(
     score: updated?.displayScore ?? null,
     status: toMatchCardStatus(updated?.state ?? null),
   };
+}
+
+// --- M2: mark a set as in-progress (called) ---
+
+const MarkSetInProgressResponseSchema = z.object({
+  markSetInProgress: z.object({
+    id: z.union([z.string(), z.number()]).transform(String),
+    state: z.number().nullable(),
+  }),
+});
+
+const MARK_SET_IN_PROGRESS_MUTATION = /* GraphQL */ `
+  mutation MarkSetInProgress($setId: ID!) {
+    markSetInProgress(setId: $setId) {
+      id
+      state
+    }
+  }
+`;
+
+/**
+ * M2: 対戦を「進行中にする」際、startgg側にもステータス(呼び出し済み/
+ * 進行中)を反映する(ユーザーフィードバック2026-08-13)。
+ */
+export async function markSetInProgress(
+  client: GraphQLClient,
+  setId: string,
+): Promise<void> {
+  const raw = await client.request(MARK_SET_IN_PROGRESS_MUTATION, { setId });
+  MarkSetInProgressResponseSchema.parse(raw);
+}
+
+// --- M3: assign a station (table) to a set ---
+
+const AssignStationResponseSchema = z.object({
+  assignStation: z.object({
+    id: z.union([z.string(), z.number()]).transform(String),
+  }),
+});
+
+const ASSIGN_STATION_MUTATION = /* GraphQL */ `
+  mutation AssignStation($setId: ID!, $stationId: ID!) {
+    assignStation(setId: $setId, stationId: $stationId) {
+      id
+    }
+  }
+`;
+
+/**
+ * M3: 対戦を「進行中にする」際、ローカルで設定済みの対戦台番号を
+ * (Q5で解決したstation idを使って)startgg側にも反映する
+ * (ユーザーフィードバック2026-08-13)。
+ */
+export async function assignStationToSet(
+  client: GraphQLClient,
+  setId: string,
+  stationId: string,
+): Promise<void> {
+  const raw = await client.request(ASSIGN_STATION_MUTATION, {
+    setId,
+    stationId,
+  });
+  AssignStationResponseSchema.parse(raw);
 }

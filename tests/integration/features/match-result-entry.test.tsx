@@ -280,6 +280,31 @@ describe('"In Progress" status is optional (User Story 4)', () => {
     expect(
       within(row).queryByRole("button", { name: "進行中にする" }),
     ).not.toBeInTheDocument();
+
+    // ユーザーフィードバック(2026-08-13): 進行中への変更はstartgg側にも
+    // 反映する必要があるため、送信待ちであることをstatusLocalOnlyで
+    // 記録しておく(syncRunner.tsのrunSyncが送信する)。
+    const db = await getDb();
+    const card = await db.get("matchCards", "card-1");
+    expect(card?.statusLocalOnly).toBe(true);
+  });
+
+  it("clears statusLocalOnly once a result is confirmed after being set in-progress (2026-08-13)", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const identifier = await screen.findByText("R1-1");
+    const row = identifier.closest("tr");
+    if (!row) throw new Error("R1-1 row not found");
+    await user.click(within(row).getByRole("button", { name: "進行中にする" }));
+    await selectScore(user, row, "Alice", "1");
+    await user.click(within(row).getByRole("button", { name: "結果を確定" }));
+
+    const db = await getDb();
+    const card = await db.get("matchCards", "card-1");
+    expect(card?.status).toBe("COMPLETED");
+    expect(card?.statusLocalOnly).toBe(false);
   });
 
   it("still allows confirming a result directly, without going through in-progress (Acceptance Scenario 2)", async () => {

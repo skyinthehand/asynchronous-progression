@@ -14,6 +14,9 @@ vi.mock("../../../src/infra/startgg/operations.js", async (importOriginal) => {
     fetchTournamentRules: vi.fn().mockResolvedValue(""),
     fetchPoolDetail: vi.fn(),
     reportMatchResult: vi.fn(),
+    markSetInProgress: vi.fn().mockResolvedValue(undefined),
+    assignStationToSet: vi.fn().mockResolvedValue(undefined),
+    fetchStations: vi.fn().mockResolvedValue([]),
   };
 });
 
@@ -79,6 +82,9 @@ describe("Background sync and offline notification (User Story 3)", () => {
     await seedConfigAndPool();
     vi.mocked(operations.fetchPoolDetail).mockReset();
     vi.mocked(operations.reportMatchResult).mockReset();
+    vi.mocked(operations.markSetInProgress).mockClear();
+    vi.mocked(operations.assignStationToSet).mockClear();
+    vi.mocked(operations.fetchStations).mockClear();
   });
 
   it("marks pending results as reflected after a successful sync", async () => {
@@ -329,6 +335,159 @@ describe("Background sync and offline notification (User Story 3)", () => {
     // 正常な保留と区別し、真の繰り返し失敗を検知できるようにするため)。
     expect(status?.lastSuccessAt).toBe(staleSuccessAt);
     expect(status?.isStale).toBe(true);
+  });
+
+  it("pushes IN_PROGRESS status and the assigned table (station) to start.gg (2026-08-13)", async () => {
+    const db = await getDb();
+    await db.put("matchCards", {
+      id: "card-2",
+      poolId: "pool-1",
+      identifier: "R1-2",
+      round: 1,
+      bracketSide: "N/A",
+      tableNumber: "1",
+      entrant1Id: "e3",
+      entrant2Id: "e4",
+      winnerId: null,
+      score: null,
+      status: "IN_PROGRESS",
+      isLocked: false,
+      editHistory: [],
+      localOnly: false,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
+      statusLocalOnly: true,
+    });
+    vi.mocked(operations.fetchStations).mockResolvedValue([
+      { stationId: "900", number: "1" },
+      { stationId: "901", number: "2" },
+    ]);
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+      poolId: "pool-1",
+      displayIdentifier: "Pool 1",
+      bracketType: "ROUND_ROBIN",
+      matchCards: [],
+      entrants: [],
+    });
+
+    await runSync();
+
+    expect(operations.markSetInProgress).toHaveBeenCalledWith(
+      expect.anything(),
+      "card-2",
+    );
+    expect(operations.assignStationToSet).toHaveBeenCalledWith(
+      expect.anything(),
+      "card-2",
+      "900",
+    );
+    const card = await db.get("matchCards", "card-2");
+    expect(card?.statusLocalOnly).toBe(false);
+  });
+
+  it("clears statusLocalOnly (does not retry forever) when the local table number has no matching start.gg station", async () => {
+    const db = await getDb();
+    await db.put("matchCards", {
+      id: "card-2",
+      poolId: "pool-1",
+      identifier: "R1-2",
+      round: 1,
+      bracketSide: "N/A",
+      tableNumber: "99",
+      entrant1Id: "e3",
+      entrant2Id: "e4",
+      winnerId: null,
+      score: null,
+      status: "IN_PROGRESS",
+      isLocked: false,
+      editHistory: [],
+      localOnly: false,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
+      statusLocalOnly: true,
+    });
+    vi.mocked(operations.fetchStations).mockResolvedValue([
+      { stationId: "900", number: "1" },
+    ]);
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+      poolId: "pool-1",
+      displayIdentifier: "Pool 1",
+      bracketType: "ROUND_ROBIN",
+      matchCards: [],
+      entrants: [],
+    });
+
+    await runSync();
+
+    expect(operations.markSetInProgress).toHaveBeenCalledWith(
+      expect.anything(),
+      "card-2",
+    );
+    expect(operations.assignStationToSet).not.toHaveBeenCalled();
+    const card = await db.get("matchCards", "card-2");
+    expect(card?.statusLocalOnly).toBe(false);
+  });
+
+  it("does not let a stale remote snapshot revert a locally in-progress status before it has been pushed", async () => {
+    // mergeMatchCardのstatus保護: statusLocalOnlyがtrueの間は、startgg側の
+    // 古いstatus(NOT_STARTED)で上書きしない。
+    const db = await getDb();
+    await db.put("matchCards", {
+      id: "card-2",
+      poolId: "pool-1",
+      identifier: "R1-2",
+      round: 1,
+      bracketSide: "N/A",
+      tableNumber: null,
+      entrant1Id: "e3",
+      entrant2Id: "e4",
+      winnerId: null,
+      score: null,
+      status: "IN_PROGRESS",
+      isLocked: false,
+      editHistory: [],
+      localOnly: false,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
+      statusLocalOnly: true,
+    });
+    // M2の送信自体は失敗する(まだstartgg側は知らない)想定。
+    vi.mocked(operations.markSetInProgress).mockRejectedValueOnce(
+      new Error("network error"),
+    );
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+      poolId: "pool-1",
+      displayIdentifier: "Pool 1",
+      bracketType: "ROUND_ROBIN",
+      matchCards: [
+        {
+          id: "card-2",
+          poolId: "pool-1",
+          identifier: "R1-2",
+          round: 1,
+          bracketSide: "N/A",
+          tableNumber: null,
+          entrant1Id: "e3",
+          entrant2Id: "e4",
+          winnerId: null,
+          score: null,
+          status: "NOT_STARTED",
+          isLocked: false,
+          editHistory: [],
+          localOnly: false,
+          entrant1SourceMatchId: null,
+          entrant2SourceMatchId: null,
+          statusLocalOnly: false,
+        },
+      ],
+      entrants: [],
+    });
+
+    await runSync();
+
+    const card = await db.get("matchCards", "card-2");
+    expect(card?.status).toBe("IN_PROGRESS"); // startgg側のNOT_STARTEDで巻き戻らない
+    expect(card?.statusLocalOnly).toBe(true); // 次回同期で再送信される
   });
 
   it("shows a snackbar when SyncStatus is stale and hides it once resolved", async () => {

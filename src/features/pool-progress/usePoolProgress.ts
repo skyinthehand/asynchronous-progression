@@ -249,6 +249,11 @@ export function usePoolProgress(): UsePoolProgressResult {
         score: result.score,
         status: "COMPLETED",
         localOnly: true,
+        // 結果確定によりステータスはCOMPLETEDへ確定するため、進行中送信
+        // (statusLocalOnly)は不要になる。M1(reportMatchResult)の送信で
+        // status/scoreはまとめて反映されるため、ここで残しておくと
+        // markSetInProgressへの無意味な再送信が発生してしまう。
+        statusLocalOnly: false,
       };
       const replaced = matchCards.map((card) =>
         card.id === matchCardId ? updated : card,
@@ -318,6 +323,10 @@ export function usePoolProgress(): UsePoolProgressResult {
         ...target,
         status: "IN_PROGRESS",
         tableNumber: tableNumber ?? target.tableNumber,
+        // ユーザーフィードバック(2026-08-13): 進行中への変更・対戦台番号を
+        // startgg側にも反映できるようにする(syncRunner.tsのrunSyncが
+        // markSetInProgress/assignStationToSetで送信するまでのキュー)。
+        statusLocalOnly: true,
       };
       const nextCards = matchCards.map((card) =>
         card.id === matchCardId ? updated : card,
@@ -350,7 +359,11 @@ export function usePoolProgress(): UsePoolProgressResult {
       if (isPreviewMode) return;
       const target = matchCards.find((card) => card.id === matchCardId);
       if (!target || target.status !== "NOT_STARTED") return;
-      const updated: MatchCard = { ...target, status: "IN_PROGRESS" };
+      const updated: MatchCard = {
+        ...target,
+        status: "IN_PROGRESS",
+        statusLocalOnly: true,
+      };
       await saveMatchCard(updated);
       setMatchCards((prev) =>
         prev.map((card) => (card.id === matchCardId ? updated : card)),

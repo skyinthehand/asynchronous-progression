@@ -5,9 +5,12 @@ import { computePoolFinished } from "../../domain/rules/poolFinished.js";
 import { isPreviewSetId } from "../../domain/rules/previewId.js";
 import { createStartggClient } from "../../infra/startgg/client.js";
 import {
+  assignStationToSet,
   buildReportBracketSetInput,
   fetchNextMatch,
   fetchPoolDetail,
+  fetchStations,
+  markSetInProgress,
   reportMatchResult,
 } from "../../infra/startgg/operations.js";
 import {
@@ -65,6 +68,12 @@ export function mergeMatchCard(
     entrant2DQ: local.entrant2DQ,
     entrant1W: local.entrant1W,
     entrant2W: local.entrant2W,
+    // ユーザーフィードバック(2026-08-13): 「進行中にする」操作で設定した
+    // ステータスも、送信(M2/M3)が完了するまではstartgg側の古い値
+    // (NOT_STARTED等)で上書きされないよう、tableNumberと同様に常に
+    // ローカル優先で判定する。
+    status: local.statusLocalOnly ? local.status : remote.status,
+    statusLocalOnly: local.statusLocalOnly,
   };
 }
 
@@ -99,6 +108,7 @@ export async function runSync(): Promise<SyncResult> {
     return { success: false, error: "対象プールまたはトークンが未設定です" };
   }
   const poolId = config.poolId;
+  const tournamentSlug = config.tournamentSlug;
 
   try {
     const client = createStartggClient(config.syncToken);
@@ -109,29 +119,73 @@ export async function runSync(): Promise<SyncResult> {
     // 各カードを個別に試行し、失敗を蓄積して次のカードへ処理を継続する。
     const pending = await getPendingMatchCards(poolId);
     const pushErrors: string[] = [];
+
+    // ユーザーフィードバック(2026-08-13): 「進行中にする」操作の対戦台
+    // 番号(単純な数値ラベル)をstartggのassignStationへ渡すには、station
+    // idが必要。対戦台番号→station idの対応表は、statusLocalOnlyの
+    // カードが実際にある場合のみ(かつ1回だけ)取得する。
+    let stationIdByNumber: Map<string, string> | null = null;
+    async function resolveStationId(number: string): Promise<string | null> {
+      if (!tournamentSlug) return null;
+      if (stationIdByNumber === null) {
+        const stations = await fetchStations(client, tournamentSlug);
+        stationIdByNumber = new Map(
+          stations.map((station) => [station.number, station.stationId]),
+        );
+      }
+      return stationIdByNumber.get(number) ?? null;
+    }
+
     for (const card of pending) {
-      if (!card.winnerId) continue;
       if (isPreviewSetId(card.id)) {
         // start.gg側でブラケットがまだ「開始」されておらず、実IDが
         // 割り当てられていない状態(FR: プレビューモード)。エラーには
         // せず、開始後の同期で改めて送信されるのを待つ。
         continue;
       }
-      try {
-        const outcome = await reportMatchResult(
-          client,
-          buildReportBracketSetInput(card),
-        );
-        await saveMatchCard({
-          ...card,
-          winnerId: outcome.winnerId ?? card.winnerId,
-          score: outcome.score ?? card.score,
-          status: outcome.status,
-          localOnly: false,
-        });
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        pushErrors.push(`${card.identifier}: ${reason}`);
+
+      if (card.localOnly && card.winnerId) {
+        try {
+          const outcome = await reportMatchResult(
+            client,
+            buildReportBracketSetInput(card),
+          );
+          await saveMatchCard({
+            ...card,
+            winnerId: outcome.winnerId ?? card.winnerId,
+            score: outcome.score ?? card.score,
+            status: outcome.status,
+            localOnly: false,
+          });
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          pushErrors.push(`${card.identifier}: ${reason}`);
+        }
+      }
+
+      if (card.statusLocalOnly) {
+        // ユーザーフィードバック(2026-08-13): 対戦を「進行中にする」際、
+        // ステータス(M2: markSetInProgress)と対戦台番号(M3:
+        // assignStation)をstartgg側にも反映する。対戦台番号が
+        // ローカル独自の値でstart.gg側に対応するstationが存在しない
+        // 場合は、そのカードのstation割り当てだけを諦める(エラーには
+        // しない。markSetInProgress自体は送信済みなのでstatusLocalOnly
+        // はクリアする)。
+        try {
+          if (card.status === "IN_PROGRESS") {
+            await markSetInProgress(client, card.id);
+          }
+          if (card.tableNumber !== null) {
+            const stationId = await resolveStationId(card.tableNumber);
+            if (stationId) {
+              await assignStationToSet(client, card.id, stationId);
+            }
+          }
+          await saveMatchCard({ ...card, statusLocalOnly: false });
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          pushErrors.push(`${card.identifier}: ${reason}`);
+        }
       }
     }
 
