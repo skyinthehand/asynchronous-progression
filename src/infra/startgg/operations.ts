@@ -567,6 +567,14 @@ export const ReportBracketSetInputSchema = z.object({
   setId: z.string().min(1),
   winnerId: z.string().min(1),
   isDQ: z.boolean().optional(),
+  gameData: z
+    .array(
+      z.object({
+        gameNum: z.number().int().positive(),
+        winnerId: z.string().min(1),
+      }),
+    )
+    .optional(),
 });
 
 const ReportBracketSetResponseSchema = z.object({
@@ -581,8 +589,18 @@ const ReportBracketSetResponseSchema = z.object({
 });
 
 const REPORT_BRACKET_SET_MUTATION = /* GraphQL */ `
-  mutation ReportBracketSet($setId: ID!, $winnerId: ID!, $isDQ: Boolean) {
-    reportBracketSet(setId: $setId, winnerId: $winnerId, isDQ: $isDQ) {
+  mutation ReportBracketSet(
+    $setId: ID!
+    $winnerId: ID!
+    $isDQ: Boolean
+    $gameData: [BracketSetGameDataInput]
+  ) {
+    reportBracketSet(
+      setId: $setId
+      winnerId: $winnerId
+      isDQ: $isDQ
+      gameData: $gameData
+    ) {
       id
       winnerId
       displayScore
@@ -595,6 +613,46 @@ export interface ReportResultOutcome {
   winnerId: string | null;
   score: string | null;
   status: MatchCard["status"];
+}
+
+/**
+ * ユーザーフィードバック(2026-08-13): reportMatchResult呼び出し側が
+ * winnerIdしか渡していなかったため、start.gg側に勝者のみ登録されスコアが
+ * 反映されない不具合があった。MatchCardのスコア/DQ/W(002-match-scoring-
+ * and-flow)からreportBracketSetの入力を組み立てる。
+ *
+ * - DQ: 実際にゲームは行われていないため`gameData`は送らず`isDQ: true`のみ。
+ * - W(スコア不明の勝ちのみ判明): 存在しないスコアを捏造できないため
+ *   `gameData`は送らない。
+ * - 通常のスコア入力: `gameData`をentrant1Score+entrant2Score件の
+ *   `{gameNum, winnerId}`に展開する(entrant1の勝ち数分→entrant2の勝ち数分
+ *   の順)。resolveMatchResult()が同点を既にエラーとして弾いているため、
+ *   ここに到達する時点でスコアが同点になることはない。
+ */
+export function buildReportBracketSetInput(
+  card: MatchCard,
+): z.infer<typeof ReportBracketSetInputSchema> {
+  const winnerId = card.winnerId ?? "";
+  if (card.entrant1DQ || card.entrant2DQ) {
+    return { setId: card.id, winnerId, isDQ: true };
+  }
+  if (card.entrant1W || card.entrant2W) {
+    return { setId: card.id, winnerId, isDQ: false };
+  }
+  const entrant1Wins = card.entrant1Score ?? 0;
+  const entrant2Wins = card.entrant2Score ?? 0;
+  const gameData = [
+    ...Array.from({ length: entrant1Wins }, () => card.entrant1Id),
+    ...Array.from({ length: entrant2Wins }, () => card.entrant2Id),
+  ]
+    .filter((entrantId): entrantId is string => entrantId !== null)
+    .map((entrantId, index) => ({ gameNum: index + 1, winnerId: entrantId }));
+  return {
+    setId: card.id,
+    winnerId,
+    isDQ: false,
+    gameData: gameData.length > 0 ? gameData : undefined,
+  };
 }
 
 /** M1: 対戦結果の報告・修正 */

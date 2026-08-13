@@ -16,6 +16,7 @@ interface MatchCardListProps {
     tableNumber: string | null,
   ) => Promise<boolean>;
   onSetInProgress: (matchCardId: string) => void;
+  readOnly?: boolean;
 }
 
 /**
@@ -31,6 +32,7 @@ export function MatchCardList({
   onRecordResult,
   onAssignTable,
   onSetInProgress,
+  readOnly,
 }: MatchCardListProps) {
   const entrantById = new Map(entrants.map((entrant) => [entrant.id, entrant]));
   const tableNumbers = pool?.tableNumbers ?? [];
@@ -59,6 +61,7 @@ export function MatchCardList({
           tableNumbers={tableNumbers}
           onAssignTable={onAssignTable}
           onSetInProgress={onSetInProgress}
+          readOnly={readOnly}
         />
       ) : (
         <MatchTable
@@ -69,6 +72,7 @@ export function MatchCardList({
           tableNumbers={tableNumbers}
           onAssignTable={onAssignTable}
           onSetInProgress={onSetInProgress}
+          readOnly={readOnly}
         />
       )}
     </section>

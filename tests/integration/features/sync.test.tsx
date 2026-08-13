@@ -4,11 +4,18 @@ import { SyncStatusSnackbar } from "../../../src/features/sync/SyncStatusSnackba
 import { runSync } from "../../../src/features/sync/syncRunner.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
 
-vi.mock("../../../src/infra/startgg/operations.js", () => ({
-  fetchTournamentRules: vi.fn().mockResolvedValue(""),
-  fetchPoolDetail: vi.fn(),
-  reportMatchResult: vi.fn(),
-}));
+vi.mock("../../../src/infra/startgg/operations.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("../../../src/infra/startgg/operations.js")
+    >();
+  return {
+    ...actual,
+    fetchTournamentRules: vi.fn().mockResolvedValue(""),
+    fetchPoolDetail: vi.fn(),
+    reportMatchResult: vi.fn(),
+  };
+});
 
 const operations = await import("../../../src/infra/startgg/operations.js");
 
@@ -217,6 +224,16 @@ describe("Background sync and offline notification (User Story 3)", () => {
     vi.mocked(operations.reportMatchResult).mockRejectedValue(
       new Error("network error"),
     );
+    // ユーザーフィードバック(2026-08-13): 送信失敗(1件)があっても、
+    // それ以降のfetchPoolDetail以降(取得・マージ)は引き続き実行される
+    // ため、このテストでも正常なレスポンスをモックしておく。
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+      poolId: "pool-1",
+      displayIdentifier: "Pool 1",
+      bracketType: "ROUND_ROBIN",
+      matchCards: [],
+      entrants: [],
+    });
 
     await runSync();
 
@@ -224,7 +241,94 @@ describe("Background sync and offline notification (User Story 3)", () => {
     const card = await db.get("matchCards", "card-1");
     expect(card?.localOnly).toBe(true); // ローカルデータは失われない
     const status = await db.get("syncStatus", "pool-1");
-    expect(status?.lastFailureReason).toBe("network error");
+    expect(status?.lastFailureReason).toBe("R1-1: network error");
+  });
+
+  it("skips preview-id cards (start.gg bracket not started yet) but still pushes other pending cards and completes fetch/merge", async () => {
+    // ユーザーフィードバック(2026-08-13): preview IDへの送信は
+    // 「Must start bracket before performing action」で拒否される。
+    // これはエラー扱いにせず、他の非preview保留カードの送信・
+    // fetchPoolDetail以降のマージ処理は正常に続行する。
+    const db = await getDb();
+    await db.put("matchCards", {
+      id: "preview_pool-1_1_0",
+      poolId: "pool-1",
+      identifier: "R1-2",
+      round: 1,
+      bracketSide: "N/A",
+      tableNumber: null,
+      entrant1Id: "e3",
+      entrant2Id: "e4",
+      winnerId: "e3",
+      score: null,
+      status: "COMPLETED",
+      isLocked: false,
+      editHistory: [],
+      localOnly: true,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
+    });
+
+    vi.mocked(operations.reportMatchResult).mockResolvedValue({
+      winnerId: "e1",
+      score: null,
+      status: "COMPLETED",
+    });
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+      poolId: "pool-1",
+      displayIdentifier: "Pool 1",
+      bracketType: "ROUND_ROBIN",
+      matchCards: [],
+      entrants: [],
+    });
+
+    await runSync();
+
+    // preview IDのカードは送信対象から除外される(reportMatchResultは
+    // 非previewのcard-1の分だけ1回呼ばれる)。
+    expect(operations.reportMatchResult).toHaveBeenCalledTimes(1);
+    const previewCard = await db.get("matchCards", "preview_pool-1_1_0");
+    expect(previewCard?.localOnly).toBe(true);
+
+    const card = await db.get("matchCards", "card-1");
+    expect(card?.localOnly).toBe(false);
+
+    // preview IDの保留が残っていても、これはエラーではないため
+    // syncStatusはstaleにならない。
+    const status = await db.get("syncStatus", "pool-1");
+    expect(status?.lastSuccessAt).not.toBeNull();
+    expect(status?.isStale).toBe(false);
+  });
+
+  it("does not refresh lastSuccessAt on a genuine push failure, so repeated failures correctly become stale", async () => {
+    const db = await getDb();
+    const staleSuccessAt = new Date(Date.now() - 10 * 60_000).toISOString();
+    await db.put("syncStatus", {
+      poolId: "pool-1",
+      lastSuccessAt: staleSuccessAt,
+      lastFailureAt: null,
+      lastFailureReason: null,
+      pendingChangeCount: 1,
+      isStale: false,
+    });
+    vi.mocked(operations.reportMatchResult).mockRejectedValue(
+      new Error("timeout"),
+    );
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+      poolId: "pool-1",
+      displayIdentifier: "Pool 1",
+      bracketType: "ROUND_ROBIN",
+      matchCards: [],
+      entrants: [],
+    });
+
+    await runSync();
+
+    const status = await db.get("syncStatus", "pool-1");
+    // 完全な成功ではないためlastSuccessAtは更新しない(preview ID待ちの
+    // 正常な保留と区別し、真の繰り返し失敗を検知できるようにするため)。
+    expect(status?.lastSuccessAt).toBe(staleSuccessAt);
+    expect(status?.isStale).toBe(true);
   });
 
   it("shows a snackbar when SyncStatus is stale and hides it once resolved", async () => {

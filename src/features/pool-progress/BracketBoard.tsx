@@ -16,6 +16,8 @@ interface BracketBoardProps {
     tableNumber: string | null,
   ) => Promise<boolean>;
   onSetInProgress: (matchCardId: string) => void;
+  /** プレビューモード中はカードをタップしても編集モーダルを開かない。 */
+  readOnly?: boolean;
 }
 
 /**
@@ -111,6 +113,7 @@ export function BracketBoard({
   tableNumbers,
   onAssignTable,
   onSetInProgress,
+  readOnly,
 }: BracketBoardProps) {
   const layouts = computeBracketLayout(matchCards);
 
@@ -202,6 +205,7 @@ export function BracketBoard({
                           onAssignTable={onAssignTable}
                           onSetInProgress={onSetInProgress}
                           note={note}
+                          readOnly={readOnly}
                           style={{
                             position: "absolute",
                             left: columnLeft(roundIndex),

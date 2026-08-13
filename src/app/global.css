@@ -149,6 +149,24 @@ label {
   margin-bottom: 0.5rem;
 }
 
+/* ユーザーフィードバック(2026-08-13): start.gg側でブラケットが未開始
+   (プレビューモード)の間、画面全体の背景色を変えて一目で分かるようにする。
+   通常画面の背景(#fff系)とはっきり区別できる暖色系にする。 */
+.pool-progress-screen--preview {
+  background: #fdebd3;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.pool-progress-preview-banner {
+  background: #fddca0;
+  border: 1px solid #d99a2b;
+  border-radius: 6px;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+  font-weight: bold;
+}
+
 .match-card-next {
   outline: 3px solid var(--accent-color);
 }

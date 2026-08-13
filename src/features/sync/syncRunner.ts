@@ -2,8 +2,10 @@ import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import { reconcileAdvancement } from "../../domain/rules/matchProgression.js";
 import { computePoolFinished } from "../../domain/rules/poolFinished.js";
+import { isPreviewSetId } from "../../domain/rules/previewId.js";
 import { createStartggClient } from "../../infra/startgg/client.js";
 import {
+  buildReportBracketSetInput,
   fetchNextMatch,
   fetchPoolDetail,
   reportMatchResult,
@@ -101,20 +103,36 @@ export async function runSync(): Promise<SyncResult> {
   try {
     const client = createStartggClient(config.syncToken);
 
+    // ユーザーフィードバック(2026-08-13): 1件の送信失敗(特にpreview ID
+    // への送信)が同期処理全体(他の対戦の送信・以降のfetchPoolDetail)を
+    // 中断させ、「未反映N件」が減らず溜まり続ける原因になっていた。
+    // 各カードを個別に試行し、失敗を蓄積して次のカードへ処理を継続する。
     const pending = await getPendingMatchCards(poolId);
+    const pushErrors: string[] = [];
     for (const card of pending) {
       if (!card.winnerId) continue;
-      const outcome = await reportMatchResult(client, {
-        setId: card.id,
-        winnerId: card.winnerId,
-      });
-      await saveMatchCard({
-        ...card,
-        winnerId: outcome.winnerId ?? card.winnerId,
-        score: outcome.score ?? card.score,
-        status: outcome.status,
-        localOnly: false,
-      });
+      if (isPreviewSetId(card.id)) {
+        // start.gg側でブラケットがまだ「開始」されておらず、実IDが
+        // 割り当てられていない状態(FR: プレビューモード)。エラーには
+        // せず、開始後の同期で改めて送信されるのを待つ。
+        continue;
+      }
+      try {
+        const outcome = await reportMatchResult(
+          client,
+          buildReportBracketSetInput(card),
+        );
+        await saveMatchCard({
+          ...card,
+          winnerId: outcome.winnerId ?? card.winnerId,
+          score: outcome.score ?? card.score,
+          status: outcome.status,
+          localOnly: false,
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        pushErrors.push(`${card.identifier}: ${reason}`);
+      }
     }
 
     const detail = await fetchPoolDetail(client, poolId);
@@ -180,15 +198,40 @@ export async function runSync(): Promise<SyncResult> {
       // 注意書き同期の失敗は対戦進行の同期を妨げない。
     }
 
+    if (pushErrors.length === 0) {
+      await saveSyncStatus({
+        poolId,
+        lastSuccessAt: new Date().toISOString(),
+        lastFailureAt: (await getSyncStatus(poolId))?.lastFailureAt ?? null,
+        lastFailureReason: null,
+        pendingChangeCount: 0,
+        isStale: false,
+      });
+      return { success: true };
+    }
+
+    // 送信自体に失敗した項目がある場合: 取得・マージ・保存は完了して
+    // いるが、この同期サイクルは「完全な成功」ではないため
+    // lastSuccessAtは更新しない(deriveIsStaleの「最終成功からの経過
+    // 時間」判定を、preview ID待ちの正常な保留と区別するため)。
+    const previousOnPushFailure = await getSyncStatus(poolId);
+    const pendingCountOnPushFailure = (await getPendingMatchCards(poolId))
+      .length;
+    const failureAtOnPushFailure = new Date().toISOString();
+    const reason = pushErrors.join(" / ");
     await saveSyncStatus({
       poolId,
-      lastSuccessAt: new Date().toISOString(),
-      lastFailureAt: (await getSyncStatus(poolId))?.lastFailureAt ?? null,
-      lastFailureReason: null,
-      pendingChangeCount: 0,
-      isStale: false,
+      lastSuccessAt: previousOnPushFailure?.lastSuccessAt ?? null,
+      lastFailureAt: failureAtOnPushFailure,
+      lastFailureReason: reason,
+      pendingChangeCount: pendingCountOnPushFailure,
+      isStale: deriveIsStale({
+        lastSuccessAt: previousOnPushFailure?.lastSuccessAt ?? null,
+        lastFailureAt: failureAtOnPushFailure,
+        pendingChangeCount: pendingCountOnPushFailure,
+      }),
     });
-    return { success: true };
+    return { success: false, error: reason };
   } catch (error) {
     const previous = await getSyncStatus(poolId);
     const pendingCount = (await getPendingMatchCards(poolId)).length;

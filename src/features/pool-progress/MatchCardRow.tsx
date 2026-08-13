@@ -19,6 +19,11 @@ interface MatchCardRowProps {
   ) => Promise<boolean>;
   /** FR-009/FR-010: 未着手の対戦を任意で「進行中」に設定する。 */
   onSetInProgress: (matchCardId: string) => void;
+  /**
+   * ユーザーフィードバック(2026-08-13): start.gg側でブラケットが未開始
+   * (プレビューモード)の間は編集操作を一切表示・実行できないようにする。
+   */
+  readOnly?: boolean;
 }
 
 function entrantName(entrantById: Map<string, Entrant>, id: string | null) {
@@ -50,8 +55,9 @@ export function MatchCardRow({
   matchCards,
   onAssignTable,
   onSetInProgress,
+  readOnly,
 }: MatchCardRowProps) {
-  const isEditable = card.status !== "COMPLETED";
+  const isEditable = card.status !== "COMPLETED" && !readOnly;
   const isBye = Boolean(card.entrant1Id) !== Boolean(card.entrant2Id);
   const byeEntrantId = card.entrant1Id ?? card.entrant2Id;
 
@@ -72,7 +78,7 @@ export function MatchCardRow({
         {card.status === "IN_PROGRESS" && (
           <span className="match-card-status-badge">進行中</span>
         )}
-        {card.status === "NOT_STARTED" && (
+        {card.status === "NOT_STARTED" && !readOnly && (
           <button type="button" onClick={() => onSetInProgress(card.id)}>
             進行中にする
           </button>
@@ -102,11 +108,13 @@ export function MatchCardRow({
           <span className="match-card-result">
             勝者: {entrantName(entrantById, card.winnerId)}
             {card.score ? ` (${card.score})` : ""}
-            <MatchCardEdit
-              card={card}
-              entrantById={entrantById}
-              onRecordResult={onRecordResult}
-            />
+            {!readOnly && (
+              <MatchCardEdit
+                card={card}
+                entrantById={entrantById}
+                onRecordResult={onRecordResult}
+              />
+            )}
           </span>
         ) : (
           isEditable &&

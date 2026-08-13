@@ -11,6 +11,7 @@ import {
   type NextMatchSuggestion,
   computeNextMatchSuggestions,
 } from "../../domain/rules/nextMatchSuggestion.js";
+import { computeIsPreviewMode } from "../../domain/rules/previewMode.js";
 import { generateRoundRobinMatchCards } from "../../domain/rules/roundRobinGenerator.js";
 import { isTableOccupied } from "../../domain/rules/tableAssignment.js";
 import { addStaffAssignment } from "../../infra/storage/adminRepository.js";
@@ -75,6 +76,13 @@ interface UsePoolProgressResult {
   /** FR-025: モーダルを何も選ばずに閉じる。 */
   dismissSuggestion: () => void;
   setInProgress: (matchCardId: string) => Promise<void>;
+  /**
+   * ユーザーフィードバック(2026-08-13): start.gg側でブラケットが未開始
+   * (対戦カードのIDがpreview形式)の間は結果入力・対戦台変更・進行中
+   * 設定を一切できないようにする(開始後にIDが実IDへ切り替わった際の
+   * ローカルデータ孤立を、そもそも記録させないことで回避する)。
+   */
+  isPreviewMode: boolean;
 }
 
 /**
@@ -95,6 +103,7 @@ export function usePoolProgress(): UsePoolProgressResult {
     matchCards,
     pool?.tableNumbers ?? [],
   );
+  const isPreviewMode = computeIsPreviewMode(matchCards);
 
   const reload = useCallback(async (targetPoolId: string) => {
     const [loadedPool, loadedEntrants, rawCards] = await Promise.all([
@@ -225,6 +234,7 @@ export function usePoolProgress(): UsePoolProgressResult {
 
   const recordResult = useCallback(
     async (matchCardId: string, result: MatchResultSubmission) => {
+      if (isPreviewMode) return;
       const target = matchCards.find((card) => card.id === matchCardId);
       if (!target || target.isLocked) return;
       const updated: MatchCard = {
@@ -270,11 +280,12 @@ export function usePoolProgress(): UsePoolProgressResult {
       );
       setSuggestionModalOpen(suggestions.length > 0);
     },
-    [matchCards, pool],
+    [matchCards, pool, isPreviewMode],
   );
 
   const assignTable = useCallback(
     async (matchCardId: string, tableNumber: string | null) => {
+      if (isPreviewMode) return false;
       const target = matchCards.find((card) => card.id === matchCardId);
       if (!target) return false;
       if (
@@ -295,11 +306,12 @@ export function usePoolProgress(): UsePoolProgressResult {
       );
       return true;
     },
-    [matchCards],
+    [matchCards, isPreviewMode],
   );
 
   const callSuggestedMatch = useCallback(
     async (matchCardId: string, tableNumber: string | null) => {
+      if (isPreviewMode) return;
       const target = matchCards.find((card) => card.id === matchCardId);
       if (!target) return;
       const updated: MatchCard = {
@@ -322,7 +334,7 @@ export function usePoolProgress(): UsePoolProgressResult {
       );
       setSuggestionModalOpen(remaining.length > 0);
     },
-    [matchCards, pool],
+    [matchCards, pool, isPreviewMode],
   );
 
   const dismissSuggestion = useCallback(() => {
@@ -335,6 +347,7 @@ export function usePoolProgress(): UsePoolProgressResult {
 
   const setInProgress = useCallback(
     async (matchCardId: string) => {
+      if (isPreviewMode) return;
       const target = matchCards.find((card) => card.id === matchCardId);
       if (!target || target.status !== "NOT_STARTED") return;
       const updated: MatchCard = { ...target, status: "IN_PROGRESS" };
@@ -343,7 +356,7 @@ export function usePoolProgress(): UsePoolProgressResult {
         prev.map((card) => (card.id === matchCardId ? updated : card)),
       );
     },
-    [matchCards],
+    [matchCards, isPreviewMode],
   );
 
   const completeOnboarding = useCallback(async () => {
@@ -375,5 +388,6 @@ export function usePoolProgress(): UsePoolProgressResult {
     callSuggestedMatch,
     dismissSuggestion,
     setInProgress,
+    isPreviewMode,
   };
 }

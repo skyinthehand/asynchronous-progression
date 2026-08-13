@@ -25,6 +25,11 @@ interface MatchCardEntryProps {
   style?: CSSProperties;
   /** FR-023: 別の側(勝者側の敗者など)から出場者が来ている場合の注記。 */
   note?: string;
+  /**
+   * ユーザーフィードバック(2026-08-13): start.gg側でブラケットが未開始
+   * (プレビューモード)の間はカードをタップしても編集モーダルを開かない。
+   */
+  readOnly?: boolean;
 }
 
 function entrantName(entrantById: Map<string, Entrant>, id: string | null) {
@@ -76,12 +81,13 @@ export function MatchCardEntry({
   onSetInProgress,
   style,
   note,
+  readOnly,
 }: MatchCardEntryProps) {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const isEditable = card.status !== "COMPLETED";
   const isBye = Boolean(card.entrant1Id) !== Boolean(card.entrant2Id);
   const byeEntrantId = card.entrant1Id ?? card.entrant2Id;
-  const canEdit = isEditable || !card.isLocked;
+  const canEdit = !readOnly && (isEditable || !card.isLocked);
 
   function openEditModal() {
     if (canEdit) setEditModalOpen(true);

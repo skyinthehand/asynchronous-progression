@@ -1,6 +1,8 @@
 import type { GraphQLClient } from "graphql-request";
 import { describe, expect, it, vi } from "vitest";
+import type { MatchCard } from "../../src/domain/entities/matchCard.js";
 import {
+  buildReportBracketSetInput,
   fetchNextMatch,
   fetchPoolDetail,
   fetchTournamentRules,
@@ -9,6 +11,34 @@ import {
   listTournamentEvents,
   reportMatchResult,
 } from "../../src/infra/startgg/operations.js";
+
+function makeCard(overrides: Partial<MatchCard>): MatchCard {
+  return {
+    id: "set-1",
+    poolId: "pool-1",
+    identifier: "R1-1",
+    round: 1,
+    bracketSide: "WINNERS",
+    tableNumber: null,
+    entrant1Id: "e1",
+    entrant2Id: "e2",
+    winnerId: "e1",
+    score: null,
+    status: "COMPLETED",
+    isLocked: false,
+    editHistory: [],
+    localOnly: true,
+    entrant1SourceMatchId: null,
+    entrant2SourceMatchId: null,
+    entrant1Score: null,
+    entrant2Score: null,
+    entrant1DQ: false,
+    entrant2DQ: false,
+    entrant1W: false,
+    entrant2W: false,
+    ...overrides,
+  };
+}
 
 /**
  * contracts/startgg-graphql-operations.md のQ1〜Q4・M1について、
@@ -518,5 +548,95 @@ describe("M1: reportMatchResult", () => {
     await expect(
       reportMatchResult(client, { setId: "", winnerId: "1" }),
     ).rejects.toThrow();
+  });
+
+  it("sends gameData/isDQ as mutation variables (2026-08-13: score was not being transmitted)", async () => {
+    const requestMock = vi.fn().mockResolvedValue({
+      reportBracketSet: [
+        { id: 5000, winnerId: 1, displayScore: "3-1", state: 3 },
+      ],
+    });
+    const client = { request: requestMock } as unknown as GraphQLClient;
+
+    await reportMatchResult(client, {
+      setId: "5000",
+      winnerId: "1",
+      isDQ: false,
+      gameData: [
+        { gameNum: 1, winnerId: "1" },
+        { gameNum: 2, winnerId: "1" },
+        { gameNum: 3, winnerId: "1" },
+        { gameNum: 4, winnerId: "2" },
+      ],
+    });
+
+    expect(requestMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        setId: "5000",
+        winnerId: "1",
+        isDQ: false,
+        gameData: [
+          { gameNum: 1, winnerId: "1" },
+          { gameNum: 2, winnerId: "1" },
+          { gameNum: 3, winnerId: "1" },
+          { gameNum: 4, winnerId: "2" },
+        ],
+      }),
+    );
+  });
+});
+
+describe("buildReportBracketSetInput", () => {
+  it("builds gameData sized by entrant1Score+entrant2Score wins, entrant1's wins first", () => {
+    const card = makeCard({
+      entrant1Id: "e1",
+      entrant2Id: "e2",
+      winnerId: "e1",
+      entrant1Score: 3,
+      entrant2Score: 1,
+    });
+
+    expect(buildReportBracketSetInput(card)).toEqual({
+      setId: "set-1",
+      winnerId: "e1",
+      isDQ: false,
+      gameData: [
+        { gameNum: 1, winnerId: "e1" },
+        { gameNum: 2, winnerId: "e1" },
+        { gameNum: 3, winnerId: "e1" },
+        { gameNum: 4, winnerId: "e2" },
+      ],
+    });
+  });
+
+  it("sends isDQ:true with no gameData when a DQ decided the match", () => {
+    const card = makeCard({
+      entrant1Id: "e1",
+      entrant2Id: "e2",
+      winnerId: "e1",
+      entrant2DQ: true,
+    });
+
+    expect(buildReportBracketSetInput(card)).toEqual({
+      setId: "set-1",
+      winnerId: "e1",
+      isDQ: true,
+    });
+  });
+
+  it("sends no gameData when only the winner is known (W, score unknown)", () => {
+    const card = makeCard({
+      entrant1Id: "e1",
+      entrant2Id: "e2",
+      winnerId: "e1",
+      entrant1W: true,
+    });
+
+    expect(buildReportBracketSetInput(card)).toEqual({
+      setId: "set-1",
+      winnerId: "e1",
+      isDQ: false,
+    });
   });
 });

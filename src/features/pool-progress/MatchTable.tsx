@@ -14,6 +14,7 @@ interface MatchTableProps {
     tableNumber: string | null,
   ) => Promise<boolean>;
   onSetInProgress: (matchCardId: string) => void;
+  readOnly?: boolean;
 }
 
 /** FR-023: 総当り形式など、ブラケット図を持たないプールの対戦カード表。 */
@@ -25,6 +26,7 @@ export function MatchTable({
   tableNumbers,
   onAssignTable,
   onSetInProgress,
+  readOnly,
 }: MatchTableProps) {
   return (
     <table className="app-table match-table">
@@ -48,6 +50,7 @@ export function MatchTable({
             matchCards={matchCards}
             onAssignTable={onAssignTable}
             onSetInProgress={onSetInProgress}
+            readOnly={readOnly}
           />
         ))}
       </tbody>

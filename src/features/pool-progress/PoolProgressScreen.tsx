@@ -63,6 +63,7 @@ export function PoolProgressScreen() {
     callSuggestedMatch,
     dismissSuggestion,
     setInProgress,
+    isPreviewMode,
   } = usePoolProgress();
   const [printing, setPrinting] = useState(false);
   const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
@@ -96,8 +97,22 @@ export function PoolProgressScreen() {
   }
 
   return (
-    <div className="pool-progress-screen">
+    <div
+      className={[
+        "pool-progress-screen",
+        isPreviewMode ? "pool-progress-screen--preview" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <h2>{poolHeading(pool, poolId)}</h2>
+      {isPreviewMode && (
+        <p className="pool-progress-preview-banner no-print">
+          {
+            "start.gg側でこのプールのブラケットがまだ開始されていません。start.ggの管理画面で「Start Bracket」を押してから、管理画面の「データを再取得」を押してください。それまで結果入力・対戦台設定・進行中への変更はできません。"
+          }
+        </p>
+      )}
       <div className="pool-progress-toolbar no-print">
         <button type="button" onClick={() => setActivePanel("staff")}>
           進行担当者
@@ -114,7 +129,7 @@ export function PoolProgressScreen() {
         <button
           type="button"
           onClick={openSuggestionModal}
-          disabled={nextMatchSuggestions.length === 0}
+          disabled={nextMatchSuggestions.length === 0 || isPreviewMode}
         >
           次戦候補
         </button>
@@ -130,6 +145,7 @@ export function PoolProgressScreen() {
         onRecordResult={recordResult}
         onAssignTable={assignTable}
         onSetInProgress={setInProgress}
+        readOnly={isPreviewMode}
       />
 
       {activePanel && (
