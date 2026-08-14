@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Table } from "../../components/index.js";
 import type { Entrant } from "../../domain/entities/entrant.js";
+import { formatAwayStartedAt } from "../../domain/rules/awayPeriodFormat.js";
 
 interface AwayPeriodPanelProps {
   entrants: Entrant[];
@@ -8,8 +9,12 @@ interface AwayPeriodPanelProps {
   onEndAwayPeriod: (entrantId: string) => void;
 }
 
+function currentAwayPeriod(entrant: Entrant) {
+  return entrant.awayPeriods.find((period) => period.endedAt === null);
+}
+
 function isAway(entrant: Entrant): boolean {
-  return entrant.awayPeriods.some((period) => period.endedAt === null);
+  return currentAwayPeriod(entrant) !== undefined;
 }
 
 /** FR-005: 選手が離席した時間帯(開始・終了、任意で理由)を記録する。 */
@@ -34,7 +39,24 @@ export function AwayPeriodPanel({
         rowKey={(entrant: Entrant) => entrant.id}
         rows={entrants}
         columns={[
-          { key: "name", header: "選手名", render: (e) => e.name },
+          {
+            key: "name",
+            header: "選手名",
+            render: (e) => {
+              const away = currentAwayPeriod(e);
+              return (
+                <>
+                  {e.name}
+                  {away && (
+                    <span className="away-started-at">
+                      ({formatAwayStartedAt(away.startedAt)}
+                      〜)
+                    </span>
+                  )}
+                </>
+              );
+            },
+          },
           {
             key: "status",
             header: "状態",

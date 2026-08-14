@@ -483,6 +483,14 @@ label {
   padding: 0.2rem 0.5rem 0;
 }
 
+/* ユーザーフィードバック(2026-08-14): 離席記録モーダルで、離席中の選手名の
+   横に離席開始時刻(日本時間)を添える。 */
+.away-started-at {
+  margin-left: 0.4rem;
+  font-size: 0.85rem;
+  color: #475467;
+}
+
 /* 002-match-scoring-and-flow FR-012/FR-013: 対戦台番号選択(編集モーダル内)。 */
 .match-card-table-select {
   display: flex;
