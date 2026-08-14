@@ -140,13 +140,46 @@ label {
   margin-bottom: 0.5rem;
 }
 
-.emergency-contact-warning,
-.sync-status-snackbar {
+.emergency-contact-warning {
   background: #fff3cd;
   border: 1px solid #e0c26b;
   border-radius: 6px;
   padding: 0.6rem 0.9rem;
   margin-bottom: 0.5rem;
+}
+
+/* ユーザーフィードバック(2026-08-14): snackbar本来の挙動(画面上部に
+   固定・一定時間で自動的に消える)に合わせる。以前は通常のフロー内表示
+   だったため、常に居座り続けページスクロールで見えなくなることがあった。
+   自動的に消す挙動自体はSyncStatusSnackbar.tsx側で行う。 */
+.sync-status-snackbar {
+  position: fixed;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  width: min(92vw, 640px);
+  background: #fff3cd;
+  border: 1px solid #e0c26b;
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* ユーザーフィードバック(2026-08-14): エラー詳細はdetails/summaryで
+   折りたたみ、開かないと見えないようにする(長いレスポンス文字列が
+   スナックバーを占有してしまうため)。 */
+.sync-status-reason {
+  margin-top: 0.3rem;
+}
+
+.sync-status-reason summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.sync-status-reason[open] summary {
+  margin-bottom: 0.3rem;
 }
 
 /* ユーザーフィードバック(2026-08-13): start.gg側でブラケットが未開始

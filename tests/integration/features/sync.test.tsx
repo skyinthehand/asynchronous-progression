@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SyncStatusSnackbar } from "../../../src/features/sync/SyncStatusSnackbar.js";
 import { runSync } from "../../../src/features/sync/syncRunner.js";
@@ -490,6 +491,28 @@ describe("Background sync and offline notification (User Story 3)", () => {
     expect(card?.statusLocalOnly).toBe(true); // 次回同期で再送信される
   });
 
+  it("keeps the error detail collapsed by default, expanding only when the summary is opened (2026-08-14)", async () => {
+    const db = await getDb();
+    await db.put("syncStatus", {
+      poolId: "pool-1",
+      lastSuccessAt: new Date().toISOString(),
+      lastFailureAt: new Date().toISOString(),
+      lastFailureReason:
+        "Must start bracket before performing action: {very long raw API response...}",
+      pendingChangeCount: 1,
+      isStale: true,
+    });
+
+    render(<SyncStatusSnackbar />);
+    const details = (await screen.findByText("詳細")).closest("details");
+    if (!details) throw new Error("details element not found");
+    expect(details).not.toHaveAttribute("open");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByText("詳細"));
+    expect(details).toHaveAttribute("open");
+  });
+
   it("shows a snackbar when SyncStatus is stale and hides it once resolved", async () => {
     const db = await getDb();
     await db.put("syncStatus", {
@@ -505,7 +528,11 @@ describe("Background sync and offline notification (User Story 3)", () => {
     expect(
       await screen.findByText(/初回同期にまだ成功していません/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/詳細: network error/)).toBeInTheDocument();
+    // ユーザーフィードバック(2026-08-14): エラー詳細は開かないと見えない
+    // (details/summary)ようにしたため、開く前でもDOM上には存在する
+    // (詳細を開かなくても長い文字列で邪魔にならない)ことを確認する。
+    expect(screen.getByText("詳細")).toBeInTheDocument();
+    expect(screen.getByText("network error")).toBeInTheDocument();
 
     await db.put("syncStatus", {
       poolId: "pool-1",
