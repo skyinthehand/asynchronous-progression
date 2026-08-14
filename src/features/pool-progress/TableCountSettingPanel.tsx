@@ -1,71 +1,100 @@
-import { useState } from "react";
+import type { StationOption } from "../../infra/startgg/operations.js";
 
 interface TableCountSettingPanelProps {
   tableNumbers: string[];
+  availableStations: StationOption[];
   onSetTableNumbers: (tableNumbers: string[]) => void;
+  onRefetchStations: () => void;
 }
 
 /**
- * FR-011/FR-015: プールで使用する対戦台を1台ずつ追加・削除する。会場の
- * 実際の卓番号(101, 102, 103, 105 のように連番とは限らない)をそのまま
- * 手入力できるようにし、単純な「台数」の数値入力にはしない。
+ * ユーザーフィードバック(2026-08-13): 対戦台はstartgg側の「station」設定
+ * (会場のstream/setup単位で管理者があらかじめ登録しておくもの)がそのまま
+ * 実体だと分かったため、卓番号を手入力させるのではなく、startggから取得
+ * したstation一覧の中からこのプールで使うものをチェックボックスで選択する
+ * 形にする(FR-011改訂)。選択結果はこれまで通りPool.tableNumbers
+ * (単純な文字列配列)にそのまま保存されるため、対戦台の割り当て・
+ * 占有判定・startggへのstation割り当て送信(assignStationToSet)など
+ * 下流のロジックには変更が要らない。
  */
 export function TableCountSettingPanel({
   tableNumbers,
+  availableStations,
   onSetTableNumbers,
+  onRefetchStations,
 }: TableCountSettingPanelProps) {
-  const [newTableNumber, setNewTableNumber] = useState("");
+  const sortedStations = [...availableStations].sort(
+    (a, b) => Number(a.number) - Number(b.number),
+  );
+  const availableNumbers = new Set(
+    sortedStations.map((station) => station.number),
+  );
+  // 過去に選択されていたが、startgg側でstationが削除された等の理由で
+  // 現在の一覧に存在しなくなった番号。データを黙って失わないよう、
+  // 削除できる形で別途表示する。
+  const orphanedNumbers = tableNumbers.filter(
+    (number) => !availableNumbers.has(number),
+  );
 
-  function addTable() {
-    const trimmed = newTableNumber.trim();
-    if (!trimmed || tableNumbers.includes(trimmed)) return;
-    onSetTableNumbers([...tableNumbers, trimmed]);
-    setNewTableNumber("");
+  function toggle(number: string, checked: boolean) {
+    if (checked) {
+      if (tableNumbers.includes(number)) return;
+      onSetTableNumbers([...tableNumbers, number]);
+    } else {
+      onSetTableNumbers(tableNumbers.filter((n) => n !== number));
+    }
   }
 
-  function removeTable(tableNumber: string) {
-    onSetTableNumbers(tableNumbers.filter((n) => n !== tableNumber));
+  function removeOrphan(number: string) {
+    onSetTableNumbers(tableNumbers.filter((n) => n !== number));
   }
 
   return (
     <section className="table-count-setting-panel">
       <p>設定済みの対戦台: {tableNumbers.length}台</p>
-      {tableNumbers.length > 0 && (
+      <button type="button" onClick={onRefetchStations}>
+        対戦台一覧を再取得
+      </button>
+      {sortedStations.length === 0 ? (
+        <p role="alert">
+          startgg側に対戦台(station)が登録されていません。startggの大会管理画面でstationを追加してください。
+        </p>
+      ) : (
         <ul className="table-number-list">
-          {tableNumbers.map((tableNumber) => (
-            <li key={tableNumber}>
-              {tableNumber}
-              <button type="button" onClick={() => removeTable(tableNumber)}>
-                削除
-              </button>
+          {sortedStations.map((station) => (
+            <li key={station.stationId}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={tableNumbers.includes(station.number)}
+                  onChange={(event) =>
+                    toggle(station.number, event.target.checked)
+                  }
+                />
+                {station.number}
+              </label>
             </li>
           ))}
         </ul>
       )}
-      <label>
-        対戦台番号を追加:
-        <input
-          value={newTableNumber}
-          onChange={(event) => setNewTableNumber(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              addTable();
-            }
-          }}
-          placeholder="例: 101"
-          aria-label="対戦台番号"
-        />
-      </label>
-      <button
-        type="button"
-        onClick={addTable}
-        disabled={
-          !newTableNumber.trim() || tableNumbers.includes(newTableNumber.trim())
-        }
-      >
-        追加
-      </button>
+      {orphanedNumbers.length > 0 && (
+        <>
+          <p>
+            startggの対戦台一覧に見つからない設定済みの番号です(station側で
+            削除された可能性があります):
+          </p>
+          <ul className="table-number-list">
+            {orphanedNumbers.map((number) => (
+              <li key={number}>
+                {number}
+                <button type="button" onClick={() => removeOrphan(number)}>
+                  削除
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   );
 }

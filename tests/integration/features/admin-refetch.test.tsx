@@ -14,6 +14,10 @@ vi.mock("../../../src/infra/startgg/operations.js", async (importOriginal) => {
     fetchTournamentRules: vi.fn().mockRejectedValue(new Error("offline")),
     fetchPoolDetail: vi.fn(),
     reportMatchResult: vi.fn(),
+    // TableSettingsPanel(管理画面)は表示のたびにstartggのstation一覧を
+    // 取得しようとするため、実際のネットワーク呼び出しを避けるためモック
+    // する(2026-08-13)。
+    fetchStations: vi.fn().mockResolvedValue([]),
   };
 });
 

@@ -25,7 +25,19 @@ vi.mock("../../../src/infra/startgg/operations.js", () => ({
       bracketType: "DOUBLE_ELIMINATION",
     },
   ]),
+  // ユーザーフィードバック(2026-08-13): 対戦台はstartgg側のstation一覧
+  // から選択する形になったため、管理画面のテストではstation一覧を
+  // モックする。
+  fetchStations: vi.fn().mockResolvedValue([
+    { stationId: "900", number: "101" },
+    { stationId: "901", number: "102" },
+    { stationId: "902", number: "1" },
+    { stationId: "903", number: "2" },
+    { stationId: "904", number: "3" },
+  ]),
 }));
+
+const operations = await import("../../../src/infra/startgg/operations.js");
 
 async function resetDb() {
   const db = await getDb();
@@ -134,19 +146,20 @@ async function seedPool(tableNumbers: string[]) {
 /**
  * FR-011: 対戦台の設定は管理画面で行う。管理画面はパスワード認証が必要
  * (初回入力したパスワードがそのままブートストラップされる、
- * admin.test.tsxと同じ規約)。対戦台は「N台」という数値ではなく、会場の
- * 実際の卓番号(101, 102, ...のように連番とは限らない)を1台ずつ手入力する。
+ * admin.test.tsxと同じ規約)。対戦台は手入力ではなく、startggのstation
+ * 一覧(fetchStationsのモック参照)からこのプールで使うものをチェック
+ * ボックスで選択する。
  */
 async function addTableFromAdminScreen(
   user: ReturnType<typeof userEvent.setup>,
   section: HTMLElement,
   tableNumber: string,
 ) {
-  // 対象プールの読み込み(非同期)が完了するまで、対戦台番号の入力欄自体が
-  // まだ描画されていないことがあるため、findByLabelTextで待つ。
-  const input = await within(section).findByLabelText("対戦台番号");
-  await user.type(input, tableNumber);
-  await user.click(within(section).getByRole("button", { name: "追加" }));
+  // 対象プールの読み込み・station一覧の取得(いずれも非同期)が完了する
+  // まで、チェックボックス自体がまだ描画されていないことがあるため、
+  // findByLabelTextで待つ。
+  const checkbox = await within(section).findByLabelText(tableNumber);
+  await user.click(checkbox);
 }
 
 describe("Table count setting and assignment (User Story 2)", () => {
@@ -288,20 +301,71 @@ describe("Table count setting and assignment (User Story 2)", () => {
     );
 
     // 一般モードへ一度戻らなくても、対戦台設定パネルが選択したプールに
-    // 追従して更新され、対戦台番号を追加できることを確認する。
+    // 追従して更新され、station一覧から対戦台を選択できることを確認する。
     // (再マウントにより<section>要素自体が入れ替わるため、古い
     // tableSection参照ではなく改めてグローバルに探す。)
-    const input = await screen.findByLabelText("対戦台番号");
-    const refreshedSection = input.closest("section");
+    const checkbox = await screen.findByLabelText("101");
+    const refreshedSection = checkbox.closest("section");
     if (!refreshedSection) throw new Error("table settings section not found");
-    await user.type(input, "101");
-    await user.click(
-      within(refreshedSection).getByRole("button", { name: "追加" }),
-    );
+    await user.click(checkbox);
     expect(within(refreshedSection).getByText("101")).toBeInTheDocument();
 
     const db = await getDb();
     const pool = await db.get("pools", "pool-1");
     expect(pool?.tableNumbers).toEqual(["101"]);
+  });
+
+  it("shows a previously-selected table number as an orphan (removable) when it no longer matches a startgg station (2026-08-13)", async () => {
+    await seedPool(["1", "999"]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("R1-1");
+
+    await user.click(screen.getByRole("button", { name: "管理画面" }));
+    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
+    await user.click(screen.getByRole("button", { name: "ログイン" }));
+
+    const section = (
+      await screen.findByRole("heading", { name: "対戦台" })
+    ).closest("section");
+    if (!section) throw new Error("table settings section not found");
+    await within(section).findByLabelText("1");
+
+    expect(within(section).getByText("999")).toBeInTheDocument();
+    await user.click(
+      within(section)
+        .getByText("999")
+        .closest("li")
+        ?.querySelector("button") as HTMLButtonElement,
+    );
+
+    const db = await getDb();
+    const pool = await db.get("pools", "pool-1");
+    expect(pool?.tableNumbers).toEqual(["1"]);
+  });
+
+  it("shows a retry option when fetching the startgg station list fails", async () => {
+    await seedPool([]);
+    vi.mocked(operations.fetchStations).mockRejectedValueOnce(
+      new Error("network error"),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("R1-1");
+
+    await user.click(screen.getByRole("button", { name: "管理画面" }));
+    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
+    await user.click(screen.getByRole("button", { name: "ログイン" }));
+
+    const section = (
+      await screen.findByRole("heading", { name: "対戦台" })
+    ).closest("section");
+    if (!section) throw new Error("table settings section not found");
+    await within(section).findByText(/対戦台一覧の取得に失敗しました/);
+
+    await user.click(within(section).getByRole("button", { name: "再試行" }));
+    expect(await within(section).findByLabelText("1")).toBeInTheDocument();
   });
 });
