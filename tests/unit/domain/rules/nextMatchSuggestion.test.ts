@@ -1,6 +1,30 @@
 import { describe, expect, it } from "vitest";
+import type { Entrant } from "../../../../src/domain/entities/entrant.js";
 import type { MatchCard } from "../../../../src/domain/entities/matchCard.js";
 import { computeNextMatchSuggestions } from "../../../../src/domain/rules/nextMatchSuggestion.js";
+
+function makeEntrant(overrides: Partial<Entrant>): Entrant {
+  return {
+    id: "e1",
+    poolId: "pool-1",
+    name: "Entrant",
+    attendance: "PRESENT",
+    attendanceRecordedAt: null,
+    poolFinished: false,
+    nextMatch: null,
+    awayPeriods: [],
+    ...overrides,
+  };
+}
+
+function away(entrantId: string): Entrant {
+  return makeEntrant({
+    id: entrantId,
+    awayPeriods: [
+      { startedAt: "2026-08-14T05:00:00.000Z", endedAt: null, reason: null },
+    ],
+  });
+}
 
 function makeCard(overrides: Partial<MatchCard>): MatchCard {
   return {
@@ -343,6 +367,89 @@ describe("computeNextMatchSuggestions", () => {
         makeCard({ id: "a", round: 1, identifier: "R1-1", entrant2Id: null }),
       ];
       expect(computeNextMatchSuggestions(cards, ["1", "2", "3"])).toEqual([]);
+    });
+  });
+
+  // ユーザーフィードバック(2026-08-14): 出場者のどちらかが離席中の対戦は、
+  // 呼んでも試合を始められないため優先度を最下位に回す。
+  describe("away entrant deprioritization (2026-08-14)", () => {
+    it("suggests a match with no away entrant before an otherwise-earlier match that has one", () => {
+      const cards = [
+        makeCard({
+          id: "a",
+          round: 1,
+          identifier: "R1-1",
+          entrant1Id: "e1",
+          entrant2Id: "e2",
+        }),
+        makeCard({
+          id: "b",
+          round: 1,
+          identifier: "R1-2",
+          entrant1Id: "e3",
+          entrant2Id: "e4",
+        }),
+      ];
+      const entrants = [away("e1")];
+      expect(computeNextMatchSuggestions(cards, [], entrants)).toEqual([
+        { matchCardId: "b", table: null },
+      ]);
+    });
+
+    it("still suggests the away match (as the only candidate) rather than nothing", () => {
+      const cards = [
+        makeCard({
+          id: "a",
+          round: 1,
+          identifier: "R1-1",
+          entrant1Id: "e1",
+          entrant2Id: "e2",
+        }),
+      ];
+      const entrants = [away("e2")];
+      expect(computeNextMatchSuggestions(cards, [], entrants)).toEqual([
+        { matchCardId: "a", table: null },
+      ]);
+    });
+
+    it("fills tables with non-away matches first, only assigning the away match to the last remaining table", () => {
+      const cards = [
+        makeCard({
+          id: "a",
+          round: 1,
+          identifier: "R1-1",
+          entrant1Id: "e1",
+          entrant2Id: "e2",
+        }),
+        makeCard({
+          id: "b",
+          round: 1,
+          identifier: "R1-2",
+          entrant1Id: "e3",
+          entrant2Id: "e4",
+        }),
+      ];
+      const entrants = [away("e1")];
+      const result = computeNextMatchSuggestions(cards, ["1", "2"], entrants);
+      expect(result).toEqual([
+        { matchCardId: "b", table: "1" },
+        { matchCardId: "a", table: "2" },
+      ]);
+    });
+
+    it("does not affect ordering when entrants is omitted (default empty)", () => {
+      const cards = [
+        makeCard({
+          id: "a",
+          round: 1,
+          identifier: "R1-1",
+          entrant1Id: "e1",
+          entrant2Id: "e2",
+        }),
+      ];
+      expect(computeNextMatchSuggestions(cards, [])).toEqual([
+        { matchCardId: "a", table: null },
+      ]);
     });
   });
 });

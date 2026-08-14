@@ -102,6 +102,7 @@ export function usePoolProgress(): UsePoolProgressResult {
   const nextMatchSuggestions = computeNextMatchSuggestions(
     matchCards,
     pool?.tableNumbers ?? [],
+    entrants,
   );
   const isPreviewMode = computeIsPreviewMode(matchCards);
 
@@ -282,10 +283,11 @@ export function usePoolProgress(): UsePoolProgressResult {
       const suggestions = computeNextMatchSuggestions(
         relocked,
         pool?.tableNumbers ?? [],
+        entrants,
       );
       setSuggestionModalOpen(suggestions.length > 0);
     },
-    [matchCards, pool, isPreviewMode],
+    [matchCards, pool, isPreviewMode, entrants],
   );
 
   const assignTable = useCallback(
@@ -340,10 +342,11 @@ export function usePoolProgress(): UsePoolProgressResult {
       const remaining = computeNextMatchSuggestions(
         nextCards,
         pool?.tableNumbers ?? [],
+        entrants,
       );
       setSuggestionModalOpen(remaining.length > 0);
     },
-    [matchCards, pool, isPreviewMode],
+    [matchCards, pool, isPreviewMode, entrants],
   );
 
   const dismissSuggestion = useCallback(() => {

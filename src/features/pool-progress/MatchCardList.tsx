@@ -39,7 +39,7 @@ export function MatchCardList({
   // FR-017/FR-018/FR-026: 対戦台単位(複数)の次戦候補を、一覧・組合せ図の
   // 強調表示にそのまま使う(001の findNextMatchCard を置き換え)。
   const nextCardIds = new Set(
-    computeNextMatchSuggestions(matchCards, tableNumbers).map(
+    computeNextMatchSuggestions(matchCards, tableNumbers, entrants).map(
       (suggestion) => suggestion.matchCardId,
     ),
   );

@@ -1,4 +1,6 @@
+import type { Entrant } from "../entities/entrant.js";
 import type { MatchCard } from "../entities/matchCard.js";
+import { isEntrantAway } from "./awayStatus.js";
 import { computeBracketLayout } from "./bracketLayout.js";
 import { computeMatchDistances } from "./matchDistance.js";
 import { isTableOccupied } from "./tableAssignment.js";
@@ -35,18 +37,37 @@ function buildSlotByCardId(matchCards: MatchCard[]): Map<string, number> {
   return slotByCardId;
 }
 
+/** 対戦カードの出場者のいずれかが、渡された離席中出場者ID集合に含まれるか。 */
+function hasAwayEntrant(card: MatchCard, awayEntrantIds: Set<string>): boolean {
+  return (
+    (card.entrant1Id !== null && awayEntrantIds.has(card.entrant1Id)) ||
+    (card.entrant2Id !== null && awayEntrantIds.has(card.entrant2Id))
+  );
+}
+
 /**
  * 適格な候補同士の優先順位を比較する(FR-004〜FR-006)。distancesが
  * 空(総当り等、勝敗ブラケット形式ではないプール)の場合は、この比較は
  * 実質的にスキップされ、既存のround→identifierフォールバックのみが
  * 適用される(FR-008)。
+ *
+ * ユーザーフィードバック(2026-08-14): 出場者のどちらかが離席中の対戦は、
+ * 呼んでも実際には試合を始められないため、他の優先順位規則より優先して
+ * 最下位(最後)に回す。離席中同士・非離席中同士の比較は、この判定が
+ * 同じであれば従来通りの規則にフォールバックする。
  */
 function compareByPriority(
   a: MatchCard,
   b: MatchCard,
   distances: Map<string, number>,
   slotByCardId: Map<string, number>,
+  awayEntrantIds: Set<string>,
 ): number {
+  const aHasAway = hasAwayEntrant(a, awayEntrantIds);
+  const bHasAway = hasAwayEntrant(b, awayEntrantIds);
+  if (aHasAway !== bHasAway) {
+    return aHasAway ? 1 : -1;
+  }
   const distanceA = distances.get(a.id);
   const distanceB = distances.get(b.id);
   if (distanceA !== undefined && distanceB !== undefined) {
@@ -72,10 +93,11 @@ function pickBest(
   candidates: MatchCard[],
   distances: Map<string, number>,
   slotByCardId: Map<string, number>,
+  awayEntrantIds: Set<string>,
 ): MatchCard | null {
   if (candidates.length === 0) return null;
   return [...candidates].sort((a, b) =>
-    compareByPriority(a, b, distances, slotByCardId),
+    compareByPriority(a, b, distances, slotByCardId, awayEntrantIds),
   )[0];
 }
 
@@ -91,10 +113,16 @@ function pickBest(
  * 場合も同じ優先順位規則で1件だけ返す(FR-009)。
  * 001-pool-progression-trackerの`nextCardIndicator.ts`(`findNextMatchCard`)
  * を置き換える(このロジックに統合する)。
+ *
+ * ユーザーフィードバック(2026-08-14): `entrants`を渡すと、出場者のどちらか
+ * が離席中の対戦は優先度を最下位に回す(呼んでも試合を始められないため)。
+ * `entrants`を省略した場合はこの判定を行わない(既存呼び出し元との後方
+ * 互換のため既定値は空配列)。
  */
 export function computeNextMatchSuggestions(
   matchCards: MatchCard[],
   tableNumbers: string[],
+  entrants: Entrant[] = [],
 ): NextMatchSuggestion[] {
   const pending = matchCards.filter(isEligible);
   if (pending.length === 0) {
@@ -103,9 +131,12 @@ export function computeNextMatchSuggestions(
 
   const distances = computeMatchDistances(matchCards);
   const slotByCardId = buildSlotByCardId(matchCards);
+  const awayEntrantIds = new Set(
+    entrants.filter(isEntrantAway).map((entrant) => entrant.id),
+  );
 
   if (tableNumbers.length === 0) {
-    const best = pickBest(pending, distances, slotByCardId);
+    const best = pickBest(pending, distances, slotByCardId, awayEntrantIds);
     return best ? [{ matchCardId: best.id, table: null }] : [];
   }
 
@@ -116,7 +147,7 @@ export function computeNextMatchSuggestions(
       continue;
     }
     const candidates = pending.filter((card) => !alreadySuggested.has(card.id));
-    const best = pickBest(candidates, distances, slotByCardId);
+    const best = pickBest(candidates, distances, slotByCardId, awayEntrantIds);
     if (best) {
       suggestions.push({ matchCardId: best.id, table: tableNumber });
       alreadySuggested.add(best.id);
