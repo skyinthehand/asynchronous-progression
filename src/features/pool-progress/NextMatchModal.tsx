@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Modal } from "../../components/index.js";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
+import { formatAwayStartedAt } from "../../domain/rules/awayPeriodFormat.js";
+import { currentAwayPeriod } from "../../domain/rules/awayStatus.js";
 import { TableNumberOptions } from "./TableNumberOptions.js";
 
 interface NextMatchModalProps {
@@ -18,6 +20,38 @@ interface NextMatchModalProps {
 function entrantName(entrantById: Map<string, Entrant>, id: string | null) {
   if (!id) return "BYE";
   return entrantById.get(id)?.name ?? id;
+}
+
+interface AwayNote {
+  name: string;
+  startedAt: string;
+  reason: string | null;
+}
+
+/**
+ * ユーザーフィードバック(2026-08-14): 次戦候補の対戦に離席中の出場者が
+ * いる場合、離席記録モーダルと同様に離席時刻(日本時間)・理由をここにも
+ * 表示する(候補ではあるものの、実際には呼んでも試合を始められないこと
+ * を進行担当者に伝えるため)。
+ */
+function awayEntrantNotes(
+  entrantById: Map<string, Entrant>,
+  card: MatchCard,
+): AwayNote[] {
+  const notes: AwayNote[] = [];
+  for (const id of [card.entrant1Id, card.entrant2Id]) {
+    if (!id) continue;
+    const entrant = entrantById.get(id);
+    if (!entrant) continue;
+    const away = currentAwayPeriod(entrant);
+    if (!away) continue;
+    notes.push({
+      name: entrant.name,
+      startedAt: away.startedAt,
+      reason: away.reason,
+    });
+  }
+  return notes;
 }
 
 /**
@@ -41,6 +75,7 @@ export function NextMatchModal({
   // 対戦台番号を割り当てずに進行中へ変更される、という挙動をspec.mdが明示
   // しているため、サジェスト対象の対戦台であっても事前入力はしない)。
   const [tableNumber, setTableNumber] = useState("");
+  const awayNotes = awayEntrantNotes(entrantById, card);
 
   return (
     <Modal title="次戦候補" onClose={onClose}>
@@ -50,6 +85,16 @@ export function NextMatchModal({
         {entrantName(entrantById, card.entrant1Id)} vs{" "}
         {entrantName(entrantById, card.entrant2Id)}
       </p>
+      {awayNotes.length > 0 && (
+        <div className="next-match-modal-away-warning" role="alert">
+          {awayNotes.map((note) => (
+            <p key={note.name}>
+              {note.name}が離席中です({formatAwayStartedAt(note.startedAt)}〜
+              {note.reason && `・${note.reason}`})
+            </p>
+          ))}
+        </div>
+      )}
       {tableNumbers.length > 0 && (
         <label className="next-match-modal-table-select">
           対戦台(任意):

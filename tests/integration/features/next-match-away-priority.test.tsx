@@ -162,4 +162,37 @@ describe("Next-match suggestion deprioritizes matches with an away entrant (2026
     expect(within(modal).getByText("R1-2")).toBeInTheDocument();
     expect(within(modal).queryByText("R1-1")).not.toBeInTheDocument();
   });
+
+  it("shows the away start time and reason in the next-match modal when the only candidate has an away entrant (2026-08-14)", async () => {
+    const db = await getDb();
+    // card-2を削除し、離席中の出場者を含むcard-1だけを候補にする(それでも
+    // 候補としては提示されるはずなので、その中に離席情報が出ることを確認)。
+    await db.delete("matchCards", "card-2");
+
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("R1-1");
+
+    await user.click(screen.getByRole("button", { name: "離席記録" }));
+    const awayHeading = await screen.findByRole("heading", {
+      name: "離席記録",
+    });
+    const awayModal = awayHeading.closest(".app-modal") as HTMLElement;
+    await user.type(within(awayModal).getByLabelText("理由(任意):"), "トイレ");
+    const aliceRow = within(awayModal).getByText("Alice").closest("tr");
+    if (!aliceRow) throw new Error("Alice row not found");
+    await user.click(within(aliceRow).getByRole("button", { name: "離席" }));
+    await user.click(within(awayModal).getByRole("button", { name: "閉じる" }));
+
+    await user.click(screen.getByRole("button", { name: "次戦候補" }));
+    const modalHeading = await screen.findByRole("heading", {
+      name: "次戦候補",
+    });
+    const modal = modalHeading.closest(".app-modal") as HTMLElement;
+    expect(within(modal).getByText("R1-1")).toBeInTheDocument();
+    expect(within(modal).getByRole("alert").textContent).toMatch(
+      /Aliceが離席中です\(\d{2}:\d{2}〜・トイレ\)/,
+    );
+  });
 });

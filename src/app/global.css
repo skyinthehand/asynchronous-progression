@@ -616,6 +616,20 @@ label {
   margin-top: 0.75rem;
 }
 
+/* ユーザーフィードバック(2026-08-14): 次戦候補の出場者が離席中の場合の
+   警告表示。離席記録モーダル(sync-status-snackbar等)と同系統の配色。 */
+.next-match-modal-away-warning {
+  background: #fff3cd;
+  border: 1px solid #e0c26b;
+  border-radius: 6px;
+  padding: 0.5rem 0.8rem;
+  margin: 0.5rem 0;
+}
+
+.next-match-modal-away-warning p {
+  margin: 0.2rem 0;
+}
+
 /* 002-match-scoring-and-flow: 対戦台設定パネル(TableCountSettingPanel)。
    会場の卓番号を1台ずつ手入力・削除するリスト形式。 */
 .table-count-setting-panel {
