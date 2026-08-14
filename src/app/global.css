@@ -733,6 +733,70 @@ label {
   font-size: 0.85rem;
 }
 
+/* ユーザー要望(2026-08-18): 最初の画面(注意事項ダイアログ)を含め、常に
+   使い方(docs/usage.md)を確認できる「?」ボタン(HelpButton)。他のどの
+   モーダル・ダイアログよりも常に手前に出るよう、それらのz-index(100)より
+   高くする。 */
+.help-button {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 300;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.help-button:hover {
+  background: #164e93;
+}
+
+/* ヘルプ本文はテーブルを含むため、他のモーダルより少し幅を広げる。 */
+.help-modal {
+  z-index: 300;
+  width: min(94vw, 760px);
+}
+
+.help-markdown h2,
+.help-markdown h3,
+.help-markdown h4 {
+  margin: 1.1rem 0 0.5rem;
+}
+
+.help-markdown h2:first-child,
+.help-markdown h3:first-child {
+  margin-top: 0;
+}
+
+.help-markdown p {
+  margin: 0.5rem 0;
+}
+
+.help-markdown ul,
+.help-markdown ol {
+  margin: 0.4rem 0;
+  padding-left: 1.4rem;
+}
+
+.help-markdown table {
+  margin: 0.6rem 0 1rem;
+}
+
+.help-markdown code {
+  background: #f4f4f5;
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.9em;
+}
+
 /* タブレットの小さめ幅(縦向き等)向けの調整。 */
 @media (max-width: 600px) {
   .app-content {
@@ -747,5 +811,9 @@ label {
   .notice-gate,
   .notice-viewer {
     width: 94vw;
+  }
+
+  .help-modal {
+    width: 96vw;
   }
 }

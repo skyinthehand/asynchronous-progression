@@ -1,4 +1,5 @@
 import { AdminSessionProvider } from "../features/admin/AdminSessionContext.js";
+import { HelpButton } from "../features/help/HelpButton.js";
 import { EmergencyContactWarning } from "../features/notice/EmergencyContactWarning.js";
 import { NoticeGate } from "../features/notice/NoticeGate.js";
 import { NoticeViewer } from "../features/notice/NoticeViewer.js";
@@ -27,6 +28,9 @@ export function App() {
   return (
     <RouterProvider>
       <AdminSessionProvider>
+        {/* NoticeGateは注意事項未確認の間は他の子要素を描画しないため、
+            最初の画面でも使い方を確認できるようその外側に配置する。 */}
+        <HelpButton />
         <NoticeGate>
           <AppContent />
         </NoticeGate>
