@@ -5,6 +5,11 @@
 会場ネットワークが不安定な状況でも、入力はすべて端末内に保存され、
 オンライン時に一定間隔でstartggへ自動反映されます。
 
+**公開URL**: <https://skyinthehand.github.io/asynchronous-progression/>
+(GitHub Pagesで公開。mainブランチへの変更は、品質ゲート(lint・型
+チェック・テスト)通過後に自動的に反映されます。詳細は
+[`specs/004-github-pages-deploy/`](specs/004-github-pages-deploy/)参照)
+
 詳細な仕様・設計は [`specs/001-pool-progression-tracker/`](specs/001-pool-progression-tracker/)
 を参照してください([spec.md](specs/001-pool-progression-tracker/spec.md) /
 [plan.md](specs/001-pool-progression-tracker/plan.md) /

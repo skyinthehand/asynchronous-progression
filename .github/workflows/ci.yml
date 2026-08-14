@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   quality-gate:
@@ -18,3 +19,37 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm test
+
+  # ユーザーフィードバック(2026-08-16): specs/004-github-pages-deploy。
+  # quality-gate通過後、mainブランチへのpush(または手動実行)のみで
+  # GitHub Pagesへ自動デプロイする(FR-003/FR-004)。needsにより、
+  # quality-gateが失敗した場合はこのジョブ自体が実行されず、公開中の
+  # 版は変更されない。
+  deploy:
+    needs: quality-gate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: Build (GitHub Pagesのプロジェクトページ用サブパスを指定)
+        run: npm run build
+        env:
+          BASE_PATH: /asynchronous-progression/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

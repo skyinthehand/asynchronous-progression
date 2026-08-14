@@ -32,6 +32,8 @@
       (手動操作。手順は`specs/004-github-pages-deploy/quickstart.md`の
       「前提条件」参照。公開APIで確認済みの通り、対象リポジトリでは
       まだPagesが有効化されていない — research.md #5)
+      **未実施**: リポジトリのSettings変更はエージェントの権限・操作範囲
+      外のため、ユーザー本人による実施が必要。
 
 **Checkpoint**: リポジトリ側でGitHub Actionsからのデプロイを受け付ける準備が整った
 
@@ -44,12 +46,12 @@
 
 **⚠️ CRITICAL**: このフェーズ完了までユーザーストーリーの検証を開始できない
 
-- [ ] T002 [P] `vite.config.ts` の `base` を、環境変数(`BASE_PATH`)が
+- [X] T002 [P] `vite.config.ts` の `base` を、環境変数(`BASE_PATH`)が
       設定されていればその値、未設定なら既定値 `"/"` を使うように変更する
       (research.md #3)。`npm run dev`・`npm run build`・`npm run preview`
       は環境変数未設定のため、これまで通り `"/"` で動作し続けることを
       ローカルで確認する。
-- [ ] T003 [P] `package.json` の `test` スクリプトを
+- [X] T003 [P] `package.json` の `test` スクリプトを
       `vitest run --no-file-parallelism` に変更する(research.md #4)。
       変更後、`npm test` を実行しテストスイートが全件成功することを
       ローカルで確認する。
@@ -66,14 +68,19 @@
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] `.github/workflows/ci.yml` に `deploy` ジョブを追加する:
+- [X] T004 [US1] `.github/workflows/ci.yml` に `deploy` ジョブを追加する:
       `actions/checkout` → `actions/setup-node`(既存`quality-gate`と同じ
       Node 22設定) → `npm ci` → `BASE_PATH=/asynchronous-progression/
       npm run build`(T002のbase切り替えを利用) →
       `actions/configure-pages` → `actions/upload-pages-artifact`
       (`path: dist`) → `actions/deploy-pages`。トリガーはまず
       `workflow_dispatch`(手動実行)のみとする。
-- [ ] T005 [US1] `deploy` ジョブに、GitHub Pagesデプロイに必要な
+      **実装メモ**: T007(pushトリガー/needs/if)の内容もあわせて最初から
+      実装した(`workflow_dispatch`は手動実行の手段として残しつつ、
+      `push: branches: [main]` + `needs: quality-gate` + `if`条件も
+      同時に設定済み)。ローカルでのライブデプロイ実行・確認ができない
+      環境のため、段階分けせず最終形を一度に実装している。
+- [X] T005 [US1] `deploy` ジョブに、GitHub Pagesデプロイに必要な
       `permissions`(`contents: read`, `pages: write`, `id-token: write`)
       と `environment: github-pages` を `.github/workflows/ci.yml` に
       設定する。
@@ -83,6 +90,9 @@
       (`https://skyinthehand.github.io/asynchronous-progression/`)で
       注意事項確認モーダル・対戦カード操作・管理画面初期化等が
       ローカル開発環境と同じ挙動になることを確認する。
+      **未実施**: T001(手動設定)が未完了であることに加え、GitHub
+      Actionsの実行トリガー・実際に公開されたURLへのアクセス確認は
+      エージェントの操作範囲外のため、ユーザー本人による実施が必要。
 
 **Checkpoint**: この時点で、手動トリガーによる公開が可能になり、公開URLでアプリ全体が正しく動作する
 
@@ -96,22 +106,26 @@
 
 ### Implementation for User Story 2
 
-- [ ] T007 [US2] `.github/workflows/ci.yml` の `deploy` ジョブのトリガーに
+- [X] T007 [US2] `.github/workflows/ci.yml` の `deploy` ジョブのトリガーに
       `push`(`branches: [main]`)を追加し、`needs: quality-gate` と
       `if: github.ref == 'refs/heads/main' && github.event_name ==
       'push'` を設定する(research.md #2)。これにより、品質ゲート
       (lint・型チェック・T003で安定化済みのテスト)を通過した場合のみ
-      デプロイが実行される(FR-004)。
-- [ ] T008 [US2] `specs/004-github-pages-deploy/quickstart.md`の
-      シナリオ2を実施する: ローカルで`npm run lint && npm run build &&
-      npm test`を実行して品質ゲートの内容を確認し、任意で一時的な
-      ブランチ/PRに意図的に壊れた変更をpushして、`quality-gate`失敗時
-      に`deploy`ジョブがスキップされることをActionsタブで確認する
-      (確認後、そのブランチ/PRは削除する)。
+      デプロイが実行される(FR-004)。**T004の実装メモの通り、この内容は
+      T004実施時にあわせて反映済み。**
+- [X] T008 [US2] `specs/004-github-pages-deploy/quickstart.md`の
+      シナリオ2のうち必須部分(ローカルでの`npm run lint && npm run
+      build && npm test`実行)を実施し、全て成功することを確認した。
+      任意項目(一時的なブランチ/PRへの意図的な壊れた変更のpushによる
+      Actionsタブでの実地確認)は、リモートへの実際のpush操作を伴う
+      ため、この場では実施していない(ユーザー判断で任意に実施)。
 - [ ] T009 [US2] 実際にmainブランチへ変更をpushし、
       `specs/004-github-pages-deploy/quickstart.md`のシナリオ1を
       end-to-endで実施する: `quality-gate` → `deploy` の自動実行、
       および公開URLへの反映がSC-002(10分以内)を満たすことを確認する。
+      **未実施**: mainブランチへのpush、および実際の公開結果の確認は
+      ユーザーの明示的な承認・操作が必要な範囲のため、この場では
+      実施していない。
 
 **Checkpoint**: User Story 1・2ともに独立して動作する(手動トリガーなしで、mainへのマージだけで公開URLが更新される)
 
@@ -130,6 +144,11 @@
       Networkタブで全アセット(JS/CSS)が404等のエラーなく読み込まれて
       いることを確認する(T002のbase path切り替えが正しく機能して
       いることの実地検証)。
+      **未実施**: 実際の公開URLへのブラウザアクセスが必要なため、この場
+      では実施していない。ただし、T002の`base`切り替え自体はローカルで
+      `BASE_PATH=/asynchronous-progression/`を指定したビルドにより、
+      生成される`dist/index.html`のアセット参照がサブパス付きに正しく
+      変わることを確認済み(実装時のローカル検証)。
 
 **Checkpoint**: すべてのユーザーストーリーが独立して検証済みの状態になる
 
@@ -139,11 +158,14 @@
 
 **Purpose**: 複数ストーリーにまたがる仕上げ
 
-- [ ] T011 [P] `README.md` に公開URL
+- [X] T011 [P] `README.md` に公開URL
       (`https://skyinthehand.github.io/asynchronous-progression/`)と、
       mainブランチへのマージで自動デプロイされる旨を追記する。
 - [ ] T012 `specs/004-github-pages-deploy/quickstart.md`の全シナリオを
       通しで再実施し、回帰がないことを最終確認する。
+      **一部未実施**: ローカルで実施可能な部分(品質ゲートコマンドの
+      実行)は完了済み(T008参照)。公開URLへの実アクセスを伴う部分は、
+      T001完了・実デプロイ後にユーザー側で実施が必要。
 
 ---
 
