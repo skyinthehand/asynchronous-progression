@@ -102,4 +102,36 @@ describe("Away period start time display (2026-08-14)", () => {
     await user.click(within(row).getByRole("button", { name: "戻った" }));
     expect(row.textContent).not.toMatch(/\d{2}:\d{2}〜/);
   });
+
+  it("shows the entered reason next to the entrant's name (2026-08-14: reason was recorded but never displayed)", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const modal = await openAwayModal(user);
+    await user.type(within(modal).getByLabelText("理由(任意):"), "トイレ");
+    const row = within(modal).getByText("Alice").closest("tr");
+    if (!row) throw new Error("Alice row not found");
+    await user.click(within(row).getByRole("button", { name: "離席" }));
+
+    expect(row.textContent).toMatch(/\(\d{2}:\d{2}〜・トイレ\)/);
+
+    const db = await getDb();
+    const entrant = await db.get("entrants", "entrant-1");
+    expect(entrant?.awayPeriods[0].reason).toBe("トイレ");
+  });
+
+  it("shows no reason suffix when the reason field is left blank", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const modal = await openAwayModal(user);
+    const row = within(modal).getByText("Alice").closest("tr");
+    if (!row) throw new Error("Alice row not found");
+    await user.click(within(row).getByRole("button", { name: "離席" }));
+
+    expect(row.textContent).toMatch(/\(\d{2}:\d{2}〜\)/);
+    expect(row.textContent).not.toContain("・");
+  });
 });

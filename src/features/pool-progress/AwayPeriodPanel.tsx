@@ -49,8 +49,8 @@ export function AwayPeriodPanel({
                   {e.name}
                   {away && (
                     <span className="away-started-at">
-                      ({formatAwayStartedAt(away.startedAt)}
-                      〜)
+                      ({formatAwayStartedAt(away.startedAt)}〜
+                      {away.reason && `・${away.reason}`})
                     </span>
                   )}
                 </>
