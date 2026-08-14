@@ -44,9 +44,23 @@ export function mergeMatchCard(
 ): MatchCard {
   if (!local) return remote;
   if (local.localOnly) {
-    // ローカルで未反映の結果がある場合は、ローカルを正としてstartgg側の
-    // 古い値で上書きしない(次回同期で改めてM1を送信する)。
-    return local;
+    // ユーザーフィードバック(2026-08-15): 結果(勝者)を保持しているカード
+    // (M1未送信のもの)は、送信が成功するまでローカルを正とする。
+    // 一方、advanceWinner(matchProgression.ts)による出場者反映のみ
+    // (winnerIdを持たない)のカードは、startgg側が追いつけば
+    // (remoteの出場者がローカルと一致すれば)保護を解除してよい。
+    // これを行わないと、一度でもadvanceWinnerで出場者が反映された
+    // カードは、startgg側が実際には追いついていても永久にlocalOnlyの
+    // ままとなり、「未反映N件」が減らず、かつそのカードへの以降の
+    // remote更新(対戦台・結果修正等)も一切取り込まれなくなってしまう
+    // (実際に報告されたバグ: startgg側は最新なのに同期エラーが続く)。
+    const remoteCaughtUpWithAdvancement =
+      !local.winnerId &&
+      remote.entrant1Id === local.entrant1Id &&
+      remote.entrant2Id === local.entrant2Id;
+    if (!remoteCaughtUpWithAdvancement) {
+      return local;
+    }
   }
   return {
     ...remote,
