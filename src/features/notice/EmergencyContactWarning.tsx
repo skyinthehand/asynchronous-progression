@@ -13,8 +13,8 @@ export function EmergencyContactWarning() {
 
   return (
     <div className="emergency-contact-warning no-print" role="alert">
-      注意書きに緊急時の連絡方法の記載が確認できません。startgg側の大会詳細
-      ページ(Rules)を管理者に確認・追記してもらってください。
+      注意書きに緊急時の連絡方法の記載が確認できません。startgg側の対象
+      イベントのRules設定を管理者に確認・追記してもらってください。
     </div>
   );
 }

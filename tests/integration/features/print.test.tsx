@@ -9,7 +9,7 @@ import { getMatchCardsByPool } from "../../../src/infra/storage/matchCardReposit
 import { getPool } from "../../../src/infra/storage/poolRepository.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
-  fetchTournamentRules: vi.fn().mockRejectedValue(new Error("offline")),
+  fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
 }));
 
 async function resetDb() {

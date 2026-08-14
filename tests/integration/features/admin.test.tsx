@@ -5,7 +5,7 @@ import { App } from "../../../src/app/App.js";
 import { getDb } from "../../../src/infra/storage/db.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
-  fetchTournamentRules: vi.fn().mockRejectedValue(new Error("offline")),
+  fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
   listMyTournaments: vi
     .fn()
     .mockResolvedValue([

@@ -11,7 +11,7 @@ vi.mock("../../../src/infra/startgg/operations.js", async (importOriginal) => {
     >();
   return {
     ...actual,
-    fetchTournamentRules: vi.fn().mockRejectedValue(new Error("offline")),
+    fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
     fetchPoolDetail: vi.fn(),
     reportMatchResult: vi.fn(),
     // TableSettingsPanel(管理画面)は表示のたびにstartggのstation一覧を

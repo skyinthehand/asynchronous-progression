@@ -536,30 +536,41 @@ export async function fetchNextMatch(
   };
 }
 
-// --- Q4: notice (Tournament.rules) ---
+// --- Q4: notice (Event.rulesMarkdown) ---
 
-const TournamentRulesResponseSchema = z.object({
-  tournament: z.object({ rules: z.string().nullable() }).nullable(),
+const EventRulesResponseSchema = z.object({
+  event: z.object({ rulesMarkdown: z.string().nullable() }).nullable(),
 });
 
-const TOURNAMENT_RULES_QUERY = /* GraphQL */ `
-  query TournamentRules($slug: String!) {
-    tournament(slug: $slug) {
-      rules
+const EVENT_RULES_QUERY = /* GraphQL */ `
+  query EventRules($eventId: ID!) {
+    event(id: $eventId) {
+      rulesMarkdown
     }
   }
 `;
 
-/** Q4: 注意書き(Tournament.rules)の取得(read-only) */
-export async function fetchTournamentRules(
+/**
+ * Q4: 注意書き(Event.rulesMarkdown)の取得(read-only)。
+ *
+ * ユーザーフィードバック(2026-08-15): 当初はTournament.rulesを使って
+ * いたが、大会のhomepage(公開ページ)側に表示される内容とは別物で、
+ * ユーザーが実際に「プール進行注意事項」を書き込む先として選んだのは
+ * Event(対象イベント)側のrules設定だったため、こちらに切り替える。
+ * 参照した非公式スキーマ文書は`rulesMarkdown`を配列型としていたが、
+ * 実機で確認した実際のレスポンスは単純な文字列だった(スキーマ文書側の
+ * 誤り。配列型を前提にした実装ではzodのパースに失敗し、その例外が
+ * runSync/useNoticeの両方でオフライン時のキャッシュ継続表示のため
+ * 握りつぶされ、原因不明のまま「注意書きが取得できない」状態になって
+ * いた)。
+ */
+export async function fetchEventRules(
   client: GraphQLClient,
-  tournamentSlug: string,
+  eventId: string,
 ): Promise<string> {
-  const raw = await client.request(TOURNAMENT_RULES_QUERY, {
-    slug: tournamentSlug,
-  });
-  const parsed = TournamentRulesResponseSchema.parse(raw);
-  return parsed.tournament?.rules ?? "";
+  const raw = await client.request(EVENT_RULES_QUERY, { eventId });
+  const parsed = EventRulesResponseSchema.parse(raw);
+  return parsed.event?.rulesMarkdown ?? "";
 }
 
 // --- Q5: tournament stations (for table-number → station-id resolution) ---

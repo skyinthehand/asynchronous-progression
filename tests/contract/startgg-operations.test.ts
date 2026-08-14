@@ -4,10 +4,10 @@ import type { MatchCard } from "../../src/domain/entities/matchCard.js";
 import {
   assignStationToSet,
   buildReportBracketSetInput,
+  fetchEventRules,
   fetchNextMatch,
   fetchPoolDetail,
   fetchStations,
-  fetchTournamentRules,
   listMyTournaments,
   listPhasePools,
   listTournamentEvents,
@@ -511,19 +511,25 @@ describe("Q3: fetchNextMatch", () => {
   });
 });
 
-describe("Q4: fetchTournamentRules", () => {
-  it("returns the rules text", async () => {
+describe("Q4: fetchEventRules", () => {
+  // ユーザーフィードバック(2026-08-15): 参照した非公式スキーマ文書は
+  // rulesMarkdownを配列型としていたが、実機で確認した実際のレスポンスは
+  // 単純な文字列だった。配列を前提にすると実際のレスポンスに対して
+  // zodのパースが失敗し、その例外が(オフライン時のキャッシュ継続表示の
+  // ため)呼び出し元で握りつぶされ、原因不明のまま注意書きが取得できない
+  // 状態になっていた。
+  it("returns the rulesMarkdown text as-is", async () => {
     const client = fakeClient({
-      tournament: { rules: "遅刻・キャンセルはDiscordまで。" },
+      event: { rulesMarkdown: "# プール進行注意事項\n- 離席記録に登録" },
     });
-    expect(await fetchTournamentRules(client, "impact-major-4")).toBe(
-      "遅刻・キャンセルはDiscordまで。",
+    expect(await fetchEventRules(client, "1")).toBe(
+      "# プール進行注意事項\n- 離席記録に登録",
     );
   });
 
-  it("returns an empty string when rules is null", async () => {
-    const client = fakeClient({ tournament: { rules: null } });
-    expect(await fetchTournamentRules(client, "impact-major-4")).toBe("");
+  it("returns an empty string when rulesMarkdown is null", async () => {
+    const client = fakeClient({ event: { rulesMarkdown: null } });
+    expect(await fetchEventRules(client, "1")).toBe("");
   });
 });
 

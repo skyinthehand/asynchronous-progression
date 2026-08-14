@@ -1,11 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
-  fetchTournamentRules: vi.fn().mockRejectedValue(new Error("offline")),
+  fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
 }));
 
 async function resetDb() {
@@ -82,6 +82,43 @@ describe("Notice gate (User Story 1)", () => {
           .length,
       ).toBeGreaterThan(0),
     );
+  });
+
+  it("renders the notice body as Markdown (heading + list elements, not literal '#'/'-') (2026-08-15)", async () => {
+    const db = await getDb();
+    await db.put(
+      "startggConfig",
+      {
+        tournamentSlug: "impact-major-4",
+        eventId: "1",
+        phaseId: "1",
+        poolId: "1",
+        syncToken: "test-token",
+        tokenUpdatedAt: null,
+      },
+      SINGLETON_KEY,
+    );
+    await db.put("notice", {
+      tournamentSlug: "impact-major-4",
+      body: "# プール進行注意事項\n- 離席記録に登録してください\n- 連絡先: Discord",
+      hasEmergencyContact: true,
+      lastSyncedAt: null,
+    });
+
+    render(<App />);
+
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "プール進行注意事項",
+    });
+    expect(heading).toBeInTheDocument();
+    const list = screen.getByRole("list");
+    expect(
+      within(list).getByText("離席記録に登録してください"),
+    ).toBeInTheDocument();
+    expect(within(list).getByText("連絡先: Discord")).toBeInTheDocument();
+    // 生のMarkdown記号がそのまま文字として出ていない(構造化されている)ことも確認する。
+    expect(screen.queryByText(/^#/)).not.toBeInTheDocument();
   });
 
   it("warns when the synced notice has no detectable emergency contact", async () => {

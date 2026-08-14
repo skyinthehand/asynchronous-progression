@@ -632,6 +632,33 @@ label {
   background: rgba(0, 0, 0, 0.45);
 }
 
+/* ユーザーフィードバック(2026-08-15): 注意事項(start.gg Event.rulesMarkdown)
+   をMarkdownとして解釈して表示する(NoticeMarkdown参照)。ダイアログ内の
+   限られた縦幅に収まるよう、見出し・箇条書きの余白を詰める。 */
+.notice-body h1,
+.notice-body h2,
+.notice-body h3,
+.notice-body h4,
+.notice-body h5,
+.notice-body h6 {
+  margin: 0.9rem 0 0.4rem;
+}
+
+.notice-body h1:first-child,
+.notice-body h2:first-child,
+.notice-body h3:first-child {
+  margin-top: 0;
+}
+
+.notice-body p {
+  margin: 0.4rem 0;
+}
+
+.notice-body ul {
+  margin: 0.4rem 0;
+  padding-left: 1.4rem;
+}
+
 /* 002-match-scoring-and-flow: 次戦候補モーダル(NextMatchModal)。 */
 .next-match-modal-table {
   font-weight: 700;

@@ -1,3 +1,4 @@
+import { NoticeMarkdown } from "../../components/index.js";
 import { useNotice } from "../notice/useNotice.js";
 
 /**
@@ -11,7 +12,7 @@ export function NoticeAdminPanel() {
     <section className="notice-admin-panel">
       <h3>注意書き</h3>
       {notice ? (
-        <p className="notice-body">{notice.body}</p>
+        <NoticeMarkdown text={notice.body} />
       ) : (
         <p>注意書きをまだ取得できていません。</p>
       )}
@@ -21,7 +22,7 @@ export function NoticeAdminPanel() {
           target="_blank"
           rel="noreferrer"
         >
-          startgg側で注意書き(Rules)を編集する
+          startgg側で対象イベントのRules設定を編集する
         </a>
       )}
     </section>

@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from "react";
+import { NoticeMarkdown } from "../../components/index.js";
 import { useNotice } from "./useNotice.js";
 
 interface NoticeGateProps {
@@ -21,7 +22,7 @@ export function NoticeGate({ children }: NoticeGateProps) {
     <dialog open className="notice-gate" aria-modal="true">
       <h2>注意事項</h2>
       {notice ? (
-        <p className="notice-body">{notice.body}</p>
+        <NoticeMarkdown text={notice.body} />
       ) : loading ? (
         <p className="notice-status">
           注意事項を同期しています。しばらくお待ちください…

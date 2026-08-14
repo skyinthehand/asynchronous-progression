@@ -5,7 +5,7 @@ import { App } from "../../../src/app/App.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
-  fetchTournamentRules: vi.fn().mockRejectedValue(new Error("offline")),
+  fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
 }));
 
 async function resetDb() {

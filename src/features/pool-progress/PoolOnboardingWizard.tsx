@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Modal } from "../../components/index.js";
+import { Modal, NoticeMarkdown } from "../../components/index.js";
 import type { Attendance, Entrant } from "../../domain/entities/entrant.js";
 import type { Pool } from "../../domain/entities/pool.js";
 import { useNotice } from "../notice/useNotice.js";
@@ -73,9 +73,9 @@ export function PoolOnboardingWizard({
       {step === "notice" && (
         <section className="onboarding-notice">
           <h2>注意事項</h2>
-          <p className="notice-body">
-            {notice?.body ?? "注意事項を取得できませんでした。"}
-          </p>
+          <NoticeMarkdown
+            text={notice?.body ?? "注意事項を取得できませんでした。"}
+          />
         </section>
       )}
     </Modal>

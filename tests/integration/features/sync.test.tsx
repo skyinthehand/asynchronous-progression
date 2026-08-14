@@ -12,7 +12,7 @@ vi.mock("../../../src/infra/startgg/operations.js", async (importOriginal) => {
     >();
   return {
     ...actual,
-    fetchTournamentRules: vi.fn().mockResolvedValue(""),
+    fetchEventRules: vi.fn().mockResolvedValue(""),
     fetchPoolDetail: vi.fn(),
     reportMatchResult: vi.fn(),
     markSetInProgress: vi.fn().mockResolvedValue(undefined),
