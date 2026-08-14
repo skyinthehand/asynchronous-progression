@@ -38,7 +38,12 @@ async function seedFreshPool() {
     eventId: "1",
     phaseId: "1",
     className: null,
-    bracketType: "ROUND_ROBIN",
+    // ROUND_ROBIN形式は現在非対応(PoolProgressScreen.tsxでブロックされる)
+    // なため、オンボーディングウィザードの検証とは無関係な一覧表示形式
+    // として"OTHER"を使う(MatchTableへのルーティングはROUND_ROBIN/OTHER
+    // 共通)。ただしROUND_ROBIN専用の自動生成は行われなくなるため、
+    // 「Alice vs Bob」の対戦カードは明示的に用意する。
+    bracketType: "OTHER",
     staffName: null,
     lastSyncedAt: null,
     // 未設定(初回)の状態を再現する。
@@ -63,6 +68,28 @@ async function seedFreshPool() {
     poolFinished: false,
     nextMatch: null,
     awayPeriods: [],
+  });
+  await db.put("matchCards", {
+    id: "card-1",
+    poolId: "pool-1",
+    identifier: "R1-1",
+    round: 1,
+    bracketSide: "N/A",
+    tableNumber: null,
+    entrant1Id: "e1",
+    entrant2Id: "e2",
+    winnerId: null,
+    score: null,
+    status: "NOT_STARTED",
+    isLocked: false,
+    editHistory: [],
+    localOnly: false,
+    entrant1SourceMatchId: null,
+    entrant2SourceMatchId: null,
+    entrant1Score: null,
+    entrant2Score: null,
+    entrant1DQ: false,
+    entrant2DQ: false,
   });
 }
 

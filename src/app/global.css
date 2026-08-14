@@ -725,6 +725,14 @@ label {
   margin-top: 1rem;
 }
 
+/* ユーザーフィードバック(2026-08-17): 管理画面のプール選択一覧で、
+   総当り(ROUND_ROBIN)形式が現在非対応であることを示す注記。 */
+.drill-down-unsupported-note {
+  margin: 0 0.5rem;
+  color: #b45309;
+  font-size: 0.85rem;
+}
+
 /* タブレットの小さめ幅(縦向き等)向けの調整。 */
 @media (max-width: 600px) {
   .app-content {

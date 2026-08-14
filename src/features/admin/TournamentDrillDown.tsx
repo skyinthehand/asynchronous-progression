@@ -160,30 +160,42 @@ export function TournamentDrillDown({
 
       {tournament && event && phase && pools && (
         <ul className="drill-down-options">
-          {pools.map((pool) => (
-            <li key={pool.poolId}>
-              {pool.poolDisplayIdentifier}
-              <button
-                type="button"
-                onClick={() =>
-                  onPoolSelected({
-                    tournamentSlug: tournament.tournamentSlug,
-                    tournamentName: tournament.tournamentName,
-                    eventId: event.eventId,
-                    eventName: event.eventName,
-                    phaseId: phase.phaseId,
-                    phaseName: phase.phaseName,
-                    poolId: pool.poolId,
-                    poolDisplayIdentifier: pool.poolDisplayIdentifier,
-                    bracketType:
-                      pool.bracketType as ManagedPoolOption["bracketType"],
-                  })
-                }
-              >
-                このプールを選択
-              </button>
-            </li>
-          ))}
+          {pools.map((pool) => {
+            // ユーザーフィードバック(2026-08-17): 総当り(ROUND_ROBIN)形式の
+            // 動作確認がまだ不十分なため、後日対応予定として当面は選択でき
+            // ないようにする(選択画面の時点で防ぐ)。
+            const unsupported = pool.bracketType === "ROUND_ROBIN";
+            return (
+              <li key={pool.poolId}>
+                {pool.poolDisplayIdentifier}
+                {unsupported && (
+                  <span className="drill-down-unsupported-note">
+                    (総当り形式は現在非対応です)
+                  </span>
+                )}
+                <button
+                  type="button"
+                  disabled={unsupported}
+                  onClick={() =>
+                    onPoolSelected({
+                      tournamentSlug: tournament.tournamentSlug,
+                      tournamentName: tournament.tournamentName,
+                      eventId: event.eventId,
+                      eventName: event.eventName,
+                      phaseId: phase.phaseId,
+                      phaseName: phase.phaseName,
+                      poolId: pool.poolId,
+                      poolDisplayIdentifier: pool.poolDisplayIdentifier,
+                      bracketType:
+                        pool.bracketType as ManagedPoolOption["bracketType"],
+                    })
+                  }
+                >
+                  このプールを選択
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

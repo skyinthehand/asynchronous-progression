@@ -76,7 +76,10 @@ async function seedPool() {
     eventId: "1",
     phaseId: "1",
     className: null,
-    bracketType: "ROUND_ROBIN",
+    // ROUND_ROBIN形式は現在非対応(PoolProgressScreen.tsxでブロックされる)
+    // なため、次戦候補ロジックの検証とは無関係な一覧表示形式として"OTHER"
+    // を使う(MatchTableへのルーティングはROUND_ROBIN/OTHER共通)。
+    bracketType: "OTHER",
     staffName: null,
     lastSyncedAt: null,
     onboardingCompletedAt: new Date().toISOString(),

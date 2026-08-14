@@ -85,6 +85,20 @@ export function PoolProgressScreen() {
     );
   }
 
+  // ユーザーフィードバック(2026-08-17): 総当り(ROUND_ROBIN)形式は動作
+  // 確認がまだ不十分なため、後日対応予定として当面は非対応にする。管理
+  // 画面の選択時点でも新規選択は防いでいるが(TournamentDrillDown.tsx)、
+  // 既に選択済みの総当りプールが残っているケースに備え、ここでもプール
+  // 全体をブロックする。
+  if (pool?.bracketType === "ROUND_ROBIN") {
+    return (
+      <p role="alert">
+        総当り形式のプールは現在非対応です。動作確認が整い次第、後日
+        対応予定です。管理画面から別のプールを選択してください。
+      </p>
+    );
+  }
+
   if (printing && pool) {
     return (
       <PrintPage

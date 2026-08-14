@@ -52,7 +52,10 @@ describe("Next-match guidance for finished entrants (User Story 4)", () => {
       eventId: "1",
       phaseId: "1",
       className: "Bクラス以下",
-      bracketType: "ROUND_ROBIN",
+      // ROUND_ROBIN形式は現在非対応(PoolProgressScreen.tsxでブロックされる)
+      // なため、次戦案内の検証とは無関係な一覧表示形式として"OTHER"を使う
+      // (MatchTableへのルーティングはROUND_ROBIN/OTHER共通)。
+      bracketType: "OTHER",
       staffName: null,
       lastSyncedAt: null,
       onboardingCompletedAt: new Date().toISOString(),

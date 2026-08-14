@@ -38,7 +38,12 @@ async function seedPool() {
     eventId: "1",
     phaseId: "1",
     className: null,
-    bracketType: "ROUND_ROBIN",
+    // ROUND_ROBIN形式は現在非対応(PoolProgressScreen.tsxでブロックされる。
+    // 専用の検証は下の"blocks..."テスト参照)なため、それ以外のこのファイル
+    // のテストでは無関係な一覧表示形式として"OTHER"を使う(MatchTableへの
+    // ルーティングはROUND_ROBIN/OTHER共通)。ROUND_ROBIN専用の自動生成は
+    // 行われなくなるため、対戦カードは明示的に用意する。
+    bracketType: "OTHER",
     staffName: null,
     lastSyncedAt: null,
     // オンボーディングウィザードは別テスト(pool-onboarding.test.tsx)で
@@ -65,6 +70,28 @@ async function seedPool() {
     nextMatch: null,
     awayPeriods: [],
   });
+  await db.put("matchCards", {
+    id: "card-1",
+    poolId: "pool-1",
+    identifier: "R1-1",
+    round: 1,
+    bracketSide: "N/A",
+    tableNumber: null,
+    entrant1Id: "entrant-1",
+    entrant2Id: "entrant-2",
+    winnerId: null,
+    score: null,
+    status: "NOT_STARTED",
+    isLocked: false,
+    editHistory: [],
+    localOnly: false,
+    entrant1SourceMatchId: null,
+    entrant2SourceMatchId: null,
+    entrant1Score: null,
+    entrant2Score: null,
+    entrant1DQ: false,
+    entrant2DQ: false,
+  });
 }
 
 async function acknowledgeNotice(user: ReturnType<typeof userEvent.setup>) {
@@ -86,13 +113,38 @@ describe("Pool progress offline persistence (User Story 2)", () => {
     await seedPool();
   });
 
-  it("generates round-robin match cards for a freshly seeded pool", async () => {
+  it("shows the pool's basic content once loaded", async () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
 
     expect(await screen.findByText("Pool 1")).toBeInTheDocument();
     expect(await screen.findByText(/Alice vs Bob/)).toBeInTheDocument();
+  });
+
+  it("blocks the pool progress screen for round-robin pools (not yet supported, 2026-08-17)", async () => {
+    const db = await getDb();
+    await db.put("pools", {
+      id: "pool-1",
+      displayIdentifier: "Pool 1",
+      tournamentSlug: "impact-major-4",
+      eventId: "1",
+      phaseId: "1",
+      className: null,
+      bracketType: "ROUND_ROBIN",
+      staffName: null,
+      lastSyncedAt: null,
+      onboardingCompletedAt: new Date().toISOString(),
+    });
+
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    expect(
+      await screen.findByText(/総当り形式のプールは現在非対応です/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Alice vs Bob/)).not.toBeInTheDocument();
   });
 
   it("shows tournament/event/phase/pool names in the header when available", async () => {

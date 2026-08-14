@@ -304,7 +304,11 @@ describe("Print page (User Story 7)", () => {
       eventId: "1",
       phaseId: "1",
       className: null,
-      bracketType: "ROUND_ROBIN",
+      // ROUND_ROBIN形式は現在非対応(PoolProgressScreen.tsxでブロックされる)
+      // なため、このテストの本題(印刷ボタンの無効化)とは無関係な一覧表示
+      // 形式として"OTHER"を使う(MatchTableへのルーティングはROUND_ROBIN/
+      // OTHER共通)。
+      bracketType: "OTHER",
       staffName: null,
       lastSyncedAt: null,
       tournamentName: "IMPACT MAJOR #4",
@@ -315,9 +319,10 @@ describe("Print page (User Story 7)", () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
-    await screen.findByText(/Alice vs Bob/);
 
-    const printButton = screen.getByRole("button", { name: "印刷用ページ" });
+    const printButton = await screen.findByRole("button", {
+      name: "印刷用ページ",
+    });
     expect(printButton).toBeDisabled();
   });
 });
