@@ -338,11 +338,25 @@ const PREVIEW_GAP_SEARCH_LIMIT = 20;
  * advanceWinner側で「敗者を送る」と正しく解釈される(FR-023の同側/別側
  * 判定をそのまま利用できるため、ここでは参照を繋ぎ直すだけでよい)。
  *
+ * ただし、参照元と同じラウンド番号に実在するカードが1件でもある場合は
+ * 探索を行わない。実際に報告されたバグ: 敗者側のある不戦勝カード(例:
+ * 「round -3, index 0」を参照)が、round -3自体は実在する(index 1・3の
+ * カードがある)のに、たまたまindex 0のカードだけが存在しない場合、
+ * これは「別ラウンドへの参照ズレ」ではなく「そのラウンド内の真の欠番
+ * (不戦勝でそもそも対戦自体が存在しない)」である。これを別ラウンドへの
+ * 参照ズレと誤認して探索を広げると、たまたま同じindexを持つだけの
+ * 無関係な対戦(勝者側の別の対戦等)に誤って繋がってしまう(繋がった
+ * カードは「出場元が同じ側にない」カードとしてbracketLayout.ts側の
+ * 連番(fallback)採番に回るため、この誤接続自体が見た目のズレを直接
+ * 引き起こすわけではないが、誤った注記(crossSideOrigins)が表示されて
+ * しまう)。
+ *
  * `preview_`形式でないID(実際に開始済みのブラケットの、start.gg発行の
  * 通常の数値ID)には一切手を加えない。
  */
 function resolvePreviewBracketGaps(matchCards: MatchCard[]): MatchCard[] {
   const cardById = new Map(matchCards.map((card) => [card.id, card]));
+  const roundsWithCards = new Set(matchCards.map((card) => card.round));
 
   function resolveSourceId(id: string | null): string | null {
     if (id === null || cardById.has(id)) return id;
@@ -350,6 +364,7 @@ function resolvePreviewBracketGaps(matchCards: MatchCard[]): MatchCard[] {
     if (!parsed || !parsed[1].startsWith("preview_")) return id;
     const [, prefix, roundText, index] = parsed;
     const startRound = Number(roundText);
+    if (roundsWithCards.has(startRound)) return id; // 別ラウンドへの参照ズレではなく、同ラウンド内の真の欠番
     const direction = startRound < 0 ? 1 : -1;
     let round = startRound;
     for (let step = 0; step < PREVIEW_GAP_SEARCH_LIMIT; step++) {

@@ -174,16 +174,28 @@ export function computeBracketLayout(
     const connectors: BracketConnector[] = [];
     const crossSideOrigins: BracketCrossSideOrigin[] = [];
 
-    /** 通常ラウンドの処理: 出場元カードの位置の平均、解決できなければidentifier順の連番。 */
+    /**
+     * 通常ラウンドの処理: 出場元カードの位置の平均、解決できなければ
+     * 空いている位置への連番。
+     *
+     * 「出場元の位置の平均」で位置が決まるカード(anchored)と、同じ側の
+     * 出場元を持たずidentifier順の連番に頼るしかないカード(fallback、
+     * 例: 不戦勝で敗者側の対戦相手がそもそも存在しないカード)が同じ
+     * ラウンドに混在する場合、先にanchoredの位置をすべて確定させてから
+     * fallbackの連番を割り当てる2段階処理にする。そうしないと、fallback
+     * の連番(0, 1, 2, ...)が、たまたま同じラウンド内の別カードが
+     * anchoredで計算した位置と一致してしまうことがあり、その場合
+     * 2枚のカードが画面上まったく同じ位置に重なって描画され、片方が
+     * 完全に隠れて「表示されていない」ように見えてしまう(実際に報告
+     * されたバグ)。
+     */
     function processRound(roundIndex: number): void {
       const round = rounds[roundIndex];
       const cardsInRound = [...(roundsMap.get(round) ?? [])].sort((a, b) =>
         compareIdentifiers(a.identifier, b.identifier),
       );
-      const layoutForRound: BracketMatchLayout[] = [];
-      let fallbackIndex = 0;
 
-      for (const card of cardsInRound) {
+      const entries = cardsInRound.map((card) => {
         const sourceIds = [
           card.entrant1SourceMatchId,
           card.entrant2SourceMatchId,
@@ -203,20 +215,110 @@ export function computeBracketLayout(
             sourceCard.bracketSide === "LOSERS" ? "LOSERS" : "WINNERS";
           return sourceSide === side;
         });
-        const resolvedPositions = sameSideSourceIds
+        return { card, sourceIds, sameSideSourceIds };
+      });
+
+      const slotByCardId = new Map<string, number>();
+      const usedSlots = new Set<number>();
+
+      // 1段階目: 出場元から位置が計算できるカード(anchored)を先に確定する。
+      for (const entry of entries) {
+        const resolvedPositions = entry.sameSideSourceIds
           .map((id) => positionByMatchId.get(id))
           .filter((position): position is number => position !== undefined);
-
+        if (resolvedPositions.length === 0) continue; // 2段階目で処理する
         const slot =
-          resolvedPositions.length === 0
-            ? fallbackIndex++
-            : resolvedPositions.reduce((sum, p) => sum + p, 0) /
-              resolvedPositions.length;
+          resolvedPositions.reduce((sum, p) => sum + p, 0) /
+          resolvedPositions.length;
+        slotByCardId.set(entry.card.id, slot);
+        usedSlots.add(slot);
+      }
 
-        positionByMatchId.set(card.id, slot);
-        layoutForRound.push({ card, round, slot });
+      // 2段階目: 出場元から位置が決まらないカード(fallback、真の不戦勝で
+      // 同じ側の対戦相手がそもそも存在しないカード)の位置を決める。
+      //
+      // 1つ後のラウンドを先読みし、このカードと組になって同じ対戦に
+      // 出場元として参照されている、同じラウンド内の別カード(sibling)が
+      // いて、そのsiblingの位置が(1段階目までに)既に決まっていれば、
+      // その直後に隣接配置する。実際に報告されたバグ: 隣接配置せず単純な
+      // 連番だけで位置を決めていたため、本来隣り合う(1つ後の対戦の
+      // 双方の出場元になる)カード同士が離れた位置に飛んでしまい、結線が
+      // 他のカードをまたいで交差して見えた。
+      // siblingの手がかりが得られない場合のみ、空いている位置への単純な
+      // 連番にフォールバックする。
+      const nextRoundCards =
+        roundsMap.get(rounds[roundIndex + 1] as number) ?? [];
+      function findSiblingSlot(card: MatchCard): number | undefined {
+        for (const nextCard of nextRoundCards) {
+          const { entrant1SourceMatchId, entrant2SourceMatchId } = nextCard;
+          if (
+            entrant1SourceMatchId !== card.id &&
+            entrant2SourceMatchId !== card.id
+          ) {
+            continue;
+          }
+          const siblingId =
+            entrant1SourceMatchId === card.id
+              ? entrant2SourceMatchId
+              : entrant1SourceMatchId;
+          if (!siblingId) continue;
+          const siblingSlot = slotByCardId.get(siblingId);
+          if (siblingSlot !== undefined) return siblingSlot;
+        }
+        return undefined;
+      }
 
-        for (const sourceId of sourceIds) {
+      // 同じラウンド内の隣接カード同士は、最低でも1(=ROW_HEIGHT1つ分)
+      // 離れていないと、カードの実際の描画高さの方が広いため画面上で
+      // 重なってしまう(実際に報告されたバグ: siblingの位置ちょうど+0.5の
+      // ところに配置していたため、カード1枚分の高さに満たない間隔しか
+      // 空かず、隣のカードと重なって表示されていた)。この最小間隔を
+      // 保ったまま、siblingへ最も近い空き位置(前後どちらでも良い)へ
+      // 配置する。
+      function isFarEnoughFromAll(candidate: number): boolean {
+        for (const used of usedSlots) {
+          if (Math.abs(candidate - used) < 1) return false;
+        }
+        return true;
+      }
+      function findAdjacentSlot(siblingSlot: number): number {
+        if (isFarEnoughFromAll(siblingSlot - 1)) return siblingSlot - 1;
+        if (isFarEnoughFromAll(siblingSlot + 1)) return siblingSlot + 1;
+        for (let delta = 2; delta < 1000; delta++) {
+          if (isFarEnoughFromAll(siblingSlot - delta))
+            return siblingSlot - delta;
+          if (isFarEnoughFromAll(siblingSlot + delta))
+            return siblingSlot + delta;
+        }
+        // 到達しない安全策。
+        return Math.max(siblingSlot, ...usedSlots) + 1;
+      }
+
+      let fallbackIndex = 0;
+      for (const entry of entries) {
+        if (slotByCardId.has(entry.card.id)) continue;
+        const siblingSlot = findSiblingSlot(entry.card);
+        let slot: number;
+        if (siblingSlot !== undefined) {
+          slot = findAdjacentSlot(siblingSlot);
+        } else {
+          while (usedSlots.has(fallbackIndex)) fallbackIndex++;
+          slot = fallbackIndex;
+          fallbackIndex++;
+        }
+        slotByCardId.set(entry.card.id, slot);
+        usedSlots.add(slot);
+      }
+
+      const layoutForRound: BracketMatchLayout[] = [];
+      for (const entry of entries) {
+        const slot = slotByCardId.get(entry.card.id);
+        // 上記2段階でentries全件に必ず値を設定しているため到達しない。
+        if (slot === undefined) continue;
+        positionByMatchId.set(entry.card.id, slot);
+        layoutForRound.push({ card: entry.card, round, slot });
+
+        for (const sourceId of entry.sourceIds) {
           const sourceCard = cardById.get(sourceId);
           const sourcePosition = positionByMatchId.get(sourceId);
           if (!sourceCard || sourcePosition === undefined) continue;
@@ -227,13 +329,13 @@ export function computeBracketLayout(
               fromMatchId: sourceCard.id,
               fromRoundIndex: rounds.indexOf(Math.abs(sourceCard.round)),
               fromSlot: sourcePosition,
-              toMatchId: card.id,
+              toMatchId: entry.card.id,
               toRoundIndex: roundIndex,
               toSlot: slot,
             });
           } else {
             crossSideOrigins.push({
-              toMatchId: card.id,
+              toMatchId: entry.card.id,
               fromMatchId: sourceCard.id,
               fromIdentifier: sourceCard.identifier,
               fromSide: sourceSide,
@@ -370,6 +472,29 @@ export function computeBracketLayout(
     } else {
       for (let roundIndex = 0; roundIndex < rounds.length; roundIndex++) {
         processRound(roundIndex);
+      }
+    }
+
+    // siblingへの隣接配置(findAdjacentSlot)は、sibling側の空きがなければ
+    // マイナスの位置を使うことがある。この側全体の最小値が0未満なら、
+    // 相対位置関係を保ったまま側全体を底上げする(マイナスのtopで
+    // カードが見出し行より上にはみ出して描画されるのを防ぐ)。
+    const allSlotsForSide = [...matchesByRound.values()].flatMap((round) =>
+      round.map((entry) => entry.slot),
+    );
+    const minSlotForSide =
+      allSlotsForSide.length > 0 ? Math.min(...allSlotsForSide) : 0;
+    if (minSlotForSide < 0) {
+      const shift = -minSlotForSide;
+      for (const roundEntries of matchesByRound.values()) {
+        for (const entry of roundEntries) {
+          entry.slot += shift;
+          positionByMatchId.set(entry.card.id, entry.slot);
+        }
+      }
+      for (const connector of connectors) {
+        connector.fromSlot += shift;
+        connector.toSlot += shift;
       }
     }
 

@@ -439,6 +439,75 @@ describe("Q2: fetchPoolDetail", () => {
     expect(j?.entrant1SourceMatchId).toBe("preview_3068263_-2_0");
   });
 
+  it("leaves a dangling reference unresolved when its own round already has real cards (true bye, not a round shift; reported bug: R/T match cards invisible in the losers bracket)", async () => {
+    // 実際に報告されたバグの再現データ(2026-08-18): round -3には index 1
+    // (P)・index 3(Q)の対戦が実在するが、index 0・2は不戦勝でそもそも
+    // 対戦が存在しない。round -4のR・Tはそれぞれindex 0・2を参照して
+    // いるが、これは「round -2への参照ズレ」と誤認して探索を広げては
+    // いけない(round -3自体は実在するため)。誤って探索を広げると、
+    // 無関係な勝者側の対戦に繋がってしまう。
+    const client = fakeClient({
+      phaseGroup: {
+        id: 3383360,
+        displayIdentifier: "B8",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            {
+              id: "preview_3383360_-3_1",
+              identifier: "P",
+              round: -3,
+              station: null,
+              slots: [
+                {
+                  prereqType: "set",
+                  prereqId: "preview_3383360_1_1",
+                  entrant: null,
+                },
+                {
+                  prereqType: "set",
+                  prereqId: "preview_3383360_1_2",
+                  entrant: null,
+                },
+              ],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+            {
+              id: "preview_3383360_-4_0",
+              identifier: "R",
+              round: -4,
+              station: null,
+              slots: [
+                {
+                  prereqType: "set",
+                  prereqId: "preview_3383360_2_3",
+                  entrant: null,
+                },
+                {
+                  prereqType: "set",
+                  prereqId: "preview_3383360_-3_0",
+                  entrant: null,
+                },
+              ],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    const detail = await fetchPoolDetail(client, "3383360");
+    const r = detail.matchCards.find((card) => card.identifier === "R");
+
+    // round -3自体は実在する(Pがある)ため、round -2側への探索は行わず
+    // 未解決のまま返る(見つかった場合と違い、無関係なカードには繋がない)。
+    expect(r?.entrant2SourceMatchId).toBe("preview_3383360_-3_0");
+  });
+
   it("does not touch a dangling reference that is not a preview-style id (real, already-started bracket)", async () => {
     const client = fakeClient({
       phaseGroup: {

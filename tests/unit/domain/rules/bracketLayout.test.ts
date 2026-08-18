@@ -25,6 +25,169 @@ function makeCard(overrides: Partial<MatchCard>): MatchCard {
 }
 
 describe("computeBracketLayout", () => {
+  it("does not let a fallback (no same-side source) card overlap an anchored card in the same round (reported bug: R/T cards invisible, hidden exactly behind S/U)", () => {
+    // 実際に報告されたバグの再現(2026-08-18)。同じラウンドに、
+    // (1) 同じ側の出場元から位置を計算できるカード(anchored、ここでは
+    // S役の"s"。前ラウンドのP役"p"を出場元に持つ)と、
+    // (2) 同じ側の出場元を持たずidentifier順の連番に頼るカード
+    // (fallback、ここではR役の"r"。出場元は勝者側の対戦のみ=別の側)
+    // が混在する。"r"はidentifier順で"s"より先に処理されるため、
+    // 修正前はfallbackの連番が0から振られ、たまたま"s"の計算結果(0)と
+    // 衝突していた。結果、"r"は"s"とまったく同じ位置に描画され、
+    // 後から描画される"s"の下に完全に隠れて「表示されない」ように
+    // 見えていた。
+    const wa = makeCard({ id: "wa", identifier: "WA", round: 1 });
+    const wb = makeCard({ id: "wb", identifier: "WB", round: 1 });
+    const p = makeCard({
+      id: "p",
+      identifier: "P",
+      round: -1,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wa",
+      entrant2SourceMatchId: null,
+    });
+    const r = makeCard({
+      id: "r",
+      identifier: "R",
+      round: -2,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wb",
+      entrant2SourceMatchId: null,
+    });
+    const s = makeCard({
+      id: "s",
+      identifier: "S",
+      round: -2,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "p",
+      entrant2SourceMatchId: null,
+    });
+
+    const [, losers] = computeBracketLayout([wa, wb, p, r, s]);
+
+    const round2 = losers.matchesByRound.get(2) ?? [];
+    const rSlot = round2.find((entry) => entry.card.id === "r")?.slot;
+    const sSlot = round2.find((entry) => entry.card.id === "s")?.slot;
+
+    expect(rSlot).not.toBe(sSlot);
+    expect(sSlot).toBe(0); // Pと同じ位置(anchored)
+    expect(rSlot).toBe(1); // 0は使用済みのため、次の空き位置へ
+  });
+
+  it("places a fallback card adjacent to its anchored sibling instead of pushed after all anchored cards (reported bug: connector lines crossing through unrelated cards)", () => {
+    // 実際に報告されたバグの再現(2026-08-19)。前のテストの衝突回避
+    // 修正だけでは、"r"(fallback)が"s"・"u"(anchored)より後ろの位置に
+    // 押し出され、結果として本来隣り合うべき"r"・"s"が"u"を挟んで
+    // 離れてしまっていた。1つ後のラウンド("v")が"r"・"s"の両方を出場元に
+    // 持つことから、この2枚が組になっていることが分かるため、"r"を
+    // "s"のすぐ隣に配置する。
+    const wa = makeCard({ id: "wa", identifier: "WA", round: 1 });
+    const wb = makeCard({ id: "wb", identifier: "WB", round: 1 });
+    const wc = makeCard({ id: "wc", identifier: "WC", round: 1 });
+    const wd = makeCard({ id: "wd", identifier: "WD", round: 1 });
+    const p = makeCard({
+      id: "p",
+      identifier: "P",
+      round: -1,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wa",
+      entrant2SourceMatchId: null,
+    });
+    const q = makeCard({
+      id: "q",
+      identifier: "Q",
+      round: -1,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wb",
+      entrant2SourceMatchId: null,
+    });
+    const r = makeCard({
+      id: "r",
+      identifier: "R",
+      round: -2,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wc",
+      entrant2SourceMatchId: null,
+    });
+    const s = makeCard({
+      id: "s",
+      identifier: "S",
+      round: -2,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wd",
+      entrant2SourceMatchId: "p",
+    });
+    const t = makeCard({
+      id: "t",
+      identifier: "T",
+      round: -2,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wd",
+      entrant2SourceMatchId: null,
+    });
+    const u = makeCard({
+      id: "u",
+      identifier: "U",
+      round: -2,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wc",
+      entrant2SourceMatchId: "q",
+    });
+    const v = makeCard({
+      id: "v",
+      identifier: "V",
+      round: -3,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "r",
+      entrant2SourceMatchId: "s",
+    });
+    const w = makeCard({
+      id: "w",
+      identifier: "W",
+      round: -3,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "t",
+      entrant2SourceMatchId: "u",
+    });
+
+    const [, losers] = computeBracketLayout([
+      wa,
+      wb,
+      wc,
+      wd,
+      p,
+      q,
+      r,
+      s,
+      t,
+      u,
+      v,
+      w,
+    ]);
+
+    const round2 = losers.matchesByRound.get(2) ?? [];
+    const round3 = losers.matchesByRound.get(3) ?? [];
+    const slotOf = (id: string) =>
+      round2.find((entry) => entry.card.id === id)?.slot;
+
+    // rはsibling(s)の空いている隣(1つ前)に配置され、その結果sより前の
+    // 位置(マイナス)になるため、側全体が底上げされてr=0から始まる。
+    // 同じラウンド内の隣接カード同士は必ず1以上離れる(カード1枚分の
+    // 高さより狭い間隔で重ならないようにするため)。
+    expect(slotOf("r")).toBe(0);
+    expect(slotOf("s")).toBe(1); // pと同じ相対位置(anchored)
+    expect(slotOf("u")).toBe(2); // qと同じ相対位置(anchored)
+    expect(slotOf("t")).toBe(3); // uの隣(sibling)
+
+    // r・sの間隔、u・t間の間隔がそれぞれ1で、他のカードをまたがず
+    // vへ収束できる(結線が交差しない)。
+    const vEntry = round3.find((entry) => entry.card.id === "v");
+    const wEntry = round3.find((entry) => entry.card.id === "w");
+    expect(vEntry?.slot).toBe(0.5);
+    expect(wEntry?.slot).toBe(2.5);
+    expect(vEntry?.slot).toBeLessThan(wEntry?.slot ?? Number.POSITIVE_INFINITY);
+  });
+
   it("positions a round-2 match at the average slot of its two round-1 predecessors and connects them", () => {
     const r1a = makeCard({ id: "r1a", identifier: "A", round: 1 });
     const r1b = makeCard({ id: "r1b", identifier: "B", round: 1 });
