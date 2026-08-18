@@ -265,9 +265,47 @@ label {
   color: var(--accent-color);
 }
 
+/* ユーザーフィードバック(2026-08-19): 下端のスクロールバーだけでは
+   横スクロールできること自体に気づかれにくいとの報告のため、実際の
+   ブラケットと同じ横幅のダミー要素(高さ1px)だけを持つスクロール領域を
+   上にも用意し、スクロールバーを上下両方に表示する(BracketBoard.tsx側で
+   スクロール位置を相互に同期する)。中身は見せる必要がないため、枠の
+   高さはスクロールバー自体がちょうど収まる分だけにする。 */
+.bracket-tree-top-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 16px;
+  margin-bottom: 0.25rem;
+}
+
+/* ユーザーフィードバック(2026-08-19): 横スクロールできるブラケット表示で、
+   一番右のラウンド(Semi-Final等)が完全に画面外になり、スクロールできる
+   こと自体に気づけないという報告があった。スクロール可能な向きにだけ
+   影(グラデーション)を表示し、隠れている列があることを常に示す
+   (JSでスクロール位置を監視する必要がない、CSSのみの手法。
+   background-attachment: localの背景はスクロール可能な中身と一緒に
+   動くため、まだ先に内容がある間は影の上に重なって隠し、端まで
+   スクロールしきると影が現れる)。 */
 .bracket-tree-scroll {
   overflow: auto;
   padding-bottom: 0.25rem;
+  background: linear-gradient(to right, #fafafa 30%, rgba(250, 250, 250, 0)),
+    linear-gradient(to right, rgba(250, 250, 250, 0), #fafafa 70%) 100% 0,
+    radial-gradient(
+      farthest-side at 0 50%,
+      rgba(0, 0, 0, 0.25),
+      rgba(0, 0, 0, 0)
+    ),
+    radial-gradient(
+      farthest-side at 100% 50%,
+      rgba(0, 0, 0, 0.25),
+      rgba(0, 0, 0, 0)
+    )
+    100% 0;
+  background-repeat: no-repeat;
+  background-color: #fafafa;
+  background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+  background-attachment: local, local, scroll, scroll;
 }
 
 .bracket-tree {

@@ -1,7 +1,11 @@
+import { type UIEvent, useRef } from "react";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import type { BracketSide } from "../../domain/rules/bracketGrouping.js";
-import { computeBracketLayout } from "../../domain/rules/bracketLayout.js";
+import {
+  type BracketSideLayout,
+  computeBracketLayout,
+} from "../../domain/rules/bracketLayout.js";
 import { MatchCardEntry } from "./MatchCardEntry.js";
 import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 
@@ -89,6 +93,155 @@ function connectorPath(x1: number, y1: number, x2: number, y2: number) {
   ].join(" ");
 }
 
+interface BracketSidePanelProps extends Omit<BracketBoardProps, "matchCards"> {
+  layout: BracketSideLayout;
+  matchCards: MatchCard[];
+}
+
+/**
+ * ユーザーフィードバック(2026-08-19): 横スクロールできることに気づいて
+ * もらうため、実際のブラケット(下)と同じ横幅のダミー要素だけを持つ
+ * スクロール領域を上にも用意し、スクロールバーを上下両方に表示する
+ * (下端のスクロールバーだけでは、その存在自体に気づかれにくいという
+ * 報告のため)。上下のスクロール位置は相互に同期する。
+ */
+function BracketSidePanel({
+  layout,
+  entrantById,
+  nextCardIds,
+  onRecordResult,
+  tableNumbers,
+  matchCards,
+  onAssignTable,
+  onSetInProgress,
+  readOnly,
+}: BracketSidePanelProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const syncingRef = useRef(false);
+
+  function syncScroll(
+    event: UIEvent<HTMLDivElement>,
+    target: HTMLDivElement | null,
+  ) {
+    if (!target || syncingRef.current) return;
+    syncingRef.current = true;
+    target.scrollLeft = event.currentTarget.scrollLeft;
+    syncingRef.current = false;
+  }
+
+  const allMatches = [...layout.matchesByRound.values()].flat();
+  const maxSlot = allMatches.reduce(
+    (max, match) => Math.max(max, match.slot),
+    0,
+  );
+  const totalWidth =
+    layout.rounds.length * COLUMN_WIDTH +
+    (layout.rounds.length - 1) * COLUMN_GAP;
+  const totalHeight = HEADER_HEIGHT + (maxSlot + 1) * ROW_HEIGHT;
+
+  return (
+    <div className="bracket-board-side">
+      <h3>{sideLabel(layout.side)}</h3>
+      <div
+        className="bracket-tree-top-scroll"
+        ref={topScrollRef}
+        onScroll={(event) => syncScroll(event, scrollRef.current)}
+        aria-hidden="true"
+      >
+        <div style={{ width: totalWidth, height: 1 }} />
+      </div>
+      <div
+        className="bracket-tree-scroll"
+        ref={scrollRef}
+        onScroll={(event) => syncScroll(event, topScrollRef.current)}
+      >
+        <div
+          className="bracket-tree"
+          style={{ width: totalWidth, height: totalHeight }}
+        >
+          <svg
+            className="bracket-tree-lines"
+            width={totalWidth}
+            height={totalHeight}
+            aria-hidden="true"
+          >
+            {layout.connectors.map((connector) => {
+              const x1 = columnLeft(connector.fromRoundIndex) + COLUMN_WIDTH;
+              const y1 =
+                HEADER_HEIGHT +
+                connector.fromSlot * ROW_HEIGHT +
+                ROW_HEIGHT / 2;
+              const x2 = columnLeft(connector.toRoundIndex);
+              const y2 =
+                HEADER_HEIGHT + connector.toSlot * ROW_HEIGHT + ROW_HEIGHT / 2;
+              return (
+                <path
+                  key={`${connector.fromMatchId}-${connector.toMatchId}`}
+                  className="bracket-connector"
+                  d={connectorPath(x1, y1, x2, y2)}
+                  fill="none"
+                />
+              );
+            })}
+          </svg>
+          {layout.rounds.map((round, roundIndex) => (
+            <div
+              className="bracket-tree-round-label"
+              key={round}
+              style={{
+                left: columnLeft(roundIndex),
+                width: COLUMN_WIDTH,
+              }}
+            >
+              {roundLabel(layout.side, roundIndex, layout.rounds.length)}
+            </div>
+          ))}
+          <ul className="bracket-tree-matches">
+            {layout.rounds.flatMap((round, roundIndex) =>
+              (layout.matchesByRound.get(round) ?? []).map((match) => {
+                const origins = layout.crossSideOrigins.filter(
+                  (origin) => origin.toMatchId === match.card.id,
+                );
+                const note =
+                  origins.length > 0
+                    ? `${origins
+                        .map(
+                          (origin) =>
+                            `${sideLabel(origin.fromSide)} ${origin.fromIdentifier}`,
+                        )
+                        .join("・")} より`
+                    : undefined;
+                return (
+                  <MatchCardEntry
+                    key={match.card.id}
+                    card={match.card}
+                    entrantById={entrantById}
+                    isNext={nextCardIds.has(match.card.id)}
+                    onRecordResult={onRecordResult}
+                    tableNumbers={tableNumbers}
+                    matchCards={matchCards}
+                    onAssignTable={onAssignTable}
+                    onSetInProgress={onSetInProgress}
+                    note={note}
+                    readOnly={readOnly}
+                    style={{
+                      position: "absolute",
+                      left: columnLeft(roundIndex),
+                      top: HEADER_HEIGHT + match.slot * ROW_HEIGHT,
+                      width: COLUMN_WIDTH,
+                    }}
+                  />
+                );
+              }),
+            )}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * FR-023: 勝者側/敗者側トーナメントのプールを、startggのブラケット表示に
  * 合わせてラウンド列・対戦をつなぐ角丸の線で表示する。線の描画には各対戦
@@ -105,123 +258,14 @@ function connectorPath(x1: number, y1: number, x2: number, y2: number) {
  * px座標(style.top/left)に変換して<MatchCardEntry>を絶対配置するだけで、
  * 並び順そのものの計算はここでは行わない。
  */
-export function BracketBoard({
-  matchCards,
-  entrantById,
-  nextCardIds,
-  onRecordResult,
-  tableNumbers,
-  onAssignTable,
-  onSetInProgress,
-  readOnly,
-}: BracketBoardProps) {
-  const layouts = computeBracketLayout(matchCards);
+export function BracketBoard(props: BracketBoardProps) {
+  const layouts = computeBracketLayout(props.matchCards);
 
   return (
     <div className="bracket-board">
-      {layouts.map((layout) => {
-        const allMatches = [...layout.matchesByRound.values()].flat();
-        const maxSlot = allMatches.reduce(
-          (max, match) => Math.max(max, match.slot),
-          0,
-        );
-        const totalWidth =
-          layout.rounds.length * COLUMN_WIDTH +
-          (layout.rounds.length - 1) * COLUMN_GAP;
-        const totalHeight = HEADER_HEIGHT + (maxSlot + 1) * ROW_HEIGHT;
-
-        return (
-          <div className="bracket-board-side" key={layout.side}>
-            <h3>{sideLabel(layout.side)}</h3>
-            <div className="bracket-tree-scroll">
-              <div
-                className="bracket-tree"
-                style={{ width: totalWidth, height: totalHeight }}
-              >
-                <svg
-                  className="bracket-tree-lines"
-                  width={totalWidth}
-                  height={totalHeight}
-                  aria-hidden="true"
-                >
-                  {layout.connectors.map((connector) => {
-                    const x1 =
-                      columnLeft(connector.fromRoundIndex) + COLUMN_WIDTH;
-                    const y1 =
-                      HEADER_HEIGHT +
-                      connector.fromSlot * ROW_HEIGHT +
-                      ROW_HEIGHT / 2;
-                    const x2 = columnLeft(connector.toRoundIndex);
-                    const y2 =
-                      HEADER_HEIGHT +
-                      connector.toSlot * ROW_HEIGHT +
-                      ROW_HEIGHT / 2;
-                    return (
-                      <path
-                        key={`${connector.fromMatchId}-${connector.toMatchId}`}
-                        className="bracket-connector"
-                        d={connectorPath(x1, y1, x2, y2)}
-                        fill="none"
-                      />
-                    );
-                  })}
-                </svg>
-                {layout.rounds.map((round, roundIndex) => (
-                  <div
-                    className="bracket-tree-round-label"
-                    key={round}
-                    style={{
-                      left: columnLeft(roundIndex),
-                      width: COLUMN_WIDTH,
-                    }}
-                  >
-                    {roundLabel(layout.side, roundIndex, layout.rounds.length)}
-                  </div>
-                ))}
-                <ul className="bracket-tree-matches">
-                  {layout.rounds.flatMap((round, roundIndex) =>
-                    (layout.matchesByRound.get(round) ?? []).map((match) => {
-                      const origins = layout.crossSideOrigins.filter(
-                        (origin) => origin.toMatchId === match.card.id,
-                      );
-                      const note =
-                        origins.length > 0
-                          ? `${origins
-                              .map(
-                                (origin) =>
-                                  `${sideLabel(origin.fromSide)} ${origin.fromIdentifier}`,
-                              )
-                              .join("・")} より`
-                          : undefined;
-                      return (
-                        <MatchCardEntry
-                          key={match.card.id}
-                          card={match.card}
-                          entrantById={entrantById}
-                          isNext={nextCardIds.has(match.card.id)}
-                          onRecordResult={onRecordResult}
-                          tableNumbers={tableNumbers}
-                          matchCards={matchCards}
-                          onAssignTable={onAssignTable}
-                          onSetInProgress={onSetInProgress}
-                          note={note}
-                          readOnly={readOnly}
-                          style={{
-                            position: "absolute",
-                            left: columnLeft(roundIndex),
-                            top: HEADER_HEIGHT + match.slot * ROW_HEIGHT,
-                            width: COLUMN_WIDTH,
-                          }}
-                        />
-                      );
-                    }),
-                  )}
-                </ul>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      {layouts.map((layout) => (
+        <BracketSidePanel key={layout.side} {...props} layout={layout} />
+      ))}
     </div>
   );
 }
