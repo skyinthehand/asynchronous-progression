@@ -127,6 +127,24 @@ button.btn-primary:hover {
   background: #164e93;
 }
 
+/* ユーザー要望(2026-08-19): 管理画面の「リセット」ボタン(全データ削除)。
+   破壊的な操作であることが一目でわかるよう、既存のbtn-primaryとは別の
+   警告色(赤系)にする。 */
+button.btn-danger {
+  background: #b42318;
+  border-color: #b42318;
+  color: #fff;
+}
+
+button.btn-danger:hover {
+  background: #8f1c13;
+}
+
+.reset-data-panel {
+  border-color: #f2c6c2;
+  background: #fff5f4;
+}
+
 input {
   border: 1px solid var(--border-color);
   border-radius: 6px;

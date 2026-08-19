@@ -71,4 +71,22 @@ export function getDb(): Promise<IDBPDatabase<PoolProgressionDB>> {
   return dbPromise;
 }
 
+/**
+ * 管理画面の「リセット」ボタン用: ログイン状態・start.gg連携設定・
+ * 同期済みのプールデータを含む、全ストアの内容を消去する。
+ * `indexedDB.deleteDatabase()`は、既存の接続がすべて閉じるまで処理が
+ * 保留(blocked)される・再度開き直す手順が別途必要、といった扱いにくさが
+ * あるため使わない。各ストアを`clear()`する方式にすれば、開いたままの
+ * 接続をそのまま使い続けられ、テストの`resetDb()`ヘルパーと同じ確実な
+ * 方式で全データを消去できる。
+ */
+export async function resetAllData(): Promise<void> {
+  const db = await getDb();
+  for (const name of db.objectStoreNames) {
+    const tx = db.transaction(name, "readwrite");
+    await tx.store.clear();
+    await tx.done;
+  }
+}
+
 export type { PoolProgressionDB };

@@ -146,4 +146,69 @@ describe("Admin mode (User Story 5)", () => {
     await user.click(screen.getByRole("button", { name: "ログアウト" }));
     expect(await screen.findByText("予選プール進行")).toBeInTheDocument();
   });
+
+  describe("Reset (2026-08-19)", () => {
+    it("clears every object store, including the admin login, once confirmed", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      await acknowledgeNotice(user);
+      await goToAdminMode(user);
+      await user.type(screen.getByPlaceholderText("パスワード"), "pw");
+      await user.click(screen.getByRole("button", { name: "ログイン" }));
+      await screen.findByText("初期化(ログイン〜対象プール指定〜トークン設定)");
+
+      const db = await getDb();
+      expect(await db.get("adminSession", "current")).toBeDefined();
+
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const reloadSpy = vi.fn();
+      // jsdomのwindow.location.reloadはconfigurable: falseで定義されて
+      // いるため直接defineProperty/spyOnで上書きできない。window.location
+      // オブジェクト自体を差し替える。
+      const originalLocation = window.location;
+      // @ts-expect-error jsdomの型上はwindow.locationの再代入を想定していない
+      // biome-ignore lint/performance/noDelete: window.locationを差し替える唯一の手段(jsdom)
+      delete window.location;
+      window.location = { ...originalLocation, reload: reloadSpy };
+
+      await user.click(
+        screen.getByRole("button", { name: "すべてのデータをリセット" }),
+      );
+
+      expect(confirmSpy).toHaveBeenCalled();
+      for (const name of db.objectStoreNames) {
+        expect(await db.getAll(name)).toEqual([]);
+      }
+      expect(reloadSpy).toHaveBeenCalled();
+
+      confirmSpy.mockRestore();
+      window.location = originalLocation;
+    });
+
+    it("does nothing when the confirmation dialog is dismissed", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      await acknowledgeNotice(user);
+      await goToAdminMode(user);
+      await user.type(screen.getByPlaceholderText("パスワード"), "pw");
+      await user.click(screen.getByRole("button", { name: "ログイン" }));
+      await screen.findByText("初期化(ログイン〜対象プール指定〜トークン設定)");
+
+      // confirmがfalseを返す限りwindow.location.reload()は呼ばれない
+      // パスのため、reload自体のモックは不要(実際のjsdomのreloadは
+      // 未実装で例外を投げるが、そもそも到達しないことをこのテストで
+      // 保証する)。
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+      await user.click(
+        screen.getByRole("button", { name: "すべてのデータをリセット" }),
+      );
+
+      expect(confirmSpy).toHaveBeenCalled();
+      const db = await getDb();
+      expect(await db.get("adminSession", "current")).toBeDefined();
+
+      confirmSpy.mockRestore();
+    });
+  });
 });
