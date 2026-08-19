@@ -25,6 +25,150 @@ function makeCard(overrides: Partial<MatchCard>): MatchCard {
 }
 
 describe("computeBracketLayout", () => {
+  it("keeps round-1 leaf cards in identifier order when a later round's sibling-hint lookahead would otherwise reorder them (reported bug: B displayed above A)", () => {
+    // 実際に報告されたバグの再現(2026-08-19)。ラウンド1(A-D)は全て
+    // leaf(出場元なし)。ラウンド2(E-H)は、各対戦がラウンド1の対戦
+    // 1つ+シード(出場元なし)1つで構成される(2つの出場元がともに
+    // ラウンド1、という一般的な形ではない)。ラウンド3(I,J)がE,F,G,Hを
+    // 2つずつ束ねる。このI,Jからの「兄弟カード先読み」(隣接配置修正、
+    // 2026-08-18)が、まだ仮の連番(processLeafRoundにより後で上書き
+    // される)しか持たないE,F,G,Hの並び順を誤って入れ替えてしまい、
+    // それがラウンド1(A,B,C,D)の予約区画の計算にまで伝播して、
+    // 表示順がB,A,C,Dのように崩れていた。
+    const a = makeCard({ id: "a", identifier: "A", round: 1 });
+    const b = makeCard({ id: "b", identifier: "B", round: 1 });
+    const c = makeCard({ id: "c", identifier: "C", round: 1 });
+    const d = makeCard({ id: "d", identifier: "D", round: 1 });
+    const e = makeCard({
+      id: "e",
+      identifier: "E",
+      round: 2,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: "a",
+    });
+    const f = makeCard({
+      id: "f",
+      identifier: "F",
+      round: 2,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: "b",
+    });
+    const g = makeCard({
+      id: "g",
+      identifier: "G",
+      round: 2,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: "c",
+    });
+    const h = makeCard({
+      id: "h",
+      identifier: "H",
+      round: 2,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: "d",
+    });
+    const i = makeCard({
+      id: "i",
+      identifier: "I",
+      round: 3,
+      entrant1SourceMatchId: "e",
+      entrant2SourceMatchId: "f",
+    });
+    const j = makeCard({
+      id: "j",
+      identifier: "J",
+      round: 3,
+      entrant1SourceMatchId: "g",
+      entrant2SourceMatchId: "h",
+    });
+
+    const [winners] = computeBracketLayout([a, b, c, d, e, f, g, h, i, j]);
+
+    const round1 = winners.matchesByRound.get(1) ?? [];
+    const order = [...round1]
+      .sort((x, y) => x.slot - y.slot)
+      .map((entry) => entry.card.identifier);
+    expect(order).toEqual(["A", "B", "C", "D"]);
+
+    const round2 = winners.matchesByRound.get(2) ?? [];
+    const round2Order = [...round2]
+      .sort((x, y) => x.slot - y.slot)
+      .map((entry) => entry.card.identifier);
+    expect(round2Order).toEqual(["E", "F", "G", "H"]);
+  });
+
+  it("keeps identifier order in a round where every card is a fallback (no same-side source), instead of letting sibling-hint reorder pairs (reported bug: losers side N/O swapped)", () => {
+    // 実際に報告されたバグの再現(2026-08-19)。敗者側第1ラウンド
+    // (N,O,P,Q)は、いずれも出場元が勝者側(別の側)のみで、同じ側の
+    // 出場元を一切持たない(=全カードがfallback、anchoredなカードが
+    // 1枚もない)。1つ後のラウンド(R,S)がN・O、P・Qをそれぞれ2つずつ
+    // 束ねるため、隣接配置の兄弟カード先読みが働くが、siblingであるN・O
+    // (やP・Q)自身もどちらもanchoredではない(=確たる根拠を持たない)
+    // ため、この先読みを信用してはいけない。信用してしまうと、処理順
+    // (identifier順でNがOより先)次第でNの兄弟Oが「Nの隣」に押し出され、
+    // 結果としてO,N,P,Qの順(NとOが入れ替わる)になってしまっていた。
+    const wa = makeCard({ id: "wa", identifier: "WA", round: 1 });
+    const wb = makeCard({ id: "wb", identifier: "WB", round: 1 });
+    const wc = makeCard({ id: "wc", identifier: "WC", round: 1 });
+    const wd = makeCard({ id: "wd", identifier: "WD", round: 1 });
+    const n = makeCard({
+      id: "n",
+      identifier: "N",
+      round: -1,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wa",
+      entrant2SourceMatchId: null,
+    });
+    const o = makeCard({
+      id: "o",
+      identifier: "O",
+      round: -1,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wb",
+      entrant2SourceMatchId: null,
+    });
+    const p = makeCard({
+      id: "p",
+      identifier: "P",
+      round: -1,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wc",
+      entrant2SourceMatchId: null,
+    });
+    const q = makeCard({
+      id: "q",
+      identifier: "Q",
+      round: -1,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "wd",
+      entrant2SourceMatchId: null,
+    });
+    const r = makeCard({
+      id: "r",
+      identifier: "R",
+      round: -2,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "n",
+      entrant2SourceMatchId: "o",
+    });
+    const s = makeCard({
+      id: "s",
+      identifier: "S",
+      round: -2,
+      bracketSide: "LOSERS",
+      entrant1SourceMatchId: "p",
+      entrant2SourceMatchId: "q",
+    });
+
+    const [, losers] = computeBracketLayout([wa, wb, wc, wd, n, o, p, q, r, s]);
+
+    const round1 = losers.matchesByRound.get(1) ?? [];
+    const order = [...round1]
+      .sort((x, y) => x.slot - y.slot)
+      .map((entry) => entry.card.identifier);
+    expect(order).toEqual(["N", "O", "P", "Q"]);
+  });
+
   it("does not let a fallback (no same-side source) card overlap an anchored card in the same round (reported bug: R/T cards invisible, hidden exactly behind S/U)", () => {
     // 実際に報告されたバグの再現(2026-08-18)。同じラウンドに、
     // (1) 同じ側の出場元から位置を計算できるカード(anchored、ここでは

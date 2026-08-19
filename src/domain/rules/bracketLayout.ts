@@ -220,6 +220,16 @@ export function computeBracketLayout(
 
       const slotByCardId = new Map<string, number>();
       const usedSlots = new Set<number>();
+      // 出場元の平均で位置が決まった(anchored)カードのIDだけを別途
+      // 記録する。fallbackカード同士が互いを「sibling」として参照し
+      // 合った場合に隣接配置(下記findSiblingSlot)の手がかりとして
+      // 信用してしまうと、どちらも本来の並び順の根拠を持たない者同士
+      // なので、処理順(たまたま先に処理された方)次第で並びが変わって
+      // しまう(実際に報告されたバグ: 出場元カードを持たないラウンドが
+      // 丸ごとfallbackになる場面で、identifier順のはずのペアが入れ替わって
+      // 表示された)。siblingの手がかりは、相手がanchored(=出場元の平均という
+      // 確たる根拠を持つ)である場合のみ信用する。
+      const anchoredCardIds = new Set<string>();
 
       // 1段階目: 出場元から位置が計算できるカード(anchored)を先に確定する。
       for (const entry of entries) {
@@ -231,6 +241,7 @@ export function computeBracketLayout(
           resolvedPositions.reduce((sum, p) => sum + p, 0) /
           resolvedPositions.length;
         slotByCardId.set(entry.card.id, slot);
+        anchoredCardIds.add(entry.card.id);
         usedSlots.add(slot);
       }
 
@@ -239,12 +250,13 @@ export function computeBracketLayout(
       //
       // 1つ後のラウンドを先読みし、このカードと組になって同じ対戦に
       // 出場元として参照されている、同じラウンド内の別カード(sibling)が
-      // いて、そのsiblingの位置が(1段階目までに)既に決まっていれば、
+      // いて、かつそのsiblingがanchored(1段階目で確定済み)であれば、
       // その直後に隣接配置する。実際に報告されたバグ: 隣接配置せず単純な
       // 連番だけで位置を決めていたため、本来隣り合う(1つ後の対戦の
       // 双方の出場元になる)カード同士が離れた位置に飛んでしまい、結線が
       // 他のカードをまたいで交差して見えた。
-      // siblingの手がかりが得られない場合のみ、空いている位置への単純な
+      // siblingの手がかりが得られない場合(siblingがいない、またはsibling
+      // 自身もfallbackで根拠がない場合)は、空いている位置への単純な
       // 連番にフォールバックする。
       const nextRoundCards =
         roundsMap.get(rounds[roundIndex + 1] as number) ?? [];
@@ -261,7 +273,7 @@ export function computeBracketLayout(
             entrant1SourceMatchId === card.id
               ? entrant2SourceMatchId
               : entrant1SourceMatchId;
-          if (!siblingId) continue;
+          if (!siblingId || !anchoredCardIds.has(siblingId)) continue;
           const siblingSlot = slotByCardId.get(siblingId);
           if (siblingSlot !== undefined) return siblingSlot;
         }
