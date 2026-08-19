@@ -218,13 +218,20 @@ describe("computeBracketLayout", () => {
     expect(rSlot).toBe(1); // 0は使用済みのため、次の空き位置へ
   });
 
-  it("places a fallback card adjacent to its anchored sibling instead of pushed after all anchored cards (reported bug: connector lines crossing through unrelated cards)", () => {
-    // 実際に報告されたバグの再現(2026-08-19)。前のテストの衝突回避
-    // 修正だけでは、"r"(fallback)が"s"・"u"(anchored)より後ろの位置に
-    // 押し出され、結果として本来隣り合うべき"r"・"s"が"u"を挟んで
+  it("places a fallback card adjacent to its anchored sibling on the correct (entrant1/entrant2) side, shifting other cards to make room instead of reordering pairs (reported bug: connector lines crossing through unrelated cards, then T/U displayed swapped)", () => {
+    // 実際に報告されたバグの再現(2026-08-19、2件)。
+    // 1件目: 衝突回避の修正だけでは、"r"(fallback)が"s"・"u"(anchored)
+    // より後ろの位置に押し出され、本来隣り合うべき"r"・"s"が"u"を挟んで
     // 離れてしまっていた。1つ後のラウンド("v")が"r"・"s"の両方を出場元に
     // 持つことから、この2枚が組になっていることが分かるため、"r"を
     // "s"のすぐ隣に配置する。
+    // 2件目: 1件目の修正(sibling隣接配置)は「siblingの前後どちらでも
+    // よい」実装だったため、"t"(1つ後の対戦"w"のentrant1側=本来"u"より
+    // 上に来るべき)が、"u"の真上(sの真隣)がふさがっていたことで逆側の
+    // "u"の下に配置されてしまい、表示順がR,S,U,Tとなって実際のVic-Seekers
+    // #1トーナメントのstart.gg表示(R,S,T,U)と一致しなくなっていた。
+    // 正しい側が空いていない場合は逆側に妥協するのではなく、siblingを
+    // 含む以降の位置を1つずつ後ろへずらして正しい側に割り込ませる。
     const wa = makeCard({ id: "wa", identifier: "WA", round: 1 });
     const wb = makeCard({ id: "wb", identifier: "WB", round: 1 });
     const wc = makeCard({ id: "wc", identifier: "WC", round: 1 });
@@ -314,22 +321,36 @@ describe("computeBracketLayout", () => {
     const slotOf = (id: string) =>
       round2.find((entry) => entry.card.id === id)?.slot;
 
-    // rはsibling(s)の空いている隣(1つ前)に配置され、その結果sより前の
-    // 位置(マイナス)になるため、側全体が底上げされてr=0から始まる。
-    // 同じラウンド内の隣接カード同士は必ず1以上離れる(カード1枚分の
-    // 高さより狭い間隔で重ならないようにするため)。
+    // rはsibling(s)の空いている隣(1つ前、entrant1側なのでsより上)に
+    // 配置され、その結果sより前の位置(マイナス)になるため、側全体が
+    // 底上げされてr=0から始まる。
+    // tはsibling(u)のentrant1側(uより上)に来るべきだが、uの真上(=sの
+    // すぐ隣)は既にsが使っているため、uとそれ以降を1つ後ろへずらして
+    // 割り込む。結果としてu(anchored、qと同じ相対位置だったもの)は
+    // ずれてt(3)の後ろのt+1ではなく、tがuの手前に入る形でt=2, u=3となる。
     expect(slotOf("r")).toBe(0);
     expect(slotOf("s")).toBe(1); // pと同じ相対位置(anchored)
-    expect(slotOf("u")).toBe(2); // qと同じ相対位置(anchored)
-    expect(slotOf("t")).toBe(3); // uの隣(sibling)
+    expect(slotOf("t")).toBe(2); // uのentrant1側(uより上)への割り込み
+    expect(slotOf("u")).toBe(3); // tの割り込みで1つ後ろへずれた
 
-    // r・sの間隔、u・t間の間隔がそれぞれ1で、他のカードをまたがず
+    // r・sの間隔、t・u間の間隔がそれぞれ1で、他のカードをまたがず
     // vへ収束できる(結線が交差しない)。
     const vEntry = round3.find((entry) => entry.card.id === "v");
     const wEntry = round3.find((entry) => entry.card.id === "w");
     expect(vEntry?.slot).toBe(0.5);
     expect(wEntry?.slot).toBe(2.5);
     expect(vEntry?.slot).toBeLessThan(wEntry?.slot ?? Number.POSITIVE_INFINITY);
+
+    // 実際に報告されたバグ(2026-08-19、3件目): tをuの手前に割り込ませる
+    // ためにu(anchored)をずらした結果、uの出場元であるq(前のラウンド)を
+    // 追いかけてずらさなかったため、qがuと同じ行に見えず、無関係なt側の
+    // 行に見えてしまっていた。pがsと同じ行に揃うのと同様、qもuと同じ行に
+    // 揃わなければならない。
+    const round1 = losers.matchesByRound.get(1) ?? [];
+    const pSlot = round1.find((entry) => entry.card.id === "p")?.slot;
+    const qSlot = round1.find((entry) => entry.card.id === "q")?.slot;
+    expect(pSlot).toBe(slotOf("s"));
+    expect(qSlot).toBe(slotOf("u"));
   });
 
   it("positions a round-2 match at the average slot of its two round-1 predecessors and connects them", () => {

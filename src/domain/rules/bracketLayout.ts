@@ -251,31 +251,39 @@ export function computeBracketLayout(
       // 1つ後のラウンドを先読みし、このカードと組になって同じ対戦に
       // 出場元として参照されている、同じラウンド内の別カード(sibling)が
       // いて、かつそのsiblingがanchored(1段階目で確定済み)であれば、
-      // その直後に隣接配置する。実際に報告されたバグ: 隣接配置せず単純な
-      // 連番だけで位置を決めていたため、本来隣り合う(1つ後の対戦の
-      // 双方の出場元になる)カード同士が離れた位置に飛んでしまい、結線が
-      // 他のカードをまたいで交差して見えた。
+      // その隣に配置する。実際に報告されたバグ: 隣接配置せず単純な連番
+      // だけで位置を決めていたため、本来隣り合う(1つ後の対戦の双方の
+      // 出場元になる)カード同士が離れた位置に飛んでしまい、結線が他の
+      // カードをまたいで交差して見えた。
       // siblingの手がかりが得られない場合(siblingがいない、またはsibling
       // 自身もfallbackで根拠がない場合)は、空いている位置への単純な
       // 連番にフォールバックする。
+      //
+      // 「隣接」はsiblingの前後どちらでもよいわけではない: 1つ後の対戦の
+      // entrant1側(上の行)を出場元に持つカードはsiblingより上、entrant2側
+      // (下の行)を出場元に持つカードはsiblingより下、と1つ後の対戦の
+      // 表示順(上下)に合わせて決まった側でなければならない(実際に
+      // 報告されたバグ: 敗者側でT/Uが入れ替わって表示された。Tは1つ後の
+      // 対戦Wのentrant1側=Uより上に来るべきだったが、Uの隣の空き位置を
+      // 前後どちらでもよいとして探した結果、Uの下側しか空いておらずそこに
+      // 配置されてしまっていた)。
       const nextRoundCards =
         roundsMap.get(rounds[roundIndex + 1] as number) ?? [];
-      function findSiblingSlot(card: MatchCard): number | undefined {
+      function findSiblingHint(
+        card: MatchCard,
+      ): { siblingSlot: number; direction: "before" | "after" } | undefined {
         for (const nextCard of nextRoundCards) {
           const { entrant1SourceMatchId, entrant2SourceMatchId } = nextCard;
-          if (
-            entrant1SourceMatchId !== card.id &&
-            entrant2SourceMatchId !== card.id
-          ) {
-            continue;
-          }
-          const siblingId =
-            entrant1SourceMatchId === card.id
-              ? entrant2SourceMatchId
-              : entrant1SourceMatchId;
+          const isEntrant1 = entrant1SourceMatchId === card.id;
+          const isEntrant2 = entrant2SourceMatchId === card.id;
+          if (!isEntrant1 && !isEntrant2) continue;
+          const siblingId = isEntrant1
+            ? entrant2SourceMatchId
+            : entrant1SourceMatchId;
           if (!siblingId || !anchoredCardIds.has(siblingId)) continue;
           const siblingSlot = slotByCardId.get(siblingId);
-          if (siblingSlot !== undefined) return siblingSlot;
+          if (siblingSlot === undefined) continue;
+          return { siblingSlot, direction: isEntrant1 ? "before" : "after" };
         }
         return undefined;
       }
@@ -284,35 +292,78 @@ export function computeBracketLayout(
       // 離れていないと、カードの実際の描画高さの方が広いため画面上で
       // 重なってしまう(実際に報告されたバグ: siblingの位置ちょうど+0.5の
       // ところに配置していたため、カード1枚分の高さに満たない間隔しか
-      // 空かず、隣のカードと重なって表示されていた)。この最小間隔を
-      // 保ったまま、siblingへ最も近い空き位置(前後どちらでも良い)へ
-      // 配置する。
+      // 空かず、隣のカードと重なって表示されていた)。
       function isFarEnoughFromAll(candidate: number): boolean {
         for (const used of usedSlots) {
           if (Math.abs(candidate - used) < 1) return false;
         }
         return true;
       }
-      function findAdjacentSlot(siblingSlot: number): number {
-        if (isFarEnoughFromAll(siblingSlot - 1)) return siblingSlot - 1;
-        if (isFarEnoughFromAll(siblingSlot + 1)) return siblingSlot + 1;
-        for (let delta = 2; delta < 1000; delta++) {
-          if (isFarEnoughFromAll(siblingSlot - delta))
-            return siblingSlot - delta;
-          if (isFarEnoughFromAll(siblingSlot + delta))
-            return siblingSlot + delta;
+      // siblingの正しい側の隣が既に別カード(前段のanchoredカードなど)に
+      // 使われていて空いていない場合、その側を諦めて逆側に配置すると
+      // 表示順が崩れてしまう(上記の報告されたバグ)。そうではなく、
+      // sibling自身とそれ以降の位置をすべて1つずつ後ろへずらして
+      // 空きを作り、正しい側に割り込ませる。
+      function shiftSlotsAtOrAfter(threshold: number): void {
+        const shifted = new Map<string, number>();
+        for (const [id, slot] of slotByCardId) {
+          shifted.set(id, slot >= threshold ? slot + 1 : slot);
         }
-        // 到達しない安全策。
-        return Math.max(siblingSlot, ...usedSlots) + 1;
+        for (const [id, slot] of shifted) slotByCardId.set(id, slot);
+        const shiftedUsed = [...usedSlots].map((slot) =>
+          slot >= threshold ? slot + 1 : slot,
+        );
+        usedSlots.clear();
+        for (const slot of shiftedUsed) usedSlots.add(slot);
+
+        // ずらしたカードの中に、前のラウンドの出場元1枚の位置をそのまま
+        // コピーしただけ(anchored)のカードが含まれる場合、出場元(既に
+        // 確定済みの前のラウンド)との位置がずれてしまい、結線が斜めになって
+        // 「隣り合っているように見えない」(実際に報告されたバグ: PはSの
+        // 隣に見えるのにQがUの隣に見えない)。出場元側も同じ位置まで
+        // 追いかけてずらし、整列を保つ。
+        for (const [id, slot] of shifted) {
+          if (!anchoredCardIds.has(id) || slot < threshold) continue;
+          const entry = entries.find((e) => e.card.id === id);
+          if (!entry || entry.sameSideSourceIds.length !== 1) continue;
+          const sourceId = entry.sameSideSourceIds[0] as string;
+          const sourceCard = cardById.get(sourceId);
+          if (!sourceCard) continue;
+          positionByMatchId.set(sourceId, slot);
+          const sourceRoundEntries = matchesByRound.get(
+            Math.abs(sourceCard.round),
+          );
+          const sourceEntry = sourceRoundEntries?.find(
+            (e) => e.card.id === sourceId,
+          );
+          if (sourceEntry) sourceEntry.slot = slot;
+        }
       }
 
       let fallbackIndex = 0;
       for (const entry of entries) {
         if (slotByCardId.has(entry.card.id)) continue;
-        const siblingSlot = findSiblingSlot(entry.card);
+        const hint = findSiblingHint(entry.card);
         let slot: number;
-        if (siblingSlot !== undefined) {
-          slot = findAdjacentSlot(siblingSlot);
+        if (hint !== undefined) {
+          const { siblingSlot, direction } = hint;
+          if (direction === "before") {
+            const candidate = siblingSlot - 1;
+            if (isFarEnoughFromAll(candidate)) {
+              slot = candidate;
+            } else {
+              shiftSlotsAtOrAfter(siblingSlot);
+              slot = siblingSlot;
+            }
+          } else {
+            const candidate = siblingSlot + 1;
+            if (isFarEnoughFromAll(candidate)) {
+              slot = candidate;
+            } else {
+              shiftSlotsAtOrAfter(siblingSlot + 1);
+              slot = siblingSlot + 1;
+            }
+          }
         } else {
           while (usedSlots.has(fallbackIndex)) fallbackIndex++;
           slot = fallbackIndex;
