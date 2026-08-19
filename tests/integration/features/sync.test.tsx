@@ -335,6 +335,28 @@ describe("Background sync and offline notification (User Story 3)", () => {
     expect(status?.lastFailureReason).toBe("R1-1: network error");
   });
 
+  it("retains the previous isStreamed value when a sync attempt fails entirely (005-stream-match-lock FR-010)", async () => {
+    const db = await getDb();
+    const before = await db.get("matchCards", "card-1");
+    await db.put("matchCards", {
+      ...before,
+      isStreamed: true,
+      localOnly: false,
+    });
+
+    // fetchPoolDetail自体が失敗する(=マージ・保存が一切走らない)ケースを
+    // 再現する。M1送信対象(localOnly/statusLocalOnly)がないため
+    // reportMatchResult等は呼ばれない。
+    vi.mocked(operations.fetchPoolDetail).mockRejectedValue(
+      new Error("network error"),
+    );
+
+    await runSync();
+
+    const after = await db.get("matchCards", "card-1");
+    expect(after?.isStreamed).toBe(true);
+  });
+
   it("skips preview-id cards (start.gg bracket not started yet) but still pushes other pending cards and completes fetch/merge", async () => {
     // ユーザーフィードバック(2026-08-13): preview IDへの送信は
     // 「Must start bracket before performing action」で拒否される。

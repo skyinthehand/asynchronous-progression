@@ -267,6 +267,89 @@ describe("Q2: fetchPoolDetail", () => {
     expect(detail.matchCards[0].entrant2Id).toBeNull();
   });
 
+  it("maps a non-null stream field to isStreamed: true (005-stream-match-lock FR-001)", async () => {
+    const client = fakeClient({
+      phaseGroup: {
+        id: 1000,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            {
+              id: 5002,
+              identifier: "A",
+              round: 1,
+              station: null,
+              stream: { id: 999 },
+              slots: [{ entrant: null }, { entrant: null }],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    const detail = await fetchPoolDetail(client, "1000");
+    expect(detail.matchCards[0].isStreamed).toBe(true);
+  });
+
+  it("maps a null stream field to isStreamed: false", async () => {
+    const client = fakeClient({
+      phaseGroup: {
+        id: 1000,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            {
+              id: 5003,
+              identifier: "B",
+              round: 1,
+              station: null,
+              stream: null,
+              slots: [{ entrant: null }, { entrant: null }],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    const detail = await fetchPoolDetail(client, "1000");
+    expect(detail.matchCards[0].isStreamed).toBe(false);
+  });
+
+  it("treats a missing stream field (older fixture shape) as isStreamed: false", async () => {
+    const client = fakeClient({
+      phaseGroup: {
+        id: 1000,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            {
+              id: 5004,
+              identifier: "C",
+              round: 1,
+              station: null,
+              slots: [{ entrant: null }, { entrant: null }],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    const detail = await fetchPoolDetail(client, "1000");
+    expect(detail.matchCards[0].isStreamed).toBe(false);
+  });
+
   it("maps slot prereqType/prereqId into entrantSourceMatchId for bracket connector lines (FR-023)", async () => {
     const client = fakeClient({
       phaseGroup: {

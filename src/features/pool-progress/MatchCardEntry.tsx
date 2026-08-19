@@ -2,6 +2,7 @@ import { type CSSProperties, type KeyboardEvent, useState } from "react";
 import { Modal } from "../../components/index.js";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
+import { isStreamLocked } from "../../domain/rules/streamLock.js";
 import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 import { ScoreEntryForm } from "./ScoreEntryForm.js";
 import { TableNumberOptions } from "./TableNumberOptions.js";
@@ -87,7 +88,12 @@ export function MatchCardEntry({
   const isEditable = card.status !== "COMPLETED";
   const isBye = Boolean(card.entrant1Id) !== Boolean(card.entrant2Id);
   const byeEntrantId = card.entrant1Id ?? card.entrant2Id;
-  const canEdit = !readOnly && (isEditable || !card.isLocked);
+  // 005-stream-match-lock FR-002〜FR-004: 配信台が設定されている対戦
+  // カードは、状態(未着手・進行中・確定済み)を問わず一切編集できない
+  // (新規入力・修正のどちらのモーダルもこのcanEditで一括して開閉を
+  // 制御しているため、ここ1箇所のガードで両方をブロックできる)。
+  const canEdit =
+    !readOnly && (isEditable || !card.isLocked) && !isStreamLocked(card);
 
   function openEditModal() {
     if (canEdit) setEditModalOpen(true);
@@ -128,6 +134,10 @@ export function MatchCardEntry({
       {note && <span className="match-card-note">{note}</span>}
       {card.status === "IN_PROGRESS" && (
         <span className="match-card-status-badge">進行中</span>
+      )}
+      {/* 005-stream-match-lock FR-007: 対戦カードの状態を問わず表示する。 */}
+      {card.isStreamed && (
+        <span className="match-card-stream-badge">配信中</span>
       )}
       {isEditable && card.tableNumber && (
         <span className="match-card-table-badge">

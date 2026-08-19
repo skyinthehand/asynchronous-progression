@@ -254,6 +254,17 @@ const SetNodeSchema = z.object({
   identifier: z.string().nullable(),
   round: z.number().int(),
   station: z.object({ number: z.union([z.string(), z.number()]) }).nullable(),
+  /**
+   * 005-stream-match-lock FR-001: この対戦に配信(ストリーム)が割り当て
+   * られているかの判定に使う(非nullなら配信中)。中身のフィールドは
+   * 使わず存在有無のみを見るため`id`のみ取得する。既存のfixtureとの
+   * 互換のため`optional`にする(`prereqType`/`prereqId`と同じ方針、
+   * 未指定の場合はundefinedとなり配信なし扱いになる)。
+   */
+  stream: z
+    .object({ id: z.union([z.string(), z.number()]) })
+    .nullable()
+    .optional(),
   slots: z.array(SetSlotSchema),
   winnerId: z.union([z.string(), z.number()]).nullable(),
   displayScore: z.string().nullable(),
@@ -282,6 +293,9 @@ const POOL_DETAIL_QUERY = /* GraphQL */ `
           round
           station {
             number
+          }
+          stream {
+            id
           }
           slots {
             prereqType
@@ -471,6 +485,9 @@ export async function fetchPoolDetail(
       entrant1W: false,
       entrant2W: false,
       statusLocalOnly: false,
+      // 005-stream-match-lock FR-001: 配信(ストリーム)が割り当てられて
+      // いるかどうか。読み取り専用で、常にstart.gg側の最新値で上書きする。
+      isStreamed: Boolean(set.stream),
     };
   });
 

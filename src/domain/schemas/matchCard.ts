@@ -74,6 +74,12 @@ export const MatchCardSchema = z.object({
    * syncRunner.tsのmergeMatchCard参照)。
    */
   statusLocalOnly: z.boolean().default(false),
+  /**
+   * 005-stream-match-lock FR-001: start.gg上でこの対戦に配信(ストリーム)が
+   * 割り当てられているか。読み取り専用で、本ツール内から直接変更する
+   * 手段は提供しない。定期同期のたびにstart.gg側の最新値で上書きする。
+   */
+  isStreamed: z.boolean().default(false),
 });
 
 export type MatchCard = z.infer<typeof MatchCardSchema>;

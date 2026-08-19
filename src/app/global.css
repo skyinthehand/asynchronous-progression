@@ -554,6 +554,22 @@ label {
   padding: 0.2rem 0.5rem 0;
 }
 
+/* 005-stream-match-lock FR-007: 配信台が設定されている対戦カードを示す
+   バッジ。「進行中」バッジ(.match-card-status-badge、青系)や後続対戦
+   進行によるロック表示とは別の理由であることが一目で分かるよう、
+   はっきり異なる配色(赤紫系)にする。対戦カードの状態(未着手・進行中・
+   確定済み)を問わず表示する。 */
+.match-card-stream-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  background: #be185d;
+  padding: 0.05rem 0.4rem;
+  margin: 0.3rem 0.5rem 0;
+  border-radius: 3px;
+}
+
 /* ユーザーフィードバック(2026-08-14): 離席記録モーダルで、離席中の選手名の
    横に離席開始時刻(日本時間)を添える。 */
 .away-started-at {

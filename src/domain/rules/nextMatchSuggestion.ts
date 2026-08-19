@@ -3,6 +3,7 @@ import type { MatchCard } from "../entities/matchCard.js";
 import { isEntrantAway } from "./awayStatus.js";
 import { computeBracketLayout } from "./bracketLayout.js";
 import { computeMatchDistances } from "./matchDistance.js";
+import { isStreamLocked } from "./streamLock.js";
 import { isTableOccupied } from "./tableAssignment.js";
 
 export interface NextMatchSuggestion {
@@ -15,12 +16,16 @@ export interface NextMatchSuggestion {
  * FR-001: 出場者の両方の枠が確定していない対戦カード(先行する対戦の
  * 結果待ちの対戦、および不戦勝(BYE)によって片方の枠にしか対戦相手が
  * 存在しない対戦を含む)は、理由を問わず次戦候補の対象外とする。
+ * 005-stream-match-lock FR-006: 配信台が設定されている対戦カードも
+ * 対象外とする(配信側で進行されるため、プール進行担当者が呼ぶ対象では
+ * ない)。
  */
 function isEligible(card: MatchCard): boolean {
   return (
     card.status === "NOT_STARTED" &&
     card.entrant1Id !== null &&
-    card.entrant2Id !== null
+    card.entrant2Id !== null &&
+    !isStreamLocked(card)
   );
 }
 

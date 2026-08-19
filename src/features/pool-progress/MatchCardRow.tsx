@@ -1,5 +1,6 @@
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
+import { isStreamLocked } from "../../domain/rules/streamLock.js";
 import { MatchCardEdit } from "./MatchCardEdit.js";
 import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 import { ScoreEntryForm } from "./ScoreEntryForm.js";
@@ -57,7 +58,13 @@ export function MatchCardRow({
   onSetInProgress,
   readOnly,
 }: MatchCardRowProps) {
-  const isEditable = card.status !== "COMPLETED" && !readOnly;
+  // 005-stream-match-lock FR-002〜FR-004: 配信台が設定されている対戦
+  // カードは新規入力を不可にする(確定済みカードの修正可否は別途、
+  // MatchCardEditの描画条件・「進行中にする」ボタンの描画条件で
+  // それぞれ個別にガードする。isEditableは新規入力(対戦台選択・
+  // スコア入力フォーム)にのみ使われているため)。
+  const isEditable =
+    card.status !== "COMPLETED" && !readOnly && !isStreamLocked(card);
   const isBye = Boolean(card.entrant1Id) !== Boolean(card.entrant2Id);
   const byeEntrantId = card.entrant1Id ?? card.entrant2Id;
 
@@ -71,18 +78,26 @@ export function MatchCardRow({
         .filter(Boolean)
         .join(" ")}
     >
-      <td className="match-card-identifier">{card.identifier}</td>
+      <td className="match-card-identifier">
+        {card.identifier}
+        {/* 005-stream-match-lock FR-007: 対戦カードの状態を問わず表示する。 */}
+        {card.isStreamed && (
+          <span className="match-card-stream-badge">配信中</span>
+        )}
+      </td>
       <td className="match-card-entrants">
         {entrantName(entrantById, card.entrant1Id)} vs{" "}
         {entrantName(entrantById, card.entrant2Id)}
         {card.status === "IN_PROGRESS" && (
           <span className="match-card-status-badge">進行中</span>
         )}
-        {card.status === "NOT_STARTED" && !readOnly && (
-          <button type="button" onClick={() => onSetInProgress(card.id)}>
-            進行中にする
-          </button>
-        )}
+        {card.status === "NOT_STARTED" &&
+          !readOnly &&
+          !isStreamLocked(card) && (
+            <button type="button" onClick={() => onSetInProgress(card.id)}>
+              進行中にする
+            </button>
+          )}
       </td>
       <td>
         {isEditable && tableNumbers.length > 0 && (
@@ -108,7 +123,7 @@ export function MatchCardRow({
           <span className="match-card-result">
             勝者: {entrantName(entrantById, card.winnerId)}
             {card.score ? ` (${card.score})` : ""}
-            {!readOnly && (
+            {!readOnly && !isStreamLocked(card) && (
               <MatchCardEdit
                 card={card}
                 entrantById={entrantById}

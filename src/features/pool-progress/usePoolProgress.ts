@@ -13,6 +13,7 @@ import {
 } from "../../domain/rules/nextMatchSuggestion.js";
 import { computeIsPreviewMode } from "../../domain/rules/previewMode.js";
 import { generateRoundRobinMatchCards } from "../../domain/rules/roundRobinGenerator.js";
+import { isStreamLocked } from "../../domain/rules/streamLock.js";
 import { isTableOccupied } from "../../domain/rules/tableAssignment.js";
 import { addStaffAssignment } from "../../infra/storage/adminRepository.js";
 import { getStartggConfig } from "../../infra/storage/adminRepository.js";
@@ -238,6 +239,10 @@ export function usePoolProgress(): UsePoolProgressResult {
       if (isPreviewMode) return;
       const target = matchCards.find((card) => card.id === matchCardId);
       if (!target || target.isLocked) return;
+      // 005-stream-match-lock FR-004: 配信台が設定されている対戦カードは
+      // 新規確定・結果修正のいずれも不可(このrecordResultは両方から
+      // 共通して呼ばれるため、ここ1箇所のガードで両方をブロックできる)。
+      if (isStreamLocked(target)) return;
       const updated: MatchCard = {
         ...target,
         entrant1Score: result.entrant1Score,
@@ -295,6 +300,9 @@ export function usePoolProgress(): UsePoolProgressResult {
       if (isPreviewMode) return false;
       const target = matchCards.find((card) => card.id === matchCardId);
       if (!target) return false;
+      // 005-stream-match-lock FR-003: 配信台が設定されている対戦カードは
+      // 対戦台の割り当て・変更を不可にする。
+      if (isStreamLocked(target)) return false;
       if (
         tableNumber !== null &&
         isTableOccupied(tableNumber, matchCards, matchCardId)
@@ -321,6 +329,10 @@ export function usePoolProgress(): UsePoolProgressResult {
       if (isPreviewMode) return;
       const target = matchCards.find((card) => card.id === matchCardId);
       if (!target) return;
+      // 005-stream-match-lock: 配信台が設定されている対戦は、そもそも
+      // 次戦候補(nextMatchSuggestion.ts)の対象から除外されるため通常は
+      // ここに来ないが、念のための安全弁として同様にガードする。
+      if (isStreamLocked(target)) return;
       const updated: MatchCard = {
         ...target,
         status: "IN_PROGRESS",
@@ -362,6 +374,9 @@ export function usePoolProgress(): UsePoolProgressResult {
       if (isPreviewMode) return;
       const target = matchCards.find((card) => card.id === matchCardId);
       if (!target || target.status !== "NOT_STARTED") return;
+      // 005-stream-match-lock FR-002: 配信台が設定されている対戦カードは
+      // 「進行中にする」操作を不可にする。
+      if (isStreamLocked(target)) return;
       const updated: MatchCard = {
         ...target,
         status: "IN_PROGRESS",

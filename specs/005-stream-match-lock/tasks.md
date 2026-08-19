@@ -57,7 +57,7 @@ Single project構成(plan.mdのProject Structureを踏襲):
 依存追加・プロジェクト初期化は不要(plan.mdのTechnical Context: 新規
 ライブラリなし)。
 
-- [ ] T001 `src/domain/schemas/matchCard.ts`・
+- [X] T001 `src/domain/schemas/matchCard.ts`・
   `src/infra/startgg/operations.ts`(`SetNodeSchema`, `POOL_DETAIL_QUERY`,
   `fetchPoolDetail`)・`src/features/sync/syncRunner.ts`(`mergeMatchCard`)・
   `src/features/pool-progress/usePoolProgress.ts`・`MatchCardEntry.tsx`・
@@ -79,13 +79,13 @@ Single project構成(plan.mdのProject Structureを踏襲):
 
 **⚠️ CRITICAL**: このフェーズが完了するまでUS1・US2の実装は開始できない。
 
-- [ ] T002 `src/domain/schemas/matchCard.ts`の`MatchCardSchema`に
+- [X] T002 `src/domain/schemas/matchCard.ts`の`MatchCardSchema`に
   `isStreamed: z.boolean().default(false)`を追加する(data-model.md §1、
   contracts/stream-field-schema.md)。既存フィールドの並びの末尾に追加し、
   コメントで「start.gg上でこの対戦に配信(ストリーム)が割り当てられて
   いるか。読み取り専用、定期同期のたびにstart.gg側の最新値で上書きする」
   旨を明記する。
-- [ ] T003 [P] `src/infra/startgg/operations.ts`の`SetNodeSchema`に
+- [X] T003 [P] `src/infra/startgg/operations.ts`の`SetNodeSchema`に
   `stream: z.object({ id: z.union([z.string(), z.number()]) }).nullable()`
   を追加し、`POOL_DETAIL_QUERY`の`sets.nodes`選択に`station`と同じ並びで
   `stream { id }`を追加する(contracts/stream-field-schema.md)。
@@ -94,12 +94,12 @@ Single project構成(plan.mdのProject Structureを踏襲):
   実際にstart.gg上で配信台を設定した対戦を含むプールでこのクエリを実行し、
   レスポンスの実際の形(フィールド名を含む)を確認すること
   (research.md #1の未検証の前提)。**
-- [ ] T004 [P] `tests/contract/startgg-operations.test.ts`の
+- [X] T004 [P] `tests/contract/startgg-operations.test.ts`の
   `describe("Q2: fetchPoolDetail", ...)`に、`stream`フィールドが
   非nullの場合に`isStreamed: true`へ、`null`の場合に`isStreamed: false`へ
   マッピングされることを確認するテストケースを追加する(既存の
   `station`マッピングのテストケースと同じ形式に合わせる)。
-- [ ] T005 [P] `src/domain/rules/streamLock.ts`を新規作成し、
+- [X] T005 [P] `src/domain/rules/streamLock.ts`を新規作成し、
   `export function isStreamLocked(card: MatchCard): boolean { return
   card.isStreamed; }`をexportする。ファイル冒頭のコメントで、既存の
   `isPreviewSetId`(previewId.ts)・`isEntrantAway`(awayStatus.ts)と同様、
@@ -109,14 +109,14 @@ Single project構成(plan.mdのProject Structureを踏襲):
   ロック条件であること、および対戦カードの状態(未着手・進行中・確定済み)
   を問わず一律に適用される(確定済みカードの結果修正も対象に含む)ことを
   明記する(research.md #2、spec.md Edge Cases 2026-08-19更新)。
-- [ ] T006 [P] `tests/unit/domain/rules/streamLock.test.ts`を新規作成し、
+- [X] T006 [P] `tests/unit/domain/rules/streamLock.test.ts`を新規作成し、
   `isStreamLocked`のユニットテストを書く(`makeCard(overrides)`ヘルパー
   パターンを使う)。`isStreamed: true`のカードで`true`、`isStreamed: false`
   (既定値)のカードで`false`を返すことを確認する。`status`が
   `NOT_STARTED`/`IN_PROGRESS`/`COMPLETED`のいずれであっても、
   `isStreamed`の値のみで判定結果が変わらないことも確認する(statusに
   依存しないことの確認)。
-- [ ] T007 `tests/integration/features/table-assignment.test.tsx`の
+- [X] T007 `tests/integration/features/table-assignment.test.tsx`の
   既存の`mergeMatchCard`直接呼び出しテスト(`await import(...)`パターン)
   の近くに、以下のテストケースを追加する: (a) ローカルの
   `isStreamed: false`のカードと、リモートの`isStreamed: true`のカードを
@@ -127,7 +127,7 @@ Single project構成(plan.mdのProject Structureを踏襲):
   `isStreamed`(未送信分の同期完了までは古い値のまま)を維持すること
   (spec.md Edge Cases、既存の`localOnly`ブロック分岐によりコード変更なしで
   成立することの確認)。
-- [ ] T008 [P] `tests/integration/features/sync.test.tsx`に、
+- [X] T008 [P] `tests/integration/features/sync.test.tsx`に、
   `fetchPoolDetail`のモックが例外を投げる(同期に失敗する)場合、
   同期前に`isStreamed: true`だった対戦カードが、同期失敗後も
   `isStreamed: true`のまま(配信ロックが解除されない)ことを確認する
@@ -163,7 +163,7 @@ Single project構成(plan.mdのProject Structureを踏襲):
 
 > **NOTE: 実装前にこれらのテストを書き、FAILすることを確認する**
 
-- [ ] T009 [P] [US1] `tests/integration/features/stream-lock.test.tsx`を
+- [X] T009 [P] [US1] `tests/integration/features/stream-lock.test.tsx`を
   新規作成する。`isStreamed: true`の未着手対戦カードを含むプールを
   `seedPool`し、`render(<App />)`後、その対戦カードをタップしても編集
   モーダル(進行中にするボタン・対戦台選択・結果入力フォーム)が開かない
@@ -173,22 +173,22 @@ Single project構成(plan.mdのProject Structureを踏襲):
   参考にする。あわせて、その対戦カードの識別子・対戦者名が一覧に表示
   され続けていることも確認する(FR-005、非表示・除外にしないことの
   明示的な確認)。
-- [ ] T010 [P] [US1] T009と同じファイルに、`isStreamed: false`の他の
+- [X] T010 [P] [US1] T009と同じファイルに、`isStreamed: false`の他の
   対戦カードは通常どおりタップして編集モーダルが開くことを確認する
   テストケースを追加する(配信台が設定されていないカードへの影響が
   ないことの確認)。
-- [ ] T011 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`
+- [X] T011 [P] [US1] `tests/unit/domain/rules/nextMatchSuggestion.test.ts`
   に、`isStreamed: true`かつ出場者が両方確定している未着手の対戦カードが
   `computeNextMatchSuggestions`の候補から除外されることを確認するテスト
   ケースを追加する(FR-006、Acceptance Scenario 2)。他に候補となる
   カードがあればそちらが選ばれることも確認する。
-- [ ] T012 [P] [US1] `stream-lock.test.tsx`に、`isStreamed: true`の対戦
+- [X] T012 [P] [US1] `stream-lock.test.tsx`に、`isStreamed: true`の対戦
   カードがstart.gg側の同期で確定済み結果(勝者・スコア)を受け取った
   場合、他の対戦カードと同様に確定済みとして一覧に表示されることを
   確認するテストケースを追加する(FR-009、Acceptance Scenario 3)。
   `tests/integration/features/sync.test.tsx`の同期結果反映テストの
   パターンを参考にする。
-- [ ] T013 [P] [US1] `stream-lock.test.tsx`に、`status: "COMPLETED"`・
+- [X] T013 [P] [US1] `stream-lock.test.tsx`に、`status: "COMPLETED"`・
   `isLocked: false`(後続対戦は未進行で、`isStreamed`さえなければ本来
   修正できる状態)・`isStreamed: true`の対戦カードで、(a)
   組合せ図形式(`MatchCardEntry.tsx`、`bracketType`が
@@ -202,7 +202,7 @@ Single project構成(plan.mdのProject Structureを踏襲):
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] `src/features/pool-progress/usePoolProgress.ts`の
+- [X] T014 [US1] `src/features/pool-progress/usePoolProgress.ts`の
   `recordResult`・`assignTable`・`callSuggestedMatch`・`setInProgress`の
   それぞれの冒頭(`isPreviewMode`チェックのすぐ後)に、対象の`target`
   カードを取得した後で`isStreamLocked(target)`が`true`なら早期return
@@ -212,10 +212,10 @@ Single project構成(plan.mdのProject Structureを踏襲):
   共通して呼ばれる関数のため、この1箇所のガードで両方がブロックされる
   (T013(a)(b)の期待動作の裏付け)。`streamLock.ts`から`isStreamLocked`を
   importする。(依存: T005)
-- [ ] T015 [US1] `src/domain/rules/nextMatchSuggestion.ts`の`isEligible`
+- [X] T015 [US1] `src/domain/rules/nextMatchSuggestion.ts`の`isEligible`
   関数に`!isStreamLocked(card)`の条件を追加する。`streamLock.ts`から
   `isStreamLocked`をimportする。(依存: T005)
-- [ ] T016 [US1] `src/features/pool-progress/MatchCardEntry.tsx`の
+- [X] T016 [US1] `src/features/pool-progress/MatchCardEntry.tsx`の
   `canEdit`の算出(`const canEdit = !readOnly && (isEditable ||
   !card.isLocked);`)に`&& !isStreamLocked(card)`を追加し、
   `const canEdit = !readOnly && (isEditable || !card.isLocked) &&
@@ -224,7 +224,7 @@ Single project構成(plan.mdのProject Structureを踏襲):
   変更で未着手・進行中・確定済みのいずれの状態でも配信ロックが働く
   (T013(a)の期待動作の裏付け)。`streamLock.ts`から`isStreamLocked`を
   importする。(依存: T005)
-- [ ] T017 [US1] `src/features/pool-progress/MatchCardRow.tsx`に、以下の
+- [X] T017 [US1] `src/features/pool-progress/MatchCardRow.tsx`に、以下の
   2箇所の変更を行う。**(a)** `isEditable`の算出(`const isEditable =
   card.status !== "COMPLETED" && !readOnly;`)に
   `&& !isStreamLocked(card)`を追加する(未着手・進行中の新規入力を防ぐ)。
@@ -236,7 +236,7 @@ Single project構成(plan.mdのProject Structureを踏襲):
   `isStreamed`を認識しない構造のため、呼び出し元のこの描画条件で
   防ぐ必要がある。T013(b)の期待動作の裏付け、`/speckit-analyze`指摘I1)。
   `streamLock.ts`から`isStreamLocked`をimportする。(依存: T005)
-- [ ] T018 [US1] T009〜T013で追加したテストがすべてPASSすることを
+- [X] T018 [US1] T009〜T013で追加したテストがすべてPASSすることを
   確認する。
 
 **Checkpoint**: この時点でUser Story 1は独立して機能し、テスト可能な
@@ -259,7 +259,7 @@ Single project構成(plan.mdのProject Structureを踏襲):
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T019 [P] [US2] `tests/integration/features/stream-lock.test.tsx`に、
+- [X] T019 [P] [US2] `tests/integration/features/stream-lock.test.tsx`に、
   `isStreamed: true`の対戦カードに配信中であることを示すバッジ
   (例: `screen.getByText("配信中")`相当)が表示されることを確認する
   テストケースを追加する(Acceptance Scenario 1)。あわせて、(a)
@@ -268,15 +268,21 @@ Single project構成(plan.mdのProject Structureを踏襲):
   T013と同様の`status: "COMPLETED"`・`isStreamed: true`のカードでも
   配信中バッジが表示されること(修正はできないが表示は行われる、
   data-model.md §2)を確認する。
-- [ ] T020 [P] [US2] `tests/integration/features/sync.test.tsx`に、
+- [X] T020 [P] [US2] `tests/integration/features/stream-lock.test.tsx`に、
   1回目の同期で`isStreamed: true`だった対戦カードが、2回目の同期
   (`fetchPoolDetail`のモックを`isStreamed: false`相当に変えて再実行)で
   配信ロックが解除され、編集モーダルが開けるようになることを確認する
-  テストケースを追加する(FR-008、Acceptance Scenario 2)。
+  テストケースを追加する(FR-008、Acceptance Scenario 2)。**実装時の
+  変更**: このアプリは既に開いている画面へバックグラウンド同期の完了を
+  即座に反映する仕組みを持たない(`usePoolProgress`はマウント時にのみ
+  読み込む)ため、`tests/integration/features/sync.test.tsx`ではなく、
+  `stream-lock.test.tsx`側で001-pool-progression-trackerの既存テストと
+  同じ「`unmount()`→2回目の`runSync()`→再`render`」という端末再起動を
+  模すパターンを使って検証する。
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] `src/app/global.css`に`.match-card-stream-badge`を
+- [X] T021 [US2] `src/app/global.css`に`.match-card-stream-badge`を
   新規追加する。既存の`.match-card-status-badge`(進行中バッジ、
   `var(--accent-color)`の青系)とは異なる配色(例: 赤紫系、`#c026d3`や
   `#be185d`等)にし、視覚的に区別できるようにする。表示位置・サイズは
@@ -284,19 +290,19 @@ Single project構成(plan.mdのProject Structureを踏襲):
   `font-size: 0.7rem`, `font-weight: 700`, `color: #fff`,
   `padding: 0.05rem 0.4rem`, `margin: 0.3rem 0.5rem 0`,
   `border-radius: 3px`)に合わせる。
-- [ ] T022 [US2] `src/features/pool-progress/MatchCardEntry.tsx`に、
+- [X] T022 [US2] `src/features/pool-progress/MatchCardEntry.tsx`に、
   `card.isStreamed`が`true`の場合に`<span
   className="match-card-stream-badge">配信中</span>`を表示する箇所を
   追加する(既存の`match-card-status-badge`(進行中)表示の近くに配置)。
   **`card.status`の値(`NOT_STARTED`/`IN_PROGRESS`/`COMPLETED`)に関わらず
   表示すること**(既存の`進行中`バッジのような特定ステータス限定の
   条件に含めないよう注意する)。
-- [ ] T023 [US2] `src/features/pool-progress/MatchCardRow.tsx`に、T022と
+- [X] T023 [US2] `src/features/pool-progress/MatchCardRow.tsx`に、T022と
   同様の配信中バッジ表示を追加する(既存の進行中バッジ表示の近くに
   配置)。既存の`match-card-entrants`セル(未着手・進行中向け)だけでなく、
   `status === "COMPLETED"`の分岐(`match-card-result`セル)側にも表示する
   ことで、**`card.status`の値に関わらず表示されるようにする**。
-- [ ] T024 [US2] T019〜T020で追加したテストがすべてPASSすることを
+- [X] T024 [US2] T019〜T020で追加したテストがすべてPASSすることを
   確認する。
 
 **Checkpoint**: User Story 1・2の両方が独立して機能する状態になる。
@@ -307,18 +313,18 @@ Single project構成(plan.mdのProject Structureを踏襲):
 
 **Purpose**: 全体の整合性確認と最終検証。
 
-- [ ] T025 [P] リポジトリ全体で`npm run lint`(Biome)を実行し、新規・
+- [X] T025 [P] リポジトリ全体で`npm run lint`(Biome)を実行し、新規・
   変更ファイル(`matchCard.ts`, `operations.ts`, `streamLock.ts`,
   `nextMatchSuggestion.ts`, `usePoolProgress.ts`, `MatchCardEntry.tsx`,
   `MatchCardRow.tsx`, `global.css`, 対応するテストファイル)に指摘が
   ないことを確認する。
-- [ ] T026 [P] `npx tsc -p tsconfig.json --noEmit`でTypeScript strict
+- [X] T026 [P] `npx tsc -p tsconfig.json --noEmit`でTypeScript strict
   モードの型チェックが通ることを確認する(`any`不使用、plan.mdの
   Constitution Check原則Iに対応)。
-- [ ] T027 `npx vitest run --no-file-parallelism`でテストスイート全体を
+- [X] T027 `npx vitest run --no-file-parallelism`でテストスイート全体を
   実行し、T004・T006・T007・T008・T009〜T013・T019〜T020の新規テストを
   含む全テストがPASSすることを確認する。
-- [ ] T028 `npm run build`でVite本番ビルドが通ることを確認する。
+- [X] T028 `npm run build`でVite本番ビルドが通ることを確認する。
 - [ ] T029 quickstart.mdのシナリオ1〜5を、実際の開発サーバー
   (`npm run dev`)またはstart.gg同期済みテストプール(実際に配信台を
   設定した対戦を含む)で手動確認する。確定済みカードの結果修正が

@@ -135,6 +135,21 @@ describe("computeNextMatchSuggestions", () => {
       // 次戦サジェストの外で行う既存の別機能)。
       expect(computeNextMatchSuggestions([byeCard], ["1"])).toEqual([]);
     });
+
+    it("excludes a streamed match even though both entrant slots are decided (005-stream-match-lock FR-006)", () => {
+      const streamed = makeCard({
+        id: "streamed",
+        round: 1,
+        identifier: "R1-1",
+        isStreamed: true,
+      });
+      const decidedCard = makeCard({ id: "b", round: 1, identifier: "R1-2" });
+      expect(
+        computeNextMatchSuggestions([streamed, decidedCard], ["1"]),
+      ).toEqual([{ matchCardId: "b", table: "1" }]);
+      // 配信中の対戦しかない場合は、次戦候補は0件になる。
+      expect(computeNextMatchSuggestions([streamed], ["1"])).toEqual([]);
+    });
   });
 
   // FR-002〜FR-004: プール抜けの対戦からの遠さが大きい対戦を優先する。

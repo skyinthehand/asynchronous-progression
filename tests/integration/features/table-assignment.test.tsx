@@ -272,6 +272,48 @@ describe("Table count setting and assignment (User Story 2)", () => {
     expect(merged.tableNumber).toBe("1");
   });
 
+  it("takes isStreamed from the remote value (005-stream-match-lock)", async () => {
+    await seedPool(["1", "2", "3"]);
+    const { mergeMatchCard } = await import(
+      "../../../src/features/sync/syncRunner.js"
+    );
+    const db = await getDb();
+    const local = await db.get("matchCards", "card-1");
+    const remote = { ...local, isStreamed: true, localOnly: false };
+    const merged = mergeMatchCard({ ...local, isStreamed: false }, remote);
+    expect(merged.isStreamed).toBe(true);
+  });
+
+  it("keeps the local isStreamed value while a result confirmation is still unsent (localOnly, 005-stream-match-lock Edge Cases)", async () => {
+    await seedPool(["1", "2", "3"]);
+    const db = await getDb();
+    const local = await db.get("matchCards", "card-1");
+    const { mergeMatchCard } = await import(
+      "../../../src/features/sync/syncRunner.js"
+    );
+    // localOnly: true かつ winnerId未設定(=結果確定ではなく出場者反映
+    // のみ)の場合はmergeMatchCardのlocalOnlyブロックの対象外(既存の
+    // remoteCaughtUpWithAdvancement判定)になってしまうため、winnerIdを
+    // 設定した「未送信の結果確定」を再現する。
+    const localWithPendingResult = {
+      ...local,
+      localOnly: true,
+      winnerId: "e1",
+      isStreamed: false,
+    };
+    const remote = {
+      ...local,
+      isStreamed: true,
+      localOnly: false,
+      // remoteはまだ出場者反映が追いついていない状態(entrant1Id/2Idが
+      // localと異なる)にして、remoteCaughtUpWithAdvancementがfalseに
+      // なるようにする。
+      entrant1Id: null,
+    };
+    const merged = mergeMatchCard(localWithPendingResult, remote);
+    expect(merged.isStreamed).toBe(false);
+  });
+
   it("lets the admin set up tables for a pool immediately after selecting it, without returning to general mode first", async () => {
     const user = userEvent.setup();
     render(<App />);
