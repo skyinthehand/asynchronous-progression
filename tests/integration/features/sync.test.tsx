@@ -1,9 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { computeIsPreviewMode } from "../../../src/domain/rules/previewMode.js";
 import { SyncStatusSnackbar } from "../../../src/features/sync/SyncStatusSnackbar.js";
 import { runSync } from "../../../src/features/sync/syncRunner.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
+import { getMatchCardsByPool } from "../../../src/infra/storage/matchCardRepository.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", async (importOriginal) => {
   const actual =
@@ -411,6 +413,99 @@ describe("Background sync and offline notification (User Story 3)", () => {
     const status = await db.get("syncStatus", "pool-1");
     expect(status?.lastSuccessAt).not.toBeNull();
     expect(status?.isStale).toBe(false);
+  });
+
+  it("removes the orphaned preview-id card once start.gg replaces it with a real id after 'Start Bracket' (reported bug: preview-mode banner never clears after refetch)", async () => {
+    // ユーザーフィードバック(2026-08-24): start.gg側で「Start Bracket」を
+    // 押すと、そのプールの全Setがpreview IDから実IDへ一斉に差し替わる。
+    // 従来はsaveMatchCardsが新IDのカードをputするだけで、古いpreview ID
+    // のローカルレコードを削除していなかったため、「Start Bracket」→
+    // 管理画面の「データを再取得」を行ってもpreview IDのカードがローカルに
+    // 残り続け、computeIsPreviewMode(1件でもpreview ID形式ならtrue)が
+    // いつまでもtrueのまま(プレビューモードの警告バナー・編集ロックが
+    // 消えない)というバグになっていた。
+    const db = await getDb();
+    await db.put("matchCards", {
+      id: "preview_pool-1_1_0",
+      poolId: "pool-1",
+      identifier: "A",
+      round: 1,
+      bracketSide: "N/A",
+      tableNumber: null,
+      entrant1Id: "e1",
+      entrant2Id: "e2",
+      winnerId: null,
+      score: null,
+      status: "NOT_STARTED",
+      isLocked: false,
+      editHistory: [],
+      localOnly: false,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
+    });
+
+    vi.mocked(operations.reportMatchResult).mockResolvedValue({
+      winnerId: "e1",
+      score: null,
+      status: "COMPLETED",
+    });
+    // Start Bracket後: 同じ対戦がpreviewではない実IDで返ってくる
+    // (対応するpreview IDのSetはもう存在しない)。beforeEachで既に
+    // 実IDのcard-1も、送信済みの状態のまま変わらず含まれる。
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+      poolId: "pool-1",
+      displayIdentifier: "Pool 1",
+      bracketType: "ROUND_ROBIN",
+      matchCards: [
+        {
+          id: "card-1",
+          poolId: "pool-1",
+          identifier: "R1-1",
+          round: 1,
+          bracketSide: "N/A",
+          tableNumber: null,
+          entrant1Id: "e1",
+          entrant2Id: "e2",
+          winnerId: "e1",
+          score: null,
+          status: "COMPLETED",
+          isLocked: false,
+          editHistory: [],
+          localOnly: false,
+          entrant1SourceMatchId: null,
+          entrant2SourceMatchId: null,
+        },
+        {
+          id: "real-set-1",
+          poolId: "pool-1",
+          identifier: "A",
+          round: 1,
+          bracketSide: "N/A",
+          tableNumber: null,
+          entrant1Id: "e1",
+          entrant2Id: "e2",
+          winnerId: null,
+          score: null,
+          status: "NOT_STARTED",
+          isLocked: false,
+          editHistory: [],
+          localOnly: false,
+          entrant1SourceMatchId: null,
+          entrant2SourceMatchId: null,
+        },
+      ],
+      entrants: [],
+    });
+
+    await runSync();
+
+    const previewCard = await db.get("matchCards", "preview_pool-1_1_0");
+    expect(previewCard).toBeUndefined();
+    const realCard = await db.get("matchCards", "real-set-1");
+    expect(realCard).toBeDefined();
+
+    const remaining = await getMatchCardsByPool("pool-1");
+    expect(computeIsPreviewMode(remaining)).toBe(false);
   });
 
   it("does not refresh lastSuccessAt on a genuine push failure, so repeated failures correctly become stale", async () => {

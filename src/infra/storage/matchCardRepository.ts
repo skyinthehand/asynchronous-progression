@@ -42,3 +42,11 @@ export async function getPendingMatchCards(
   const all = await getMatchCardsByPool(poolId);
   return all.filter((card) => card.localOnly || card.statusLocalOnly);
 }
+
+export async function deleteMatchCards(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await getDb();
+  const tx = db.transaction("matchCards", "readwrite");
+  await Promise.all(ids.map((id) => tx.store.delete(id)));
+  await tx.done;
+}

@@ -23,6 +23,7 @@ import {
   saveEntrants,
 } from "../../infra/storage/entrantRepository.js";
 import {
+  deleteMatchCards,
   getMatchCardsByPool,
   getPendingMatchCards,
   saveMatchCard,
@@ -249,6 +250,23 @@ export async function runSync(): Promise<SyncResult> {
     }
     if (mergedCards.length > 0) {
       await saveMatchCards(mergedCards);
+      // ユーザーフィードバック(2026-08-24): start.ggで「Start Bracket」を
+      // 押すと、そのプールの全SetがpreviewId(`preview_...`)から実IDへ
+      // 一斉に差し替わる。従来はsaveMatchCardsが新IDのカードをput
+      // するだけで、古いpreviewIdのローカルレコードを消していなかった
+      // ため、「Start Bracket」→「データを再取得」を行ってもpreviewId
+      // のカードがローカルに残り続け、computeIsPreviewMode(全カードの
+      // どれか1件でもpreviewId形式ならtrue)がいつまでもtrueのまま
+      // (プレビューモードの警告バナー・編集ロックが消えない)という
+      // バグになっていた。start.ggから返るmatchCardsはそのプールの
+      // 現在の全Setなので、そこに含まれなくなったローカルカード(=
+      // 差し替えで置き換えられた古いID)は孤児として削除してよい
+      // (ローカル専用フィールドの引き継ぎは行わない設計、plan.md参照)。
+      const remoteIds = new Set(detail.matchCards.map((card) => card.id));
+      const staleLocalIds = localCards
+        .map((card) => card.id)
+        .filter((id) => !remoteIds.has(id));
+      await deleteMatchCards(staleLocalIds);
     }
 
     const pool = await getPool(poolId);
