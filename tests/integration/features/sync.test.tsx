@@ -313,6 +313,86 @@ describe("Background sync and offline notification (User Story 3)", () => {
     expect(status?.pendingChangeCount).toBe(0); // 「未反映N件」から消える
   });
 
+  it("fills in a losers-bracket entrant slot that startgg resolved directly, even while the other slot is still only locally advanced (reported bug: 'loser of A' never appears in R)", async () => {
+    // ユーザーフィードバック(2026-08-24): 敗者側のあるカード(R)が、
+    // 「Winners側の別ラウンドの対戦(J)の敗者」と「さらに別ラウンドの
+    // 対戦(A)の敗者」という、ラウンドの離れた2つの出場元を同時に持つ
+    // 構成だった。先にJが確定した時点でadvanceWinnerがローカルで
+    // entrant1(Jの敗者)だけを反映しlocalOnly:trueになった後、Aも確定して
+    // startgg側は両方の枠を解決済みで返してきたのに、旧mergeMatchCardは
+    // 「両方の枠が一致するまでremoteを一切取り込まない」という全体一致
+    // 判定だったため、既に解決済みのremoteの2枠目(Aの敗者)ごと握りつぶし、
+    // 永久にBYE表示のままになっていた。
+    const db = await getDb();
+    await db.delete("matchCards", "card-1");
+    await db.put("pools", {
+      id: "pool-1",
+      displayIdentifier: "Pool 1",
+      tournamentSlug: "impact-major-4",
+      eventId: "1",
+      phaseId: "1",
+      className: null,
+      bracketType: "DOUBLE_ELIMINATION",
+      staffName: null,
+      lastSyncedAt: null,
+    });
+    await db.put("matchCards", {
+      id: "r",
+      poolId: "pool-1",
+      identifier: "R",
+      round: -4,
+      bracketSide: "LOSERS",
+      tableNumber: null,
+      // advanceWinner(J)がローカルで1枠目だけ反映した状態を再現。
+      entrant1Id: "player21",
+      entrant2Id: null,
+      winnerId: null,
+      score: null,
+      status: "NOT_STARTED",
+      isLocked: false,
+      editHistory: [],
+      localOnly: true,
+      entrant1SourceMatchId: "j",
+      entrant2SourceMatchId: "a",
+    });
+
+    // startgg側は既にAも確定しており、2枠目もPlayer36として解決済みで
+    // 返してくる。
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+      poolId: "pool-1",
+      displayIdentifier: "Pool 1",
+      bracketType: "DOUBLE_ELIMINATION",
+      matchCards: [
+        {
+          id: "r",
+          poolId: "pool-1",
+          identifier: "R",
+          round: -4,
+          bracketSide: "LOSERS",
+          tableNumber: null,
+          entrant1Id: "player21",
+          entrant2Id: "player36",
+          winnerId: null,
+          score: null,
+          status: "NOT_STARTED",
+          isLocked: false,
+          editHistory: [],
+          localOnly: false,
+          entrant1SourceMatchId: "j",
+          entrant2SourceMatchId: "a",
+        },
+      ],
+      entrants: [],
+    });
+
+    await runSync();
+
+    const card = await db.get("matchCards", "r");
+    expect(card?.entrant2Id).toBe("player36");
+    expect(card?.entrant1Id).toBe("player21");
+    expect(card?.localOnly).toBe(false);
+  });
+
   it("records a failure without losing local data when startgg is unreachable", async () => {
     vi.mocked(operations.reportMatchResult).mockRejectedValue(
       new Error("network error"),

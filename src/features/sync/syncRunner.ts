@@ -44,24 +44,32 @@ export function mergeMatchCard(
   remote: MatchCard,
 ): MatchCard {
   if (!local) return remote;
-  if (local.localOnly) {
+  if (local.localOnly && local.winnerId) {
     // ユーザーフィードバック(2026-08-15): 結果(勝者)を保持しているカード
     // (M1未送信のもの)は、送信が成功するまでローカルを正とする。
-    // 一方、advanceWinner(matchProgression.ts)による出場者反映のみ
-    // (winnerIdを持たない)のカードは、startgg側が追いつけば
-    // (remoteの出場者がローカルと一致すれば)保護を解除してよい。
-    // これを行わないと、一度でもadvanceWinnerで出場者が反映された
-    // カードは、startgg側が実際には追いついていても永久にlocalOnlyの
-    // ままとなり、「未反映N件」が減らず、かつそのカードへの以降の
-    // remote更新(対戦台・結果修正等)も一切取り込まれなくなってしまう
-    // (実際に報告されたバグ: startgg側は最新なのに同期エラーが続く)。
-    const remoteCaughtUpWithAdvancement =
-      !local.winnerId &&
-      remote.entrant1Id === local.entrant1Id &&
-      remote.entrant2Id === local.entrant2Id;
-    if (!remoteCaughtUpWithAdvancement) {
-      return local;
+    return local;
+  }
+  if (local.localOnly) {
+    // advanceWinner(matchProgression.ts)による出場者反映のみ(winnerIdを
+    // 持たない)のカード。startgg側が追いつけば保護を解除してよいが、
+    // 「両方の枠が一致するまで一切remoteを取り込まない」という全体一致
+    // 判定は誤り: 例えば片方の枠(J経由)だけローカルで先行反映していた間に、
+    // startgg側は同じ対戦カードのもう片方の枠(round1のAの敗者)も既に
+    // 解決していた場合、remoteの方がローカルより情報が新しい/多い状態に
+    // なる。ここで全体一致を条件にすると、そのremote側の解決済みの値
+    // ごと握りつぶし、まだローカルにない方の枠がいつまでもBYE表示の
+    // ままになってしまう(実際に報告されたバグ: Rに「loser of A」が
+    // 反映されない)。枠ごとに「remoteが既に値を持っていればremoteを
+    // 信用し、remoteがまだnull(未解決)の枠だけローカルの先行反映を残す」
+    // ようにする。
+    const entrant1Id = remote.entrant1Id ?? local.entrant1Id;
+    const entrant2Id = remote.entrant2Id ?? local.entrant2Id;
+    const stillAheadOfRemote =
+      entrant1Id !== remote.entrant1Id || entrant2Id !== remote.entrant2Id;
+    if (stillAheadOfRemote) {
+      return { ...local, entrant1Id, entrant2Id };
     }
+    // remoteが全ての枠で追いついた: 以降の通常マージへ進み、localOnlyも解除する。
   }
   return {
     ...remote,
