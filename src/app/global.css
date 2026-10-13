@@ -686,6 +686,17 @@ label {
   border-width: 2px;
 }
 
+/* ユーザーフィードバック(2026-10-13): 共通の.match-card-next(li要素自体に
+   outlineを付ける、総当り表<tr>向けのルール)が、ブラケットの<li>(識別子
+   列+カード本体をまとめて囲む要素)にもそのままかかってしまい、カード
+   本体(.match-card-box)だけに付けている太枠・影とは別に、側の識別子列
+   まで含めた一回り大きい・位置のずれた二重の枠線が見えてしまっていた。
+   ブラケットでは.match-card-box側の太枠・影だけで「次に進行」を示すため、
+   li自体のoutlineは明示的に無効化する。 */
+.bracket-tree-matches .match-card.match-card-next {
+  outline: none;
+}
+
 .bracket-tree-matches .match-card.match-card-next .match-card-box {
   border: 3px solid var(--ink);
   box-shadow: 5px 5px 0 var(--accent);
@@ -789,11 +800,7 @@ label {
 .match-card-player-winner .match-card-player-score {
   color: var(--paper);
   background: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 0 6px;
-  flex-shrink: 0;
-  font-family: "IBM Plex Mono", monospace;
+  border-left-color: var(--ink);
 }
 
 .match-card-player-loser .match-card-player-name,
@@ -801,14 +808,25 @@ label {
   color: var(--muted);
 }
 
+/* ユーザーフィードバック(2026-10-13): モックアップ(artifact)の`.score`は
+   width:30px・align-self:stretch・border-leftの固定幅コラムで、カード
+   本体の右端(.match-card-boxの内側)に常にピクセル単位で揃う。以前は
+   中身の文字数に応じて幅が変わる可変幅バッジ(min/max-width)だったため、
+   「2」「0」「DQ」「W」等で微妙に右端の位置がずれ、カードの枠線とも
+   揃わなかった。モックアップの数値をそのまま使い、勝敗・結果の有無に
+   関わらず全ての行に同じ幅のコラムとして常時描画する
+   (MatchCardEntry.tsxで中身が無い時も空のまま描画する)。 */
 .match-card-player-score {
+  width: 30px;
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--line);
   font-family: "IBM Plex Mono", monospace;
   font-weight: 600;
-  flex-shrink: 0;
-  max-width: 64px;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .match-card-players .match-card-player button {

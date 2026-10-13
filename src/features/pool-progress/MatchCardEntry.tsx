@@ -212,9 +212,7 @@ export function MatchCardEntry({
                 <span className="match-card-player-name">
                   <span>{entrantName(entrantById, entrantId)}</span>
                 </span>
-                {badge && (
-                  <span className="match-card-player-score">{badge}</span>
-                )}
+                <span className="match-card-player-score">{badge ?? ""}</span>
               </div>
             );
           })}
