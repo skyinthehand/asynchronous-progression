@@ -129,6 +129,16 @@ describe("Winner advancement to the next round (FR-023)", () => {
     render(<App />);
     await acknowledgeNotice(user);
 
+    // ユーザーフィードバック(2026-10-13): まだ出場元の対戦(R1-1)が完了
+    // していない間は、空の枠を「BYE」ではなく「未定」と表示し(本当の
+    // 不戦勝と誤解させない)、カード自体もクリックできない(編集不可)。
+    const r2Before = (await screen.findByText("R2-1")).closest("li");
+    if (!r2Before) throw new Error("round 2 card not found");
+    expect(r2Before.textContent).toContain("未定");
+    expect(r2Before.textContent).not.toContain("BYE");
+    expect(r2Before).not.toHaveAttribute("role", "button");
+    expect(r2Before).not.toHaveClass("match-card-clickable");
+
     const r1Card = (await screen.findByText("R1-1")).closest("li");
     if (!r1Card) throw new Error("R1-1 card not found");
     // カード自体には操作可能な要素がなく、カード全体のタップで編集

@@ -40,6 +40,32 @@ function entrantName(entrantById: Map<string, Entrant>, id: string | null) {
   return entrantById.get(id)?.name ?? id;
 }
 
+/**
+ * ユーザーフィードバック(2026-10-13): 出場者の枠が空(entrantId === null)
+ * には2つの異なる意味があり、同じ「BYE」という表示では混同される。
+ * - 本当の不戦勝(BYE): この枠に出場元の対戦(sourceMatchId)が無く、
+ *   そもそも対戦自体が発生しない(もう片方の出場者が自動的に通過する)。
+ * - 未確定: 出場元の対戦(sourceMatchId)がまだ完了していないだけで、
+ *   その対戦の結果が決まり次第この枠は埋まる。対戦が無いわけではない。
+ * 後者を「BYE」と表示すると、対戦が発生しないかのように誤解されるため、
+ * 「未定」という別の言葉で表す。
+ */
+function isSlotPending(
+  entrantId: string | null,
+  sourceMatchId: string | null,
+): boolean {
+  return entrantId === null && sourceMatchId !== null;
+}
+
+function slotDisplayName(
+  entrantById: Map<string, Entrant>,
+  entrantId: string | null,
+  sourceMatchId: string | null,
+) {
+  if (entrantId) return entrantById.get(entrantId)?.name ?? entrantId;
+  return isSlotPending(entrantId, sourceMatchId) ? "未定" : "BYE";
+}
+
 function entrantSeed(entrantById: Map<string, Entrant>, id: string | null) {
   if (!id) return "";
   const seed = entrantById.get(id)?.seed;
@@ -150,14 +176,24 @@ export function MatchCardEntry({
 }: MatchCardEntryProps) {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const isEditable = card.status !== "COMPLETED";
-  const isBye = Boolean(card.entrant1Id) !== Boolean(card.entrant2Id);
+  // ユーザーフィードバック(2026-10-13): 出場元の対戦がまだ完了していない
+  // ために枠が空(未定)のカードは、どちらの出場者になるか未確定なため
+  // 編集できないようにする(本当の不戦勝(BYEで出場元が無い)とは区別する)。
+  const hasPendingSlot =
+    isSlotPending(card.entrant1Id, card.entrant1SourceMatchId) ||
+    isSlotPending(card.entrant2Id, card.entrant2SourceMatchId);
+  const isBye =
+    !hasPendingSlot && Boolean(card.entrant1Id) !== Boolean(card.entrant2Id);
   const byeEntrantId = card.entrant1Id ?? card.entrant2Id;
   // 005-stream-match-lock FR-002〜FR-004: 配信台が設定されている対戦
   // カードは、状態(未着手・進行中・確定済み)を問わず一切編集できない
   // (新規入力・修正のどちらのモーダルもこのcanEditで一括して開閉を
   // 制御しているため、ここ1箇所のガードで両方をブロックできる)。
   const canEdit =
-    !readOnly && (isEditable || !card.isLocked) && !isStreamLocked(card);
+    !readOnly &&
+    (isEditable || !card.isLocked) &&
+    !isStreamLocked(card) &&
+    !hasPendingSlot;
   const variant = matchCardVariant(card, isNext, Boolean(isBlocked));
   const tableLabel = card.tableNumber ? `卓 ${card.tableNumber}` : "卓 —";
 
@@ -196,10 +232,10 @@ export function MatchCardEntry({
         <div className="match-card-players">
           {(
             [
-              ["entrant1", card.entrant1Id],
-              ["entrant2", card.entrant2Id],
+              ["entrant1", card.entrant1Id, card.entrant1SourceMatchId],
+              ["entrant2", card.entrant2Id, card.entrant2SourceMatchId],
             ] as const
-          ).map(([slotKey, entrantId]) => {
+          ).map(([slotKey, entrantId, sourceMatchId]) => {
             const badge = scoreBadgeText(card, slotKey);
             return (
               <div
@@ -210,7 +246,9 @@ export function MatchCardEntry({
                   {entrantSeed(entrantById, entrantId)}
                 </span>
                 <span className="match-card-player-name">
-                  <span>{entrantName(entrantById, entrantId)}</span>
+                  <span>
+                    {slotDisplayName(entrantById, entrantId, sourceMatchId)}
+                  </span>
                 </span>
                 <span className="match-card-player-score">{badge ?? ""}</span>
               </div>
