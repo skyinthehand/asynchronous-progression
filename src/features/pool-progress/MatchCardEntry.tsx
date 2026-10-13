@@ -47,6 +47,34 @@ function entrantSeed(entrantById: Map<string, Entrant>, id: string | null) {
 }
 
 /**
+ * ユーザーフィードバック(2026-10-13): 対戦カードの小さな得点バッジには
+ * card.score(start.gg側のdisplayScore、例: "2-0")をそのまま使わない。
+ * displayScoreは常に短い書式とは限らず、実機で「Player29 2 - Player36」
+ * のように両選手名を含む長い文字列が返ってくるケースが確認され、バッジ
+ * からあふれて選手名表示と重なって見える不具合になっていた。
+ *
+ * 代わりに、このアプリ内で記録した結果(entrant1Score/entrant2Score、
+ * 002-match-scoring-and-flowのローカル専用フィールド)から枠ごとの得点を
+ * 組み立てる。DQ/不戦勝(W)、またはstart.gg側で直接確定され内訳が
+ * 分からない結果は、常に短い固定の文字列("DQ"/"W")のみを返すため、
+ * バッジの最大幅が予測可能になる。
+ */
+function scoreBadgeText(
+  card: MatchCard,
+  slotKey: "entrant1" | "entrant2",
+): string | null {
+  if (card.status !== "COMPLETED") return null;
+  const entrantId = slotKey === "entrant1" ? card.entrant1Id : card.entrant2Id;
+  const isWinner = entrantId !== null && entrantId === card.winnerId;
+  const dq = slotKey === "entrant1" ? card.entrant1DQ : card.entrant2DQ;
+  if (dq) return "DQ";
+  const score =
+    slotKey === "entrant1" ? card.entrant1Score : card.entrant2Score;
+  if (score !== null) return String(score);
+  return isWinner ? "W" : null;
+}
+
+/**
  * デザイン刷新(2026-10-09): モックアップの対戦カード状態別見た目
  * (wait/live/next/blocked/done)。「保留」(isBlocked)は呼び出し元
  * (MatchCardList.tsx)が出欠/離席から判定して渡す。
@@ -171,24 +199,25 @@ export function MatchCardEntry({
               ["entrant1", card.entrant1Id],
               ["entrant2", card.entrant2Id],
             ] as const
-          ).map(([slotKey, entrantId]) => (
-            <div
-              className={playerStateClassName(card, entrantId)}
-              key={slotKey}
-            >
-              <span className="match-card-player-seed">
-                {entrantSeed(entrantById, entrantId)}
-              </span>
-              <span className="match-card-player-name">
-                <span>{entrantName(entrantById, entrantId)}</span>
-              </span>
-              {card.status === "COMPLETED" && entrantId === card.winnerId && (
-                <span className="match-card-player-score">
-                  {card.score ?? "W"}
+          ).map(([slotKey, entrantId]) => {
+            const badge = scoreBadgeText(card, slotKey);
+            return (
+              <div
+                className={playerStateClassName(card, entrantId)}
+                key={slotKey}
+              >
+                <span className="match-card-player-seed">
+                  {entrantSeed(entrantById, entrantId)}
                 </span>
-              )}
-            </div>
-          ))}
+                <span className="match-card-player-name">
+                  <span>{entrantName(entrantById, entrantId)}</span>
+                </span>
+                {badge && (
+                  <span className="match-card-player-score">{badge}</span>
+                )}
+              </div>
+            );
+          })}
         </div>
         {!isEditable && card.isLocked && (
           <span className="match-card-edit-locked">

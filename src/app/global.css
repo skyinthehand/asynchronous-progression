@@ -804,6 +804,11 @@ label {
 .match-card-player-score {
   font-family: "IBM Plex Mono", monospace;
   font-weight: 600;
+  flex-shrink: 0;
+  max-width: 64px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .match-card-players .match-card-player button {
