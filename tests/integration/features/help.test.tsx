@@ -30,7 +30,7 @@ describe("Help button (docs/usage.md viewer)", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await screen.findByText(/注意事項をまだ取得できていません/);
+    await screen.findByText(/進行ルールをまだ取得できていません/);
     expect(screen.queryByText("予選プール進行")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "使い方を表示" }));

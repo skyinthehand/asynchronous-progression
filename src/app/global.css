@@ -1035,6 +1035,12 @@ label {
   background: rgba(0, 0, 0, 0.55);
 }
 
+/* ユーザーフィードバック(2026-10-13): 進行ルールが大会(イベント)ごとの
+   内容であることを伝えるための対象大会表示。 */
+.notice-scope {
+  margin: -4px 0 12px;
+}
+
 .notice-body h1,
 .notice-body h2,
 .notice-body h3,

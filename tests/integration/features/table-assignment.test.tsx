@@ -49,7 +49,7 @@ async function resetDb() {
 }
 
 async function acknowledgeNotice(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByText(/注意事項をまだ取得できていません/);
+  await screen.findByText(/進行ルールをまだ取得できていません/);
   await user.click(screen.getByRole("button", { name: "内容を確認しました" }));
 }
 

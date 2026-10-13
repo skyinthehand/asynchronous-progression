@@ -31,7 +31,7 @@ describe("Notice gate (User Story 1)", () => {
     render(<App />);
 
     expect(
-      await screen.findByText(/注意事項をまだ取得できていません/),
+      await screen.findByText(/進行ルールをまだ取得できていません/),
     ).toBeInTheDocument();
     expect(screen.queryByText("予選プール進行")).not.toBeInTheDocument();
 
@@ -75,7 +75,7 @@ describe("Notice gate (User Story 1)", () => {
     );
     expect(screen.getByText("予選プール進行")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "注意書き" }));
+    await user.click(screen.getByRole("button", { name: "進行ルール" }));
     await waitFor(() =>
       expect(
         screen.getAllByText(/遅刻・キャンセルはDiscordまでご連絡ください/)

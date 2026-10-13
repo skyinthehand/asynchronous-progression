@@ -2,7 +2,6 @@ import { AdminSessionProvider } from "../features/admin/AdminSessionContext.js";
 import { HelpButton } from "../features/help/HelpButton.js";
 import { EmergencyContactWarning } from "../features/notice/EmergencyContactWarning.js";
 import { NoticeGate } from "../features/notice/NoticeGate.js";
-import { NoticeViewer } from "../features/notice/NoticeViewer.js";
 import { SyncStatusSnackbar } from "../features/sync/SyncStatusSnackbar.js";
 import { useSyncScheduler } from "../features/sync/useSyncScheduler.js";
 import { AdminModeScreen } from "./AdminModeScreen.js";
@@ -14,14 +13,12 @@ function AppContent() {
   useSyncScheduler();
   return (
     <div className="app-content">
-      {/* デザイン刷新(2026-10-09): 一般モードの「注意書き」導線は
-          GeneralModeScreen.tsxのヘッダーに移設した。管理画面(Phase 8で
-          独自ヘッダーに統合予定)はひとまずここに残す。 */}
-      {mode === "admin" && (
-        <div className="app-toolbar no-print">
-          <NoticeViewer />
-        </div>
-      )}
+      {/* ユーザーフィードバック(2026-10-13): 進行ルールは大会(イベント)に
+          紐づく情報のため、管理画面ログイン前(未認証・対象未設定の時点)に
+          それらしいボタンを出すのは誤解を招く。一般モードのヘッダー
+          (GeneralModeScreen.tsx)にのみ導線を置き、管理画面側は
+          ダッシュボードの「06 進行ルールの確認」セクション
+          (NoticeAdminPanel)で代替する。 */}
       <EmergencyContactWarning />
       {mode === "general" ? <GeneralModeScreen /> : <AdminModeScreen />}
       <SyncStatusSnackbar />

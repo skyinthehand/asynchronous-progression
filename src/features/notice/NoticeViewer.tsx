@@ -2,7 +2,10 @@ import { useState } from "react";
 import { NoticeMarkdown } from "../../components/index.js";
 import { useNotice } from "./useNotice.js";
 
-/** FR-002: 注意書きをいつでも再確認できる専用の操作(ボタン)。 */
+/**
+ * FR-002: 進行ルール(start.gg側の対象イベントのRulesを同期したもの)を
+ * いつでも再確認できる専用の操作(ボタン)。
+ */
 export function NoticeViewer() {
   const { notice } = useNotice();
   const [open, setOpen] = useState(false);
@@ -19,16 +22,20 @@ export function NoticeViewer() {
           strokeWidth="2"
           aria-hidden="true"
         >
-          <path d="M12 3 2 21h20L12 3z" />
-          <path d="M12 10v5" />
-          <path d="M12 18v.5" />
+          <path d="M8 3h8a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2z" />
+          <path d="M9 8h6M9 12h6" />
         </svg>
-        注意書き
+        進行ルール
       </button>
       {open && (
         <dialog open className="notice-viewer" aria-modal="true">
+          {notice && (
+            <p className="label notice-scope">
+              対象大会: {notice.tournamentSlug}
+            </p>
+          )}
           <NoticeMarkdown
-            text={notice?.body ?? "注意事項を取得できませんでした。"}
+            text={notice?.body ?? "進行ルールを取得できませんでした。"}
           />
           <button type="button" onClick={() => setOpen(false)}>
             閉じる

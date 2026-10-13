@@ -72,9 +72,9 @@ export function PoolOnboardingWizard({
       )}
       {step === "notice" && (
         <section className="onboarding-notice">
-          <h2>注意事項</h2>
+          <h2>進行ルール</h2>
           <NoticeMarkdown
-            text={notice?.body ?? "注意事項を取得できませんでした。"}
+            text={notice?.body ?? "進行ルールを取得できませんでした。"}
           />
         </section>
       )}

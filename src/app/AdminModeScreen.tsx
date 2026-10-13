@@ -205,7 +205,7 @@ function AdminModeContent() {
         <AdminSection number="05" title="連携トークン">
           <TokenSettings />
         </AdminSection>
-        <AdminSection number="06" title="注意書きの確認">
+        <AdminSection number="06" title="進行ルールの確認">
           <NoticeAdminPanel />
         </AdminSection>
         <AdminSection number="07" title="初期化(危険)" danger>
