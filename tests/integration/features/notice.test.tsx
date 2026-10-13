@@ -75,7 +75,7 @@ describe("Notice gate (User Story 1)", () => {
     );
     expect(screen.getByText("予選プール進行")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "注意書きを確認" }));
+    await user.click(screen.getByRole("button", { name: "注意書き" }));
     await waitFor(() =>
       expect(
         screen.getAllByText(/遅刻・キャンセルはDiscordまでご連絡ください/)

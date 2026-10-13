@@ -63,6 +63,7 @@ async function seedPool(matchCards: Record<string, unknown>[]) {
       attendance: "UNKNOWN",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });

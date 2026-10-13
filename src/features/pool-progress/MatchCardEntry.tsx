@@ -11,6 +11,8 @@ interface MatchCardEntryProps {
   card: MatchCard;
   entrantById: Map<string, Entrant>;
   isNext: boolean;
+  /** デザイン刷新(2026-10-09): 出欠/離席により次戦候補から外れている「保留」の対戦カード。 */
+  isBlocked?: boolean;
   onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
   /** FR-011/FR-013: プールに設定された対戦台番号の一覧(選択候補)。 */
   tableNumbers: string[];
@@ -37,6 +39,39 @@ function entrantName(entrantById: Map<string, Entrant>, id: string | null) {
   if (!id) return "BYE";
   return entrantById.get(id)?.name ?? id;
 }
+
+function entrantSeed(entrantById: Map<string, Entrant>, id: string | null) {
+  if (!id) return "";
+  const seed = entrantById.get(id)?.seed;
+  return seed ?? "";
+}
+
+/**
+ * デザイン刷新(2026-10-09): モックアップの対戦カード状態別見た目
+ * (wait/live/next/blocked/done)。「保留」(isBlocked)は呼び出し元
+ * (MatchCardList.tsx)が出欠/離席から判定して渡す。
+ */
+function matchCardVariant(
+  card: MatchCard,
+  isNext: boolean,
+  isBlocked: boolean,
+): "done" | "live" | "next" | "blocked" | "wait" | "ready" {
+  if (card.status === "COMPLETED") return "done";
+  if (card.status === "IN_PROGRESS") return "live";
+  if (isNext) return "next";
+  if (isBlocked) return "blocked";
+  if (!card.entrant1Id || !card.entrant2Id) return "wait";
+  return "ready";
+}
+
+const VARIANT_LABEL: Record<ReturnType<typeof matchCardVariant>, string> = {
+  done: "完了",
+  live: "進行中",
+  next: "次に進行",
+  blocked: "保留",
+  wait: "未着手",
+  ready: "未着手",
+};
 
 /** startggのブラケット表示(勝者は緑・強調、敗者はグレー)に合わせた対戦者行の状態。 */
 function playerStateClassName(card: MatchCard, entrantId: string | null) {
@@ -75,6 +110,7 @@ export function MatchCardEntry({
   card,
   entrantById,
   isNext,
+  isBlocked,
   onRecordResult,
   tableNumbers,
   matchCards,
@@ -94,6 +130,8 @@ export function MatchCardEntry({
   // 制御しているため、ここ1箇所のガードで両方をブロックできる)。
   const canEdit =
     !readOnly && (isEditable || !card.isLocked) && !isStreamLocked(card);
+  const variant = matchCardVariant(card, isNext, Boolean(isBlocked));
+  const tableLabel = card.tableNumber ? `卓 ${card.tableNumber}` : "卓 —";
 
   function openEditModal() {
     if (canEdit) setEditModalOpen(true);
@@ -111,6 +149,7 @@ export function MatchCardEntry({
     <li
       className={[
         "match-card",
+        `match-card-${variant}`,
         canEdit ? "match-card-clickable" : "",
         isNext ? "match-card-next" : "",
         card.status === "IN_PROGRESS" ? "match-card-in-progress" : "",
@@ -123,51 +162,55 @@ export function MatchCardEntry({
       role={canEdit ? "button" : undefined}
       tabIndex={canEdit ? 0 : undefined}
     >
-      <span className="match-card-identifier">
-        <span className="match-card-identifier-text">{card.identifier}</span>
-        {canEdit && (
-          <span className="match-card-edit-icon" aria-hidden="true">
-            ✏️
+      <span className="match-card-side-id mono">{card.identifier}</span>
+      <span className="match-card-box">
+        {note && <span className="match-card-note">{note}</span>}
+        <div className="match-card-players">
+          {(
+            [
+              ["entrant1", card.entrant1Id],
+              ["entrant2", card.entrant2Id],
+            ] as const
+          ).map(([slotKey, entrantId]) => (
+            <div
+              className={playerStateClassName(card, entrantId)}
+              key={slotKey}
+            >
+              <span className="match-card-player-seed">
+                {entrantSeed(entrantById, entrantId)}
+              </span>
+              <span className="match-card-player-name">
+                <span>{entrantName(entrantById, entrantId)}</span>
+              </span>
+              {card.status === "COMPLETED" && entrantId === card.winnerId && (
+                <span className="match-card-player-score">
+                  {card.score ?? "W"}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+        {!isEditable && card.isLocked && (
+          <span className="match-card-edit-locked">
+            後続の対戦が進行しているため、この結果は修正できません。
           </span>
         )}
-      </span>
-      {note && <span className="match-card-note">{note}</span>}
-      {card.status === "IN_PROGRESS" && (
-        <span className="match-card-status-badge">進行中</span>
-      )}
-      {/* 005-stream-match-lock FR-007: 対戦カードの状態を問わず表示する。 */}
-      {card.isStreamed && (
-        <span className="match-card-stream-badge">配信中</span>
-      )}
-      {isEditable && card.tableNumber && (
-        <span className="match-card-table-badge">
-          対戦台: {card.tableNumber}
-        </span>
-      )}
-      <div className="match-card-players">
-        {(
-          [
-            ["entrant1", card.entrant1Id],
-            ["entrant2", card.entrant2Id],
-          ] as const
-        ).map(([slotKey, entrantId]) => (
-          <div className={playerStateClassName(card, entrantId)} key={slotKey}>
-            <span className="match-card-player-name">
-              {entrantName(entrantById, entrantId)}
+        <div className="match-card-meta-row">
+          <span className="mono">{tableLabel}</span>
+          <span className="match-card-meta-state">
+            {VARIANT_LABEL[variant]}
+          </span>
+          {/* 005-stream-match-lock FR-007: 対戦カードの状態を問わず表示する。 */}
+          {card.isStreamed && (
+            <span className="match-card-stream-badge">配信中</span>
+          )}
+          {canEdit && (
+            <span className="match-card-edit-icon" aria-hidden="true">
+              ✏️
             </span>
-            {card.status === "COMPLETED" && entrantId === card.winnerId && (
-              <span className="match-card-player-score">
-                {card.score ?? "W"}
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-      {!isEditable && card.isLocked && (
-        <span className="match-card-edit-locked">
-          後続の対戦が進行しているため、この結果は修正できません。
-        </span>
-      )}
+          )}
+        </div>
+      </span>
       {editModalOpen && (
         // カード全体のonClickへのクリック伝播を止めるためだけのラッパー
         // (それ自体は操作対象ではないためキーボード操作は不要)。

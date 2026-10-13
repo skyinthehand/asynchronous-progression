@@ -22,9 +22,9 @@ async function acknowledgeNotice(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "内容を確認しました" }));
 }
 
-async function openEntrantListModal(user: ReturnType<typeof userEvent.setup>) {
+async function openGuideTab(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByText(/Alice vs Bob/).catch(() => undefined);
-  await user.click(screen.getByRole("button", { name: "選手一覧" }));
+  await user.click(screen.getByRole("tab", { name: /次戦案内/ }));
 }
 
 describe("Next-match guidance for finished entrants (User Story 4)", () => {
@@ -67,6 +67,7 @@ describe("Next-match guidance for finished entrants (User Story 4)", () => {
       attendance: "PRESENT",
       attendanceRecordedAt: null,
       poolFinished: true,
+      seed: null,
       nextMatch: {
         opponentName: "Dana",
         tableNumber: "12",
@@ -81,6 +82,7 @@ describe("Next-match guidance for finished entrants (User Story 4)", () => {
       attendance: "PRESENT",
       attendanceRecordedAt: null,
       poolFinished: true,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });
@@ -91,6 +93,7 @@ describe("Next-match guidance for finished entrants (User Story 4)", () => {
       attendance: "PRESENT",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });
@@ -100,31 +103,31 @@ describe("Next-match guidance for finished entrants (User Story 4)", () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
-    await openEntrantListModal(user);
+    await openGuideTab(user);
 
-    expect(
-      await screen.findByText(/対戦相手 Dana \/ 卓 12/),
-    ).toBeInTheDocument();
+    const card = screen.getByText("Charlie").closest("article");
+    expect(card).not.toBeNull();
+    expect(card?.textContent).toContain("Dana");
+    expect(card?.textContent).toContain("卓 12");
   });
 
   it('shows "未確定" when the next match is not yet confirmed', async () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
-    await openEntrantListModal(user);
+    await openGuideTab(user);
 
-    expect(await screen.findByText(/次戦は未確定です/)).toBeInTheDocument();
+    const card = screen.getByText("Eve").closest("article");
+    expect(card?.textContent).toContain("未確定");
   });
 
   it("does not list an entrant who has not finished the pool", async () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
-    await openEntrantListModal(user);
+    await openGuideTab(user);
 
-    await screen.findByText(/次戦は未確定です/);
-    const banner = screen.getByText("予選通過・次戦案内").closest("section");
-    expect(banner).not.toBeNull();
-    expect(banner?.textContent).not.toContain("Frank");
+    await screen.findByText("Charlie");
+    expect(screen.queryByText("Frank")).not.toBeInTheDocument();
   });
 });

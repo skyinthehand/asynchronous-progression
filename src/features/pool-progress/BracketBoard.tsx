@@ -13,6 +13,8 @@ interface BracketBoardProps {
   matchCards: MatchCard[];
   entrantById: Map<string, Entrant>;
   nextCardIds: Set<string>;
+  /** デザイン刷新(2026-10-09): 出欠/離席により次戦候補から外れている「保留」の対戦カード。 */
+  blockedCardIds: Set<string>;
   onRecordResult: (matchCardId: string, result: MatchResultSubmission) => void;
   tableNumbers: string[];
   onAssignTable: (
@@ -44,7 +46,10 @@ interface BracketBoardProps {
  */
 const COLUMN_WIDTH = 220;
 const COLUMN_GAP = 32;
-const ROW_HEIGHT = 210;
+// デザイン刷新(2026-10-09): 識別子が.match-card-boxの外(.match-card-side-id)
+// へ移動しカード自体が薄くなったため、210→150へ詰めた(実測高さ約145px
+// [注記30px + 対戦者2行88px + メタ行22px + 枠線]に安全マージンを足した値)。
+const ROW_HEIGHT = 150;
 const HEADER_HEIGHT = 24;
 
 function sideLabel(side: BracketSide) {
@@ -109,6 +114,7 @@ function BracketSidePanel({
   layout,
   entrantById,
   nextCardIds,
+  blockedCardIds,
   onRecordResult,
   tableNumbers,
   matchCards,
@@ -218,6 +224,7 @@ function BracketSidePanel({
                     card={match.card}
                     entrantById={entrantById}
                     isNext={nextCardIds.has(match.card.id)}
+                    isBlocked={blockedCardIds.has(match.card.id)}
                     onRecordResult={onRecordResult}
                     tableNumbers={tableNumbers}
                     matchCards={matchCards}

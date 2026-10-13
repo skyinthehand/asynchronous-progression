@@ -10,6 +10,7 @@ function makeEntrant(id: string): Entrant {
     attendance: "UNKNOWN",
     attendanceRecordedAt: null,
     poolFinished: false,
+    seed: null,
     nextMatch: null,
     awayPeriods: [],
   };

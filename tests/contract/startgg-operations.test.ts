@@ -240,6 +240,73 @@ describe("Q2: fetchPoolDetail", () => {
     expect(detail.entrants.map((e) => e.name).sort()).toEqual(["Alice", "Bob"]);
   });
 
+  it("maps phaseGroup.seeds into Entrant.seed (デザイン刷新: start.ggのシード値表示)", async () => {
+    const client = fakeClient({
+      phaseGroup: {
+        id: 1000,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            {
+              id: 5000,
+              identifier: "F",
+              round: 1,
+              station: null,
+              slots: [
+                { entrant: { id: 1, name: "Alice" } },
+                { entrant: { id: 2, name: "Bob" } },
+              ],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+          ],
+        },
+        seeds: {
+          nodes: [
+            { seedNum: 1, entrant: { id: 1 } },
+            { seedNum: 2, entrant: { id: 2 } },
+          ],
+        },
+      },
+    });
+
+    const detail = await fetchPoolDetail(client, "1000");
+
+    const alice = detail.entrants.find((e) => e.name === "Alice");
+    const bob = detail.entrants.find((e) => e.name === "Bob");
+    expect(alice?.seed).toBe(1);
+    expect(bob?.seed).toBe(2);
+  });
+
+  it("leaves Entrant.seed null when the response has no seeds (互換性)", async () => {
+    const client = fakeClient({
+      phaseGroup: {
+        id: 1000,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            {
+              id: 5000,
+              identifier: "F",
+              round: 1,
+              station: null,
+              slots: [{ entrant: { id: 1, name: "Alice" } }, { entrant: null }],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    const detail = await fetchPoolDetail(client, "1000");
+    expect(detail.entrants[0].seed).toBeNull();
+  });
+
   it("treats a BYE slot (null entrant) without error", async () => {
     const client = fakeClient({
       phaseGroup: {

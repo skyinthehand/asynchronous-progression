@@ -53,6 +53,7 @@ async function seedPool() {
     attendance: "UNKNOWN",
     attendanceRecordedAt: null,
     poolFinished: false,
+    seed: null,
     nextMatch: null,
     awayPeriods: [],
   });
@@ -63,12 +64,9 @@ async function acknowledgeNotice(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "内容を確認しました" }));
 }
 
-async function openAwayModal(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: "離席記録" }));
-  const heading = await screen.findByRole("heading", { name: "離席記録" });
-  const modal = heading.closest(".app-modal");
-  if (!modal) throw new Error("away period modal not found");
-  return modal as HTMLElement;
+async function openPlayersTab(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("tab", { name: /選手/ }));
+  return screen.getByRole("table");
 }
 
 /**
@@ -87,12 +85,12 @@ describe("Away period start time display (2026-08-14)", () => {
     render(<App />);
     await acknowledgeNotice(user);
 
-    const modal = await openAwayModal(user);
-    const row = within(modal).getByText("Alice").closest("tr");
+    const table = await openPlayersTab(user);
+    const row = within(table).getByText("Alice").closest("tr");
     if (!row) throw new Error("Alice row not found");
     expect(row.textContent).not.toMatch(/\d{2}:\d{2}〜/);
 
-    await user.click(within(row).getByRole("button", { name: "離席" }));
+    await user.click(within(row).getByRole("button", { name: "離席する" }));
 
     expect(row.textContent).toMatch(/\(\d{2}:\d{2}〜\)/);
 
@@ -102,7 +100,9 @@ describe("Away period start time display (2026-08-14)", () => {
     expect(entrant?.awayPeriods[0].endedAt).toBeNull();
     expect(entrant?.awayPeriods[0].startedAt).not.toBeNull();
 
-    await user.click(within(row).getByRole("button", { name: "戻った" }));
+    await user.click(
+      within(row).getByRole("button", { name: "離席中 · 戻った" }),
+    );
     expect(row.textContent).not.toMatch(/\d{2}:\d{2}〜/);
   });
 
@@ -111,11 +111,11 @@ describe("Away period start time display (2026-08-14)", () => {
     render(<App />);
     await acknowledgeNotice(user);
 
-    const modal = await openAwayModal(user);
-    await user.type(within(modal).getByLabelText("理由(任意):"), "トイレ");
-    const row = within(modal).getByText("Alice").closest("tr");
+    await openPlayersTab(user);
+    await user.type(screen.getByLabelText("離席理由(任意):"), "トイレ");
+    const row = screen.getByText("Alice").closest("tr");
     if (!row) throw new Error("Alice row not found");
-    await user.click(within(row).getByRole("button", { name: "離席" }));
+    await user.click(within(row).getByRole("button", { name: "離席する" }));
 
     expect(row.textContent).toMatch(/\(\d{2}:\d{2}〜・トイレ\)/);
 
@@ -129,10 +129,10 @@ describe("Away period start time display (2026-08-14)", () => {
     render(<App />);
     await acknowledgeNotice(user);
 
-    const modal = await openAwayModal(user);
-    const row = within(modal).getByText("Alice").closest("tr");
+    const table = await openPlayersTab(user);
+    const row = within(table).getByText("Alice").closest("tr");
     if (!row) throw new Error("Alice row not found");
-    await user.click(within(row).getByRole("button", { name: "離席" }));
+    await user.click(within(row).getByRole("button", { name: "離席する" }));
 
     expect(row.textContent).toMatch(/\(\d{2}:\d{2}〜\)/);
     expect(row.textContent).not.toContain("・");

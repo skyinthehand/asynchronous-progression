@@ -47,6 +47,7 @@ async function seedConfig() {
     attendance: "PRESENT",
     attendanceRecordedAt: null,
     poolFinished: false,
+    seed: null,
     nextMatch: null,
     awayPeriods: [],
   });
@@ -57,6 +58,7 @@ async function seedConfig() {
     attendance: "PRESENT",
     attendanceRecordedAt: null,
     poolFinished: false,
+    seed: null,
     nextMatch: null,
     awayPeriods: [],
   });

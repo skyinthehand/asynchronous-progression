@@ -96,6 +96,7 @@ async function seedPool(tableNumbers: string[]) {
       attendance: "UNKNOWN",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });
@@ -190,7 +191,7 @@ describe("Table count setting and assignment (User Story 2)", () => {
     expect(within(section).getByText("101")).toBeInTheDocument();
     expect(within(section).getByText("102")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "一般モードへ戻る" }));
+    await user.click(screen.getByRole("button", { name: "進行画面に戻る" }));
 
     const select = await screen.findByLabelText("R1-1の対戦台");
     await user.selectOptions(select, "102");

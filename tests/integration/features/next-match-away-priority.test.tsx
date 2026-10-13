@@ -98,6 +98,7 @@ async function seedPool() {
       attendance: "UNKNOWN",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });
@@ -135,7 +136,9 @@ describe("Next-match suggestion deprioritizes matches with an away entrant (2026
     await screen.findByText("R1-1");
 
     // まずは何もしていない状態で、通常通りR1-1が最有力候補であることを確認する。
-    await user.click(screen.getByRole("button", { name: "次戦候補" }));
+    await user.click(
+      screen.getByRole("button", { name: "卓を選んで呼び出す" }),
+    );
     const firstModalHeading = await screen.findByRole("heading", {
       name: "次戦候補",
     });
@@ -146,18 +149,18 @@ describe("Next-match suggestion deprioritizes matches with an away entrant (2026
     );
 
     // R1-1の出場者(Alice)を離席にする。
-    await user.click(screen.getByRole("button", { name: "離席記録" }));
-    const awayHeading = await screen.findByRole("heading", {
-      name: "離席記録",
-    });
-    const awayModal = awayHeading.closest(".app-modal") as HTMLElement;
-    const aliceRow = within(awayModal).getByText("Alice").closest("tr");
+    await user.click(screen.getByRole("tab", { name: /選手/ }));
+    const aliceRow = screen.getByText("Alice").closest("tr");
     if (!aliceRow) throw new Error("Alice row not found");
-    await user.click(within(aliceRow).getByRole("button", { name: "離席" }));
-    await user.click(within(awayModal).getByRole("button", { name: "閉じる" }));
+    await user.click(
+      within(aliceRow).getByRole("button", { name: "離席する" }),
+    );
 
-    // 離席後は、R1-1ではなくR1-2が次戦候補になる。
-    await user.click(screen.getByRole("button", { name: "次戦候補" }));
+    // 離席後は、R1-1ではなくR1-2が次戦候補になる(NEXTカードはタブに
+    // 関わらず常時表示されるため、タブを切り替え直す必要はない)。
+    await user.click(
+      screen.getByRole("button", { name: "卓を選んで呼び出す" }),
+    );
     const modalHeading = await screen.findByRole("heading", {
       name: "次戦候補",
     });
@@ -177,18 +180,17 @@ describe("Next-match suggestion deprioritizes matches with an away entrant (2026
     await acknowledgeNotice(user);
     await screen.findByText("R1-1");
 
-    await user.click(screen.getByRole("button", { name: "離席記録" }));
-    const awayHeading = await screen.findByRole("heading", {
-      name: "離席記録",
-    });
-    const awayModal = awayHeading.closest(".app-modal") as HTMLElement;
-    await user.type(within(awayModal).getByLabelText("理由(任意):"), "トイレ");
-    const aliceRow = within(awayModal).getByText("Alice").closest("tr");
+    await user.click(screen.getByRole("tab", { name: /選手/ }));
+    await user.type(screen.getByLabelText("離席理由(任意):"), "トイレ");
+    const aliceRow = screen.getByText("Alice").closest("tr");
     if (!aliceRow) throw new Error("Alice row not found");
-    await user.click(within(aliceRow).getByRole("button", { name: "離席" }));
-    await user.click(within(awayModal).getByRole("button", { name: "閉じる" }));
+    await user.click(
+      within(aliceRow).getByRole("button", { name: "離席する" }),
+    );
 
-    await user.click(screen.getByRole("button", { name: "次戦候補" }));
+    await user.click(
+      screen.getByRole("button", { name: "卓を選んで呼び出す" }),
+    );
     const modalHeading = await screen.findByRole("heading", {
       name: "次戦候補",
     });

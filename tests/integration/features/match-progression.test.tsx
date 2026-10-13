@@ -75,6 +75,7 @@ async function seedPoolAwaitingAdvancement() {
       attendance: "PRESENT",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });
@@ -193,6 +194,7 @@ async function seedPoolAwaitingLoserDrop() {
       attendance: "PRESENT",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });

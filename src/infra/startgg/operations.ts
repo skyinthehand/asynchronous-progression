@@ -271,12 +271,28 @@ const SetNodeSchema = z.object({
   state: z.number().nullable(),
 });
 
+/**
+ * デザイン刷新(2026-10-09): プール内のシード値表示用。`seeds.nodes`が
+ * 存在しない/空のレスポンスでも致命的エラーにならないよう、全体を
+ * optionalにする(古いfixtureとの互換のため)。
+ */
+const SeedNodeSchema = z.object({
+  seedNum: z.number().int().nullable(),
+  entrant: z
+    .object({ id: z.union([z.string(), z.number()]).transform(String) })
+    .nullable(),
+});
+
 const PhaseGroupDetailSchema = z.object({
   phaseGroup: z.object({
     id: z.union([z.string(), z.number()]).transform(String),
     displayIdentifier: z.string(),
     bracketType: z.string().nullable(),
     sets: z.object({ nodes: z.array(SetNodeSchema) }).nullable(),
+    seeds: z
+      .object({ nodes: z.array(SeedNodeSchema) })
+      .nullable()
+      .optional(),
   }),
 });
 
@@ -308,6 +324,14 @@ const POOL_DETAIL_QUERY = /* GraphQL */ `
           winnerId
           displayScore
           state
+        }
+      }
+      seeds(query: { perPage: 128 }) {
+        nodes {
+          seedNum
+          entrant {
+            id
+          }
         }
       }
     }
@@ -424,6 +448,13 @@ export async function fetchPoolDetail(
   const group = parsed.phaseGroup;
   const bracketType = normalizeBracketType(group.bracketType);
 
+  const seedByEntrantId = new Map<string, number>();
+  for (const node of group.seeds?.nodes ?? []) {
+    if (node.entrant && node.seedNum !== null) {
+      seedByEntrantId.set(node.entrant.id, node.seedNum);
+    }
+  }
+
   const entrantById = new Map<string, Entrant>();
   const matchCards: MatchCard[] = (group.sets?.nodes ?? []).map((set) => {
     const [slot1, slot2] = set.slots;
@@ -448,6 +479,7 @@ export async function fetchPoolDetail(
           poolFinished: false,
           nextMatch: null,
           awayPeriods: [],
+          seed: seedByEntrantId.get(slot.entrant.id) ?? null,
         });
       }
     }

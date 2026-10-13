@@ -93,6 +93,7 @@ async function seedPool(tableNumbers: string[]) {
       attendance: "UNKNOWN",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });
@@ -191,6 +192,7 @@ async function seedChainingPool() {
       attendance: "UNKNOWN",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });
@@ -412,6 +414,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
         attendance: "UNKNOWN",
         attendanceRecordedAt: null,
         poolFinished: false,
+        seed: null,
         nextMatch: null,
         awayPeriods: [],
       });
@@ -545,12 +548,14 @@ describe("Next-match suggestion modal (User Story 3)", () => {
       screen.queryByRole("heading", { name: "次戦候補" }),
     ).not.toBeInTheDocument();
 
-    // ただし候補自体は残っているため、ツールバーの「次戦候補」ボタンは
-    // 有効なまま。
-    expect(screen.getByRole("button", { name: "次戦候補" })).not.toBeDisabled();
+    // ただし候補自体は残っているため、NEXTカードの「卓を選んで呼び出す」
+    // ボタンは有効なまま。
+    expect(
+      screen.getByRole("button", { name: "卓を選んで呼び出す" }),
+    ).not.toBeDisabled();
   });
 
-  it("reopens the modal for remaining suggestions via the '次戦候補' toolbar button", async () => {
+  it("reopens the modal for remaining suggestions via the NEXT card's call button", async () => {
     await seedChainingPool();
     const user = userEvent.setup();
     render(<App />);
@@ -574,19 +579,23 @@ describe("Next-match suggestion modal (User Story 3)", () => {
       screen.queryByRole("heading", { name: "次戦候補" }),
     ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "次戦候補" }));
+    await user.click(
+      screen.getByRole("button", { name: "卓を選んで呼び出す" }),
+    );
     expect(
       await screen.findByRole("heading", { name: "次戦候補" }),
     ).toBeInTheDocument();
   });
 
-  it("disables the '次戦候補' toolbar button when there are no pending suggestions", async () => {
+  it("shows no NEXT card call button when there are no pending suggestions", async () => {
     await seedEmptyPool();
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
     await screen.findByText("対戦カードがまだありません。");
 
-    expect(screen.getByRole("button", { name: "次戦候補" })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "卓を選んで呼び出す" }),
+    ).not.toBeInTheDocument();
   });
 });

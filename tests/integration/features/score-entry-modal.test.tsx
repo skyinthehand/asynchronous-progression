@@ -71,6 +71,7 @@ async function seedBracketPool(tableNumbers: string[] = ["1"]) {
       attendance: "PRESENT",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });
@@ -225,7 +226,7 @@ describe("Match cards on the bracket board have no operable elements; tapping th
     // モーダルを閉じた後もカード上に残る(操作自体は不可)。
     await user.click(within(modal).getByRole("button", { name: "閉じる" }));
     expect(within(card).getByText("進行中")).toBeInTheDocument();
-    expect(within(card).getByText("対戦台: 2")).toBeInTheDocument();
+    expect(within(card).getByText("卓 2")).toBeInTheDocument();
     expect(within(card).queryAllByRole("button")).toHaveLength(0);
   });
 
@@ -268,6 +269,7 @@ describe("Match cards on the bracket board have no operable elements; tapping th
         attendance: "PRESENT",
         attendanceRecordedAt: null,
         poolFinished: false,
+        seed: null,
         nextMatch: null,
         awayPeriods: [],
       });

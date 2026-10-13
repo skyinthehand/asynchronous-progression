@@ -1,23 +1,23 @@
 import { useEffect, useState } from "react";
-import { Modal } from "../../components/index.js";
 import type { Pool } from "../../domain/entities/pool.js";
+import { computeBlockedMatches } from "../../domain/rules/nextMatchSuggestion.js";
+import { findOccupyingMatchCard } from "../../domain/rules/tableAssignment.js";
 import { PrintPage } from "../print/PrintPage.js";
-import { AttendancePanel } from "./AttendancePanel.js";
-import { AwayPeriodPanel } from "./AwayPeriodPanel.js";
-import { EntrantList } from "./EntrantList.js";
 import { MatchCardList } from "./MatchCardList.js";
+import { NextMatchGuideTab } from "./NextMatchGuideTab.js";
 import { NextMatchModal } from "./NextMatchModal.js";
+import { PlayersTab } from "./PlayersTab.js";
 import { PoolOnboardingWizard } from "./PoolOnboardingWizard.js";
 import { StaffAssignmentPanel } from "./StaffAssignmentPanel.js";
 import { usePoolProgress } from "./usePoolProgress.js";
 
-type PanelKey = "staff" | "attendance" | "away" | "entrants";
+type TabKey = "bracket" | "players" | "guide";
 
-const PANEL_TITLES: Record<PanelKey, string> = {
-  staff: "進行担当者",
-  attendance: "出欠確認",
-  away: "離席記録",
-  entrants: "選手一覧・次戦案内",
+const BRACKET_TYPE_LABEL: Record<Pool["bracketType"], string> = {
+  SINGLE_ELIMINATION: "シングルエリミ",
+  DOUBLE_ELIMINATION: "ダブルエリミ",
+  ROUND_ROBIN: "総当り",
+  OTHER: "その他",
 };
 
 /**
@@ -39,9 +39,11 @@ function poolHeading(pool: Pool | null, poolId: string): string {
 
 /**
  * US2/US7: 予選プール進行のオフライン入力・保持と印刷ページ切り替え。
- * タブレット操作を前提に、基本画面には対戦カード(トーナメント表)のみを
- * 表示し、進行担当者・出欠確認・離席記録・選手一覧はボタンから開く
- * モーダルに集約する。
+ * デザイン刷新(2026-10-09): モックアップに合わせ、プール統計(クラス/
+ * 形式/空き卓/進行/担当者)+常時表示の「次の対戦」+卓の状況+タブ
+ * (ブラケット/選手/次戦案内)の構成に作り直した。従来の「進行担当者/
+ * 出欠確認/離席記録/選手一覧」の個別モーダルは、統計グリッド(進行担当者)
+ * と「選手」タブ(出欠・離席・選手一覧を統合)に置き換えて廃止した。
  */
 export function PoolProgressScreen() {
   const {
@@ -66,7 +68,7 @@ export function PoolProgressScreen() {
     isPreviewMode,
   } = usePoolProgress();
   const [printing, setPrinting] = useState(false);
-  const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
+  const [tab, setTab] = useState<TabKey>("bracket");
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
@@ -110,6 +112,43 @@ export function PoolProgressScreen() {
     );
   }
 
+  const entrantById = new Map(entrants.map((entrant) => [entrant.id, entrant]));
+  const tableNumbers = pool?.tableNumbers ?? [];
+  const busyTableNumbers = new Set(
+    tableNumbers.filter((n) => findOccupyingMatchCard(n, matchCards) !== null),
+  );
+  const freeCount = tableNumbers.length - busyTableNumbers.size;
+  const doneCount = matchCards.filter(
+    (card) => card.status === "COMPLETED",
+  ).length;
+  const progressPct =
+    matchCards.length > 0
+      ? Math.round((doneCount / matchCards.length) * 100)
+      : 0;
+
+  const topSuggestion = nextMatchSuggestions[0] ?? null;
+  const nextCard = topSuggestion
+    ? (matchCards.find((card) => card.id === topSuggestion.matchCardId) ?? null)
+    : null;
+  const nextCardIds = new Set(nextMatchSuggestions.map((s) => s.matchCardId));
+  // 出欠/離席により次戦候補から外れている「保留」の対戦(MatchCardList.tsx
+  // のブラケットカード強調表示と同じ計算を再利用)。
+  const blockedMatches = computeBlockedMatches(
+    matchCards,
+    entrants,
+    nextCardIds,
+  );
+
+  const TABS: { key: TabKey; label: string; count: number }[] = [
+    { key: "bracket", label: "ブラケット", count: matchCards.length },
+    { key: "players", label: "選手", count: entrants.length },
+    {
+      key: "guide",
+      label: "次戦案内",
+      count: entrants.filter((e) => e.poolFinished).length,
+    },
+  ];
+
   return (
     <div
       className={[
@@ -119,7 +158,65 @@ export function PoolProgressScreen() {
         .filter(Boolean)
         .join(" ")}
     >
-      <h2>{poolHeading(pool, poolId)}</h2>
+      <nav aria-label="パンくず" className="label pool-breadcrumb no-print">
+        <span>{pool?.tournamentName ?? "[大会名]"}</span>
+        <span>/</span>
+        <span>{pool?.eventName ?? "[種目名]"}</span>
+        <span>/</span>
+        <span>Pools</span>
+      </nav>
+      <div className="pool-title-row">
+        <h2 className="pool-title">{poolHeading(pool, poolId)}</h2>
+        <dl className="pool-stat-grid">
+          <div>
+            <dt className="label">クラス</dt>
+            <dd>{pool?.className ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="label">形式</dt>
+            <dd>{pool ? BRACKET_TYPE_LABEL[pool.bracketType] : "—"}</dd>
+          </div>
+          <div>
+            <dt className="label">空き卓</dt>
+            <dd>
+              <span className="mono pool-stat-big">
+                {tableNumbers.length > 0 ? freeCount : "—"}
+              </span>
+              {tableNumbers.length > 0 && (
+                <span className="mono pool-stat-sub">
+                  {" "}
+                  / {tableNumbers.length}
+                </span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="label">進行</dt>
+            <dd>
+              <span className="mono pool-stat-big">{doneCount}</span>
+              <span className="mono pool-stat-sub">
+                {" "}
+                / {matchCards.length} 完了
+              </span>
+              <div className="pool-progress-bar">
+                <div style={{ width: `${progressPct}%` }} />
+              </div>
+            </dd>
+          </div>
+          <div className="pool-stat-staff no-print">
+            <dt className="label" id="staff-label">
+              進行担当者
+            </dt>
+            <dd>
+              <StaffAssignmentPanel
+                pool={pool}
+                onRecordStaffAssignment={recordStaffAssignment}
+              />
+            </dd>
+          </div>
+        </dl>
+      </div>
+
       {isPreviewMode && (
         <p className="pool-progress-preview-banner no-print">
           {
@@ -127,68 +224,131 @@ export function PoolProgressScreen() {
           }
         </p>
       )}
-      <div className="pool-progress-toolbar no-print">
-        <button type="button" onClick={() => setActivePanel("staff")}>
-          進行担当者
-        </button>
-        <button type="button" onClick={() => setActivePanel("attendance")}>
-          出欠確認
-        </button>
-        <button type="button" onClick={() => setActivePanel("away")}>
-          離席記録
-        </button>
-        <button type="button" onClick={() => setActivePanel("entrants")}>
-          選手一覧
-        </button>
-        <button
-          type="button"
-          onClick={openSuggestionModal}
-          disabled={nextMatchSuggestions.length === 0 || isPreviewMode}
-        >
-          次戦候補
-        </button>
-        <button type="button" disabled title="現在利用できません">
-          印刷用ページ
-        </button>
+
+      <section aria-label="次の対戦" className="next-match-section no-print">
+        {nextCard && topSuggestion ? (
+          <div className="next-card">
+            <div className="next-card-head">
+              <span className="label next-card-kicker">NEXT · 次の対戦</span>
+              <span className="mono next-card-id">
+                Set {nextCard.identifier}
+              </span>
+            </div>
+            <div className="next-card-body">
+              <span className="next-card-entrants">
+                {entrantById.get(nextCard.entrant1Id ?? "")?.name ?? "BYE"}
+                <span className="next-card-vs">vs</span>
+                {entrantById.get(nextCard.entrant2Id ?? "")?.name ?? "BYE"}
+              </span>
+            </div>
+            <div className="next-card-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={openSuggestionModal}
+                disabled={isPreviewMode}
+              >
+                卓を選んで呼び出す
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="next-card-empty">
+            今すぐ開始できる対戦はありません。進行中の対戦の結果を待っています。
+          </p>
+        )}
+
+        {tableNumbers.length > 0 && (
+          <div className="table-strip">
+            <div className="label table-strip-label">卓の状況</div>
+            <div className="table-strip-grid">
+              {tableNumbers.map((n) => {
+                const occupying = findOccupyingMatchCard(n, matchCards);
+                const p1 = occupying
+                  ? (entrantById.get(occupying.entrant1Id ?? "")?.name ?? "BYE")
+                  : null;
+                const p2 = occupying
+                  ? (entrantById.get(occupying.entrant2Id ?? "")?.name ?? "BYE")
+                  : null;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    className={occupying ? "tcell" : "tcell free"}
+                    disabled={!occupying && !topSuggestion}
+                    onClick={
+                      occupying ? undefined : () => openSuggestionModal()
+                    }
+                  >
+                    <span className="mono">卓 {n}</span>
+                    <span className="table-strip-sub">
+                      {occupying
+                        ? `${occupying.identifier} · ${p1} vs ${p2}`
+                        : topSuggestion
+                          ? `空き · ${nextCard?.identifier ?? ""} を呼び出す`
+                          : "空き"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {blockedMatches.map((blocked) => {
+          const card = matchCards.find((c) => c.id === blocked.matchCardId);
+          return (
+            <p className="blocked-match-note" key={blocked.matchCardId}>
+              <span className="chip red">保留</span>
+              <span>
+                <strong>{card?.identifier}</strong> は {blocked.reason}{" "}
+                のため開始できません
+              </span>
+            </p>
+          );
+        })}
+      </section>
+
+      <div className="tabs-row no-print">
+        <div role="tablist" aria-label="表示切替" className="tabs">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              className={tab === t.key ? "tab on" : "tab"}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+              <span className="count">{t.count}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <MatchCardList
-        pool={pool}
-        matchCards={matchCards}
-        entrants={entrants}
-        onRecordResult={recordResult}
-        onAssignTable={assignTable}
-        onSetInProgress={setInProgress}
-        readOnly={isPreviewMode}
-      />
-
-      {activePanel && (
-        <Modal
-          title={PANEL_TITLES[activePanel]}
-          onClose={() => setActivePanel(null)}
-        >
-          {activePanel === "staff" && (
-            <StaffAssignmentPanel
-              pool={pool}
-              onRecordStaffAssignment={recordStaffAssignment}
-            />
-          )}
-          {activePanel === "attendance" && (
-            <AttendancePanel
-              entrants={entrants}
-              onRecordAttendance={recordAttendance}
-            />
-          )}
-          {activePanel === "away" && (
-            <AwayPeriodPanel
-              entrants={entrants}
-              onStartAwayPeriod={startAwayPeriod}
-              onEndAwayPeriod={endAwayPeriod}
-            />
-          )}
-          {activePanel === "entrants" && <EntrantList entrants={entrants} />}
-        </Modal>
+      {tab === "bracket" && (
+        <MatchCardList
+          pool={pool}
+          matchCards={matchCards}
+          entrants={entrants}
+          onRecordResult={recordResult}
+          onAssignTable={assignTable}
+          onSetInProgress={setInProgress}
+          readOnly={isPreviewMode}
+        />
       )}
+      {tab === "players" && (
+        <PlayersTab
+          entrants={entrants}
+          matchCards={matchCards}
+          nextCardIds={nextCardIds}
+          onRecordAttendance={recordAttendance}
+          onStartAwayPeriod={startAwayPeriod}
+          onEndAwayPeriod={endAwayPeriod}
+        />
+      )}
+      {tab === "guide" && <NextMatchGuideTab entrants={entrants} />}
 
       {suggestionModalOpen &&
         nextMatchSuggestions[0] &&
@@ -198,9 +358,6 @@ export function PoolProgressScreen() {
             (card) => card.id === activeSuggestion.matchCardId,
           );
           if (!suggestedCard) return null;
-          const entrantById = new Map(
-            entrants.map((entrant) => [entrant.id, entrant]),
-          );
           return (
             <NextMatchModal
               // 対戦ごとに内部の対戦台選択stateをリセットするため、対戦

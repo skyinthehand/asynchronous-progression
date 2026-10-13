@@ -56,6 +56,7 @@ async function seedFreshPool() {
     attendance: "UNKNOWN",
     attendanceRecordedAt: null,
     poolFinished: false,
+    seed: null,
     nextMatch: null,
     awayPeriods: [],
   });
@@ -66,6 +67,7 @@ async function seedFreshPool() {
     attendance: "UNKNOWN",
     attendanceRecordedAt: null,
     poolFinished: false,
+    seed: null,
     nextMatch: null,
     awayPeriods: [],
   });

@@ -66,6 +66,7 @@ async function seedPreviewModePool() {
       attendance: "PRESENT",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });
@@ -120,6 +121,8 @@ describe("Preview mode (start.gg bracket not started yet)", () => {
     await acknowledgeNotice(user);
 
     await screen.findByText("WF");
-    expect(screen.getByRole("button", { name: "次戦候補" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "卓を選んで呼び出す" }),
+    ).toBeDisabled();
   });
 });

@@ -108,6 +108,7 @@ async function seedPool(
       attendance: "PRESENT",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });
@@ -199,7 +200,9 @@ describe("Stream lock (005-stream-match-lock)", () => {
       await acknowledgeNotice(user);
 
       await screen.findByText("A");
-      expect(screen.getByRole("button", { name: "次戦候補" })).toBeDisabled();
+      expect(
+        screen.queryByRole("button", { name: "卓を選んで呼び出す" }),
+      ).not.toBeInTheDocument();
     });
 
     it("still reflects a start.gg-confirmed result for a streamed card via sync (FR-009)", async () => {

@@ -14,9 +14,14 @@ function AppContent() {
   useSyncScheduler();
   return (
     <div className="app-content">
-      <div className="app-toolbar no-print">
-        <NoticeViewer />
-      </div>
+      {/* デザイン刷新(2026-10-09): 一般モードの「注意書き」導線は
+          GeneralModeScreen.tsxのヘッダーに移設した。管理画面(Phase 8で
+          独自ヘッダーに統合予定)はひとまずここに残す。 */}
+      {mode === "admin" && (
+        <div className="app-toolbar no-print">
+          <NoticeViewer />
+        </div>
+      )}
       <EmergencyContactWarning />
       {mode === "general" ? <GeneralModeScreen /> : <AdminModeScreen />}
       <SyncStatusSnackbar />

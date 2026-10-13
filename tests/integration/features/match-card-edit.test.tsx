@@ -73,6 +73,7 @@ async function seedPoolWithTwoRounds() {
       attendance: "PRESENT",
       attendanceRecordedAt: null,
       poolFinished: false,
+      seed: null,
       nextMatch: null,
       awayPeriods: [],
     });

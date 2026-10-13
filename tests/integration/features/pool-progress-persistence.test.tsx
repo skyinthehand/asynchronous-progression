@@ -57,6 +57,7 @@ async function seedPool() {
     attendance: "UNKNOWN",
     attendanceRecordedAt: null,
     poolFinished: false,
+    seed: null,
     nextMatch: null,
     awayPeriods: [],
   });
@@ -67,6 +68,7 @@ async function seedPool() {
     attendance: "UNKNOWN",
     attendanceRecordedAt: null,
     poolFinished: false,
+    seed: null,
     nextMatch: null,
     awayPeriods: [],
   });
@@ -99,12 +101,9 @@ async function acknowledgeNotice(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "内容を確認しました" }));
 }
 
-async function openAttendanceModal(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: "出欠確認" }));
-  const heading = await screen.findByRole("heading", { name: "出欠確認" });
-  const modal = heading.closest(".app-modal");
-  if (!modal) throw new Error("attendance modal not found");
-  return modal as HTMLElement;
+async function openPlayersTab(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("tab", { name: /選手/ }));
+  return screen.getByRole("table");
 }
 
 describe("Pool progress offline persistence (User Story 2)", () => {
@@ -169,46 +168,40 @@ describe("Pool progress offline persistence (User Story 2)", () => {
     ).toBeInTheDocument();
   });
 
-  it("hides staff/attendance/away/entrant panels behind toolbar buttons by default", async () => {
+  it("shows the staff assignment inline, and keeps attendance/away/entrant details behind the '選手' tab by default", async () => {
     const user = userEvent.setup();
     render(<App />);
     await acknowledgeNotice(user);
     await screen.findByText(/Alice vs Bob/);
 
-    expect(screen.queryByText("現在の担当者")).not.toBeInTheDocument();
+    // デザイン刷新(2026-10-09): 進行担当者はモーダルに隠さず、プール統計
+    // グリッドに常時表示する。
+    expect(screen.getByText(/現在の担当者/)).toBeInTheDocument();
+    // 一方、出欠・離席・選手一覧は既定では非表示で、「選手」タブに
+    // まとめられている。
     expect(
       screen.queryByRole("cell", { name: "Alice" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "進行担当者" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "出欠確認" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "離席記録" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "選手一覧" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /選手/ })).toBeInTheDocument();
+
+    await openPlayersTab(user);
+    expect(screen.getByRole("cell", { name: "Alice" })).toBeInTheDocument();
   });
 
-  it("persists attendance (recorded via the modal) across a simulated reload", async () => {
+  it("persists attendance (recorded via the '選手' tab) across a simulated reload", async () => {
     const user = userEvent.setup();
     const { unmount } = render(<App />);
     await acknowledgeNotice(user);
     await screen.findByText(/Alice vs Bob/);
 
-    const modal = await openAttendanceModal(user);
-    const aliceRow = within(modal).getByText("Alice").closest("tr");
+    const table = await openPlayersTab(user);
+    const aliceRow = within(table).getByText("Alice").closest("tr");
     if (!aliceRow) throw new Error("Alice row not found");
     await user.click(within(aliceRow).getByRole("button", { name: "出席" }));
 
     expect(
-      within(aliceRow).getByRole("cell", { name: "出席" }),
-    ).toBeInTheDocument();
-
-    await user.click(within(modal).getByRole("button", { name: "閉じる" }));
+      within(aliceRow).getByRole("button", { name: "出席" }),
+    ).toHaveAttribute("aria-pressed", "true");
 
     // 端末の強制終了・再起動を模して、コンポーネントツリーを作り直す。
     unmount();
@@ -217,14 +210,14 @@ describe("Pool progress offline persistence (User Story 2)", () => {
     await acknowledgeNotice(user2);
     await screen.findByText(/Alice vs Bob/);
 
-    const reopenedModal = await openAttendanceModal(user2);
-    const reloadedAliceRow = within(reopenedModal)
+    const reopenedTable = await openPlayersTab(user2);
+    const reloadedAliceRow = within(reopenedTable)
       .getByText("Alice")
       .closest("tr");
     if (!reloadedAliceRow) throw new Error("Alice row not found");
     expect(
-      within(reloadedAliceRow).getByRole("cell", { name: "出席" }),
-    ).toBeInTheDocument();
+      within(reloadedAliceRow).getByRole("button", { name: "出席" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("records a match result and persists it across a reload", async () => {

@@ -21,6 +21,8 @@ const RECHECK_INTERVAL_MS = 60_000;
 interface AdminSessionContextValue {
   isActive: boolean;
   autoLogoutNotice: boolean;
+  /** デザイン刷新(2026-10-09): ヘッダーの「自動ログアウトまで」表示用。 */
+  expiresAt: string | null;
   login: (password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   dismissAutoLogoutNotice: () => Promise<void>;
@@ -81,6 +83,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   const value: AdminSessionContextValue = {
     isActive: session?.status === "ACTIVE",
     autoLogoutNotice,
+    expiresAt: session?.status === "ACTIVE" ? session.expiresAt : null,
     login,
     logout,
     dismissAutoLogoutNotice,

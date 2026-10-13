@@ -11,6 +11,7 @@ function makeEntrant(overrides: Partial<Entrant>): Entrant {
     attendance: "PRESENT",
     attendanceRecordedAt: null,
     poolFinished: false,
+    seed: null,
     nextMatch: null,
     awayPeriods: [],
     ...overrides,

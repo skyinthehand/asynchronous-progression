@@ -1,7 +1,10 @@
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import type { Pool } from "../../domain/entities/pool.js";
-import { computeNextMatchSuggestions } from "../../domain/rules/nextMatchSuggestion.js";
+import {
+  computeBlockedMatches,
+  computeNextMatchSuggestions,
+} from "../../domain/rules/nextMatchSuggestion.js";
 import { BracketBoard } from "./BracketBoard.js";
 import { MatchTable } from "./MatchTable.js";
 import type { MatchResultSubmission } from "./ScoreEntryForm.js";
@@ -23,7 +26,9 @@ interface MatchCardListProps {
  * FR-007/FR-009/FR-023: 対戦カード一覧の表示・結果入力・次カードの強調
  * 表示。`bracketType` に応じ、startggのブラケット表示に合わせた列形式
  * (勝者側/敗者側トーナメント)か、対戦表形式(総当りなど)かを切り替える
- * (印刷用レイアウトと同じ方針)。
+ * (印刷用レイアウトと同じ方針)。デザイン刷新(2026-10-09): 「ブラケット」
+ * タブの内容としてPoolProgressScreen.tsxから呼ばれる(見出しはタブ側が
+ * 持つため、ここでは中身のみを返す)。
  */
 export function MatchCardList({
   pool,
@@ -43,38 +48,41 @@ export function MatchCardList({
       (suggestion) => suggestion.matchCardId,
     ),
   );
+  const blockedCardIds = new Set(
+    computeBlockedMatches(matchCards, entrants, nextCardIds).map(
+      (blocked) => blocked.matchCardId,
+    ),
+  );
   const hasBracket =
     pool?.bracketType === "SINGLE_ELIMINATION" ||
     pool?.bracketType === "DOUBLE_ELIMINATION";
 
-  return (
-    <section className="match-card-list">
-      <h2>対戦カード</h2>
-      {matchCards.length === 0 ? (
-        <p>対戦カードがまだありません。</p>
-      ) : hasBracket ? (
-        <BracketBoard
-          matchCards={matchCards}
-          entrantById={entrantById}
-          nextCardIds={nextCardIds}
-          onRecordResult={onRecordResult}
-          tableNumbers={tableNumbers}
-          onAssignTable={onAssignTable}
-          onSetInProgress={onSetInProgress}
-          readOnly={readOnly}
-        />
-      ) : (
-        <MatchTable
-          matchCards={matchCards}
-          entrantById={entrantById}
-          nextCardIds={nextCardIds}
-          onRecordResult={onRecordResult}
-          tableNumbers={tableNumbers}
-          onAssignTable={onAssignTable}
-          onSetInProgress={onSetInProgress}
-          readOnly={readOnly}
-        />
-      )}
-    </section>
+  if (matchCards.length === 0) {
+    return <p>対戦カードがまだありません。</p>;
+  }
+
+  return hasBracket ? (
+    <BracketBoard
+      matchCards={matchCards}
+      entrantById={entrantById}
+      nextCardIds={nextCardIds}
+      blockedCardIds={blockedCardIds}
+      onRecordResult={onRecordResult}
+      tableNumbers={tableNumbers}
+      onAssignTable={onAssignTable}
+      onSetInProgress={onSetInProgress}
+      readOnly={readOnly}
+    />
+  ) : (
+    <MatchTable
+      matchCards={matchCards}
+      entrantById={entrantById}
+      nextCardIds={nextCardIds}
+      onRecordResult={onRecordResult}
+      tableNumbers={tableNumbers}
+      onAssignTable={onAssignTable}
+      onSetInProgress={onSetInProgress}
+      readOnly={readOnly}
+    />
   );
 }

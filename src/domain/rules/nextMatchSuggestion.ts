@@ -160,3 +160,52 @@ export function computeNextMatchSuggestions(
   }
   return suggestions;
 }
+
+/**
+ * デザイン刷新(2026-10-09): モックアップの「次の対戦」セクション・
+ * ブラケットカードの「保留」表示用。出場者が両方確定済み・未着手だが、
+ * 出欠/離席のため次戦候補(computeNextMatchSuggestions)には選ばれて
+ * いない対戦カードを、理由テキスト付きで返す。
+ */
+export interface BlockedMatch {
+  matchCardId: string;
+  /** 例: "Alice（離席中）・Bob（欠席）" */
+  reason: string;
+}
+
+/**
+ * 「保留」(呼べない)とみなす理由。出欠未確認(UNKNOWN)は既定値であり
+ * ほとんどの対戦が常にこの状態から始まるため、ここでは含めない
+ * (computeNextMatchSuggestions自体も出欠未確認を理由に候補から除外して
+ * いない。離席中・欠席の確定済みの情報のみを理由とする)。
+ */
+function unavailabilityReason(entrant: Entrant | undefined): string | null {
+  if (!entrant) return null;
+  if (isEntrantAway(entrant)) return "離席中";
+  if (entrant.attendance === "ABSENT") return "欠席";
+  return null;
+}
+
+export function computeBlockedMatches(
+  matchCards: MatchCard[],
+  entrants: Entrant[],
+  suggestedCardIds: Set<string>,
+): BlockedMatch[] {
+  const entrantById = new Map(entrants.map((entrant) => [entrant.id, entrant]));
+  const blocked: BlockedMatch[] = [];
+  for (const card of matchCards) {
+    if (card.status !== "NOT_STARTED") continue;
+    if (!card.entrant1Id || !card.entrant2Id) continue;
+    if (suggestedCardIds.has(card.id)) continue;
+    const reasons = [card.entrant1Id, card.entrant2Id]
+      .map((id) => {
+        const why = unavailabilityReason(entrantById.get(id));
+        return why ? `${entrantById.get(id)?.name ?? id}（${why}）` : null;
+      })
+      .filter((text): text is string => text !== null);
+    if (reasons.length > 0) {
+      blocked.push({ matchCardId: card.id, reason: reasons.join("・") });
+    }
+  }
+  return blocked;
+}
