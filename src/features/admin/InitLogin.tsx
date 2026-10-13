@@ -78,7 +78,7 @@ export function InitLogin({ onInitialized }: InitLoginProps) {
       {syncState === "syncing" && <p>プールを選択しました。同期しています…</p>}
       {syncState === "done" && (
         <p>
-          プールを選択し、初回同期が完了しました。一般モードをご確認ください。
+          プールを選択し、初回同期が完了しました。進行画面をご確認ください。
         </p>
       )}
       {syncState === "error" && (
