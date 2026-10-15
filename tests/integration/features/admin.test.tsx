@@ -210,5 +210,38 @@ describe("Admin mode (User Story 5)", () => {
 
       confirmSpy.mockRestore();
     });
+
+    it("is also offered on the login gate, for when the password itself is forgotten", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      await acknowledgeNotice(user);
+      await goToAdminMode(user);
+
+      // ログイン前(パスワードを忘れて入れない状況を想定)でも、ゲート画面に
+      // 同じ初期化ボタンがあることを確認する。
+      await screen.findByText("パスワードを忘れた場合");
+
+      const db = await getDb();
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const reloadSpy = vi.fn();
+      const originalLocation = window.location;
+      // @ts-expect-error jsdomの型上はwindow.locationの再代入を想定していない
+      // biome-ignore lint/performance/noDelete: window.locationを差し替える唯一の手段(jsdom)
+      delete window.location;
+      window.location = { ...originalLocation, reload: reloadSpy };
+
+      await user.click(
+        screen.getByRole("button", { name: "すべてのデータをリセット" }),
+      );
+
+      expect(confirmSpy).toHaveBeenCalled();
+      for (const name of db.objectStoreNames) {
+        expect(await db.getAll(name)).toEqual([]);
+      }
+      expect(reloadSpy).toHaveBeenCalled();
+
+      confirmSpy.mockRestore();
+      window.location = originalLocation;
+    });
   });
 });

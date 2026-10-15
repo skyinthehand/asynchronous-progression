@@ -1309,6 +1309,15 @@ label {
   font-weight: 700;
 }
 
+/* ユーザー要望(2026-10-15): ログイン画面の「パスワードを忘れた場合」の
+   初期化導線を、本来のログインフォームから視覚的に分ける。 */
+.admin-login-forgot {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1.5px solid var(--line);
+  gap: 12px;
+}
+
 .auto-logout-notice {
   border: 1.5px solid var(--ink);
   background: var(--accent);

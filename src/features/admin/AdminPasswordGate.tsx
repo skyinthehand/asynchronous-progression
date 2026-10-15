@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { useAdminSession } from "./AdminSessionContext.js";
+import { ResetDataButton } from "./ResetDataButton.js";
 
 interface AdminPasswordGateProps {
   children: ReactNode;
@@ -60,6 +61,14 @@ export function AdminPasswordGate({ children }: AdminPasswordGateProps) {
           ログイン
         </button>
         {invalid && <p role="alert">パスワードが正しくありません。</p>}
+      </div>
+      {/* ユーザー要望(2026-10-15): パスワードを忘れると管理画面に一切
+          入れずどうしようもなくなるため、ログイン画面にも初期化(全データ
+          削除)の手段を用意する。削除後は次に入力したパスワードが新しい
+          パスワードとしてブートストラップされる(adminAuth.ts参照)。 */}
+      <div className="admin-login-box admin-login-forgot">
+        <p className="label">パスワードを忘れた場合</p>
+        <ResetDataButton />
       </div>
     </div>
   );
