@@ -30,32 +30,30 @@ interface BracketBoardProps {
  * 対戦カードはJS側の絶対配置(position: absolute)でツリー状に並べるため、
  * ROW_HEIGHTは「1枚のカードが取りうる最大の高さ」以上でなければ、隣接する
  * カード同士が重なってしまう。global.css側の.match-card-box内要素を
- * 積み上げた最悪ケース(注記30px + 対戦者2行88px + 修正不可の注記
- * 「後続の対戦が進行しているため、この結果は修正できません。」最大2行
- * 分約40px + メタ行22px + 各区切りの枠線)の実測値(約182px)に安全
- * マージンを足した190pxを使う。
+ * 積み上げた最悪ケース(対戦者2行88px + 修正不可の注記「後続の対戦が
+ * 進行しているため、この結果は修正できません。」最大2行分約40px + メタ行
+ * 22px + 各区切りの枠線)の実測値(約152px)に安全マージンを足した160pxを
+ * 使う。
  *
- * ユーザーフィードバック(2026-10-13): 識別子を.match-card-boxの外
- * (.match-card-side-id)へ移動した際に210→150へ詰めたが、注記と
- * 修正不可の注記が両方表示されるカード(後続の対戦が既に進行し、かつ
- * 別の側から出場者が来ているカード)でこの上限を超えてしまい、対戦カード
- * 同士が重なって表示される不具合になっていた(実機で報告)。両方が同時に
- * 出現しうる最悪ケースを基準に計算し直す。
+ * ユーザーフィードバック(2026-10-13): 別の側から出場者が来た場合の注記
+ * (旧「Winners X より」表示)はartifact(モックアップ)に無く、未確定な
+ * 枠の表示自体(「{出場元の識別子}の勝者/敗者」、MatchCardEntry.tsx
+ * 参照)で出場元が分かるため廃止した。それに伴いROW_HEIGHTの最悪ケースから
+ * 注記分(30px)を外して詰め直した。
  *
  * ユーザーフィードバック: カード自体には操作可能な要素(進行中にする
  * ボタン・対戦台選択・結果入力/修正のフォーム等)を一切置かず、カード
  * 全体をタップすると開く編集モーダル(MatchCardEntry.tsx)にすべて集約
- * している。カードは常に「識別子・注記・非操作の状態表示・対戦者名」
- * だけの一定の高さになるため、対戦者名の折り返し等を除けばこの枠を
- * 超えることはなく、モーダルは`.app-modal`のz-index(常に最前面)で
- * ページ全体の上に表示されるため重なりが生じない。ラウンド間の縦位置
- * (slot)はbracketLayout.ts側で「出場元カード2枚の位置の平均」として
- * 計算されるため、ROW_HEIGHTの値はどのラウンド数でも比例したツリー
- * 形状になる。
+ * している。カードは常に「識別子・非操作の状態表示・対戦者名」だけの
+ * 一定の高さになるため、対戦者名の折り返し等を除けばこの枠を超えることは
+ * なく、モーダルは`.app-modal`のz-index(常に最前面)でページ全体の上に
+ * 表示されるため重なりが生じない。ラウンド間の縦位置(slot)は
+ * bracketLayout.ts側で「出場元カード2枚の位置の平均」として計算される
+ * ため、ROW_HEIGHTの値はどのラウンド数でも比例したツリー形状になる。
  */
 const COLUMN_WIDTH = 220;
 const COLUMN_GAP = 32;
-const ROW_HEIGHT = 190;
+const ROW_HEIGHT = 160;
 const HEADER_HEIGHT = 24;
 
 function sideLabel(side: BracketSide) {
@@ -212,18 +210,6 @@ function BracketSidePanel({
           <ul className="bracket-tree-matches">
             {layout.rounds.flatMap((round, roundIndex) =>
               (layout.matchesByRound.get(round) ?? []).map((match) => {
-                const origins = layout.crossSideOrigins.filter(
-                  (origin) => origin.toMatchId === match.card.id,
-                );
-                const note =
-                  origins.length > 0
-                    ? `${origins
-                        .map(
-                          (origin) =>
-                            `${sideLabel(origin.fromSide)} ${origin.fromIdentifier}`,
-                        )
-                        .join("・")} より`
-                    : undefined;
                 return (
                   <MatchCardEntry
                     key={match.card.id}
@@ -236,7 +222,6 @@ function BracketSidePanel({
                     matchCards={matchCards}
                     onAssignTable={onAssignTable}
                     onSetInProgress={onSetInProgress}
-                    note={note}
                     readOnly={readOnly}
                     style={{
                       position: "absolute",

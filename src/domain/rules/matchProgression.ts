@@ -1,7 +1,14 @@
 import type { MatchCard } from "../entities/matchCard.js";
 
-/** entrant1/entrant2SourceMatchIdの参照先を解決する際の側の判定。bracketLayout.tsと同じ畳み込み規則。 */
-function foldSide(bracketSide: MatchCard["bracketSide"]): "WINNERS" | "LOSERS" {
+/**
+ * entrant1/entrant2SourceMatchIdの参照先を解決する際の側の判定。
+ * bracketLayout.tsと同じ畳み込み規則。MatchCardEntry.tsx側でも、未確定な
+ * 枠が出場元対戦の「勝者」/「敗者」のどちらを待っているかの表示
+ * (artifactの`placeholder()`相当)に再利用する。
+ */
+export function foldSide(
+  bracketSide: MatchCard["bracketSide"],
+): "WINNERS" | "LOSERS" {
   return bracketSide === "LOSERS" ? "LOSERS" : "WINNERS";
 }
 

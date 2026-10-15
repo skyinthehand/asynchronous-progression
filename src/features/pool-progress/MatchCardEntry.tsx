@@ -2,6 +2,7 @@ import { type CSSProperties, type KeyboardEvent, useState } from "react";
 import { Modal } from "../../components/index.js";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
+import { foldSide } from "../../domain/rules/matchProgression.js";
 import { isStreamLocked } from "../../domain/rules/streamLock.js";
 import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 import { ScoreEntryForm } from "./ScoreEntryForm.js";
@@ -26,8 +27,6 @@ interface MatchCardEntryProps {
   onSetInProgress: (matchCardId: string) => void;
   /** FR-023: ブラケット木の中でツリー状に配置するための位置指定。 */
   style?: CSSProperties;
-  /** FR-023: 別の側(勝者側の敗者など)から出場者が来ている場合の注記。 */
-  note?: string;
   /**
    * ユーザーフィードバック(2026-08-13): start.gg側でブラケットが未開始
    * (プレビューモード)の間はカードをタップしても編集モーダルを開かない。
@@ -47,8 +46,12 @@ function entrantName(entrantById: Map<string, Entrant>, id: string | null) {
  *   そもそも対戦自体が発生しない(もう片方の出場者が自動的に通過する)。
  * - 未確定: 出場元の対戦(sourceMatchId)がまだ完了していないだけで、
  *   その対戦の結果が決まり次第この枠は埋まる。対戦が無いわけではない。
- * 後者を「BYE」と表示すると、対戦が発生しないかのように誤解されるため、
- * 「未定」という別の言葉で表す。
+ * 後者を「BYE」と表示すると対戦が発生しないかのように誤解されるため、
+ * artifact(モックアップ)の`placeholder(x) => x.w ? x.w+'の勝者' :
+ * x.l+'の敗者'`と同じ考え方で、「{出場元の識別子}の勝者/敗者」と表示する
+ * (例: 「Iの敗者」「Pの勝者」)。artifactには出場元を示す別枠の注記
+ * (旧「Winners X より」表示)が無く、この枠の文言だけで出場元を示すため、
+ * 別途の注記は廃止した(MatchCardList.tsx/BracketBoard.tsx参照)。
  */
 function isSlotPending(
   entrantId: string | null,
@@ -61,9 +64,18 @@ function slotDisplayName(
   entrantById: Map<string, Entrant>,
   entrantId: string | null,
   sourceMatchId: string | null,
+  card: MatchCard,
+  matchCards: MatchCard[],
 ) {
   if (entrantId) return entrantById.get(entrantId)?.name ?? entrantId;
-  return isSlotPending(entrantId, sourceMatchId) ? "未定" : "BYE";
+  if (!isSlotPending(entrantId, sourceMatchId)) return "BYE";
+  const sourceCard = matchCards.find((c) => c.id === sourceMatchId);
+  if (!sourceCard) return "未定";
+  const expectsWinner =
+    foldSide(card.bracketSide) === foldSide(sourceCard.bracketSide);
+  return expectsWinner
+    ? `${sourceCard.identifier}の勝者`
+    : `${sourceCard.identifier}の敗者`;
 }
 
 function entrantSeed(entrantById: Map<string, Entrant>, id: string | null) {
@@ -171,7 +183,6 @@ export function MatchCardEntry({
   onAssignTable,
   onSetInProgress,
   style,
-  note,
   readOnly,
 }: MatchCardEntryProps) {
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -228,7 +239,6 @@ export function MatchCardEntry({
     >
       <span className="match-card-side-id mono">{card.identifier}</span>
       <span className="match-card-box">
-        {note && <span className="match-card-note">{note}</span>}
         <div className="match-card-players">
           {(
             [
@@ -247,7 +257,13 @@ export function MatchCardEntry({
                 </span>
                 <span className="match-card-player-name">
                   <span>
-                    {slotDisplayName(entrantById, entrantId, sourceMatchId)}
+                    {slotDisplayName(
+                      entrantById,
+                      entrantId,
+                      sourceMatchId,
+                      card,
+                      matchCards,
+                    )}
                   </span>
                 </span>
                 <span className="match-card-player-score">{badge ?? ""}</span>

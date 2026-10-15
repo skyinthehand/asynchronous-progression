@@ -970,19 +970,6 @@ label {
   font-size: 14px;
 }
 
-.match-card-note {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  height: 30px;
-  overflow: hidden;
-  font-size: 11px;
-  line-height: 15px;
-  color: var(--muted);
-  padding: 0 8px;
-  background: var(--tint);
-}
-
 /* --- モーダル(.sheet + .overlayに相当) --- */
 .app-modal {
   position: fixed;

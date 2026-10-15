@@ -130,11 +130,12 @@ describe("Winner advancement to the next round (FR-023)", () => {
     await acknowledgeNotice(user);
 
     // ユーザーフィードバック(2026-10-13): まだ出場元の対戦(R1-1)が完了
-    // していない間は、空の枠を「BYE」ではなく「未定」と表示し(本当の
-    // 不戦勝と誤解させない)、カード自体もクリックできない(編集不可)。
+    // していない間は、空の枠を「BYE」ではなく「R1-1の勝者」のように
+    // 出場元を示す表示にし(本当の不戦勝と誤解させない)、カード自体も
+    // クリックできない(編集不可)。
     const r2Before = (await screen.findByText("R2-1")).closest("li");
     if (!r2Before) throw new Error("round 2 card not found");
-    expect(r2Before.textContent).toContain("未定");
+    expect(r2Before.textContent).toContain("R1-1の勝者");
     expect(r2Before.textContent).not.toContain("BYE");
     expect(r2Before).not.toHaveAttribute("role", "button");
     expect(r2Before).not.toHaveClass("match-card-clickable");
@@ -260,6 +261,14 @@ describe("Loser drop into the losers bracket (FR-023)", () => {
 
     const waCard = (await screen.findByText("WA")).closest("li");
     if (!waCard) throw new Error("WA card not found");
+
+    // ユーザーフィードバック(2026-10-13): 勝者側(WA)を出場元とする
+    // 敗者側(J)の未確定な枠は、別の側を参照しているため「WAの敗者」
+    // (勝者ではなく敗者を待っている旨)と表示される。
+    const jBefore = screen.getByText("J").closest("li");
+    if (!jBefore) throw new Error("J card not found");
+    expect(jBefore.textContent).toContain("WAの敗者");
+
     // カード自体をタップして編集モーダルを開く。
     await user.click(waCard);
     // Aliceが勝つ = Bobが負けて敗者側に落ちる。
