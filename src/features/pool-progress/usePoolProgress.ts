@@ -29,6 +29,16 @@ import {
 import { getPool, savePool } from "../../infra/storage/poolRepository.js";
 import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 
+/**
+ * ユーザーフィードバック(2026-10-15): バックグラウンド同期
+ * (useSyncScheduler、60秒間隔)はIndexedDBを正しく更新しているのに、
+ * この画面の表示(pool/entrants/matchCards)はマウント時に1度読み込んだ
+ * きり再読込されず、同期状態チップ(useSyncStatus.tsが別途5秒間隔で
+ * ポーリング)だけが「同期済み」と進む一方で画面の中身が反映されない、
+ * という報告のバグ修正。同じ間隔で画面側もIndexedDBから読み直す。
+ */
+const RELOAD_POLL_INTERVAL_MS = 5_000;
+
 interface UsePoolProgressResult {
   loading: boolean;
   poolId: string | null;
@@ -159,6 +169,16 @@ export function usePoolProgress(): UsePoolProgressResult {
       cancelled = true;
     };
   }, [reload]);
+
+  useEffect(() => {
+    if (!poolId) return;
+    const intervalId = setInterval(() => {
+      void reload(poolId);
+    }, RELOAD_POLL_INTERVAL_MS);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [poolId, reload]);
 
   const recordAttendance = useCallback(
     async (entrantId: string, attendance: Attendance) => {
