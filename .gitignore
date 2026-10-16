@@ -2,3 +2,6 @@ node_modules/
 dist/
 
 misc/
+
+# 実際のstart.ggトークンを含む、動作確認用のローカル専用設定(コミット禁止)。
+.local/

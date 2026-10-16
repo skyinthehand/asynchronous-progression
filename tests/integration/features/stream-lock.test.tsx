@@ -304,7 +304,7 @@ describe("Stream lock (005-stream-match-lock)", () => {
   });
 
   describe("US2: streamed matches are visually distinguishable", () => {
-    it("shows a '配信中' badge on a streamed card, distinct from the locked-for-correction note", async () => {
+    it("shows a '配信予定' badge on a not-started streamed card, distinct from the locked-for-correction note", async () => {
       await seedPool("SINGLE_ELIMINATION", [
         makeCard({ id: "card-1", identifier: "A", isStreamed: true }),
         makeCard({
@@ -323,14 +323,57 @@ describe("Stream lock (005-stream-match-lock)", () => {
 
       const streamedCard = (await screen.findByText("A")).closest("li");
       if (!streamedCard) throw new Error("card A not found");
-      expect(within(streamedCard).getByText("配信中")).toBeInTheDocument();
+      expect(within(streamedCard).getByText("配信予定")).toBeInTheDocument();
 
       const lockedCard = (await screen.findByText("B")).closest("li");
       if (!lockedCard) throw new Error("card B not found");
+      expect(
+        within(lockedCard).queryByText("配信予定"),
+      ).not.toBeInTheDocument();
       expect(within(lockedCard).queryByText("配信中")).not.toBeInTheDocument();
       expect(
         within(lockedCard).getByText(/後続の対戦が進行しているため/),
       ).toBeInTheDocument();
+    });
+
+    it("shows '配信予定' before the match starts and switches to '配信中' once it is in progress (005-stream-match-lock follow-up, 2026-10-16)", async () => {
+      await seedPool("OTHER", [
+        makeCard({ id: "card-1", identifier: "A", isStreamed: true }),
+      ]);
+      const user = userEvent.setup();
+      const { unmount } = render(<App />);
+      await acknowledgeNotice(user);
+
+      await screen.findByText("配信予定");
+      expect(screen.queryByText("配信中")).not.toBeInTheDocument();
+
+      // start.ggで対戦が開始された状態を、次回の定期同期として再現する。
+      unmount();
+      vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+        poolId: "pool-1",
+        displayIdentifier: "Pool 1",
+        bracketType: "OTHER",
+        matchCards: [
+          makeCard({
+            id: "card-1",
+            identifier: "A",
+            isStreamed: true,
+            status: "IN_PROGRESS",
+          }),
+        ],
+        entrants: [],
+      });
+      const { runSync } = await import(
+        "../../../src/features/sync/syncRunner.js"
+      );
+      await runSync();
+
+      const user2 = userEvent.setup();
+      render(<App />);
+      await acknowledgeNotice(user2);
+
+      await screen.findByText("配信中");
+      expect(screen.queryByText("配信予定")).not.toBeInTheDocument();
     });
 
     it("shows the '配信中' badge on a streamed card regardless of status (bracket board)", async () => {
@@ -382,7 +425,7 @@ describe("Stream lock (005-stream-match-lock)", () => {
 
       const before = (await screen.findByText("A")).closest("li");
       if (!before) throw new Error("card not found");
-      expect(within(before).getByText("配信中")).toBeInTheDocument();
+      expect(within(before).getByText("配信予定")).toBeInTheDocument();
       expect(before.getAttribute("role")).toBeNull();
 
       // start.gg側で配信台の設定が解除された状態を、次回の定期同期として
@@ -410,7 +453,7 @@ describe("Stream lock (005-stream-match-lock)", () => {
 
       const after = (await screen.findByText("A")).closest("li");
       if (!after) throw new Error("card not found");
-      expect(within(after).queryByText("配信中")).not.toBeInTheDocument();
+      expect(within(after).queryByText("配信予定")).not.toBeInTheDocument();
       await user2.click(after);
       expect(
         await screen.findByRole("heading", { name: "Aの編集" }),

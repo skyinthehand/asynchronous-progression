@@ -3,7 +3,10 @@ import { Modal } from "../../components/index.js";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import { foldSide } from "../../domain/rules/matchProgression.js";
-import { isStreamLocked } from "../../domain/rules/streamLock.js";
+import {
+  isStreamLocked,
+  streamBadgeLabel,
+} from "../../domain/rules/streamLock.js";
 import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 import { ScoreEntryForm } from "./ScoreEntryForm.js";
 import { TableNumberOptions } from "./TableNumberOptions.js";
@@ -281,9 +284,13 @@ export function MatchCardEntry({
           <span className="match-card-meta-state">
             {VARIANT_LABEL[variant]}
           </span>
-          {/* 005-stream-match-lock FR-007: 対戦カードの状態を問わず表示する。 */}
-          {card.isStreamed && (
-            <span className="match-card-stream-badge">配信中</span>
+          {/* 005-stream-match-lock FR-007: 対戦カードの状態を問わず表示する。
+              ユーザーフィードバック(2026-10-16): 未着手なら「配信予定」、
+              進行中・確定済みなら「配信中」を出し分ける(streamLock.ts参照)。 */}
+          {streamBadgeLabel(card) && (
+            <span className="match-card-stream-badge">
+              {streamBadgeLabel(card)}
+            </span>
           )}
           {canEdit && (
             <span className="match-card-edit-icon" aria-hidden="true">

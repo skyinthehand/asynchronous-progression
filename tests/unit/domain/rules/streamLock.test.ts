@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { MatchCard } from "../../../../src/domain/entities/matchCard.js";
-import { isStreamLocked } from "../../../../src/domain/rules/streamLock.js";
+import {
+  isStreamLocked,
+  streamBadgeLabel,
+} from "../../../../src/domain/rules/streamLock.js";
 
 function makeCard(overrides: Partial<MatchCard>): MatchCard {
   return {
@@ -53,5 +56,39 @@ describe("isStreamLocked", () => {
         false,
       );
     }
+  });
+});
+
+/**
+ * ユーザーフィードバック(2026-10-16): 配信(stream)が割り当てられていても
+ * 対戦自体はまだ始まっていないことがあるため、未着手(NOT_STARTED)の間は
+ * 「配信予定」、進行中(IN_PROGRESS)・確定済み(COMPLETED)は「配信中」と
+ * 出し分ける。
+ */
+describe("streamBadgeLabel", () => {
+  it("returns null when isStreamed is false, regardless of status", () => {
+    for (const status of ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"] as const) {
+      expect(streamBadgeLabel(makeCard({ isStreamed: false, status }))).toBe(
+        null,
+      );
+    }
+  });
+
+  it("returns '配信予定' when streamed but not yet started", () => {
+    expect(
+      streamBadgeLabel(makeCard({ isStreamed: true, status: "NOT_STARTED" })),
+    ).toBe("配信予定");
+  });
+
+  it("returns '配信中' when streamed and in progress", () => {
+    expect(
+      streamBadgeLabel(makeCard({ isStreamed: true, status: "IN_PROGRESS" })),
+    ).toBe("配信中");
+  });
+
+  it("returns '配信中' when streamed and completed", () => {
+    expect(
+      streamBadgeLabel(makeCard({ isStreamed: true, status: "COMPLETED" })),
+    ).toBe("配信中");
   });
 });

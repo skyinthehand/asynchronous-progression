@@ -15,3 +15,15 @@ import type { MatchCard } from "../entities/matchCard.js";
 export function isStreamLocked(card: MatchCard): boolean {
   return card.isStreamed;
 }
+
+/**
+ * ユーザーフィードバック(2026-10-16): 配信(ストリーム)が割り当てられて
+ * いても、実際にその対戦が始まっているとは限らない(start.gg上で先に
+ * streamだけ割り当てられ、対戦の呼び出し・開始は別タイミングで行われる
+ * ことがある)。「配信中」固定ではなく、対戦の状態に応じて「配信予定」
+ * (未着手)/「配信中」(進行中・確定済み)を出し分ける。
+ */
+export function streamBadgeLabel(card: MatchCard): string | null {
+  if (!card.isStreamed) return null;
+  return card.status === "NOT_STARTED" ? "配信予定" : "配信中";
+}
