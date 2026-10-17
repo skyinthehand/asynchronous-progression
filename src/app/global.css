@@ -837,19 +837,61 @@ label {
   font-size: 0.75rem;
 }
 
-.bracket-tree-matches .match-card-edit-locked {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  width: 100%;
-  height: 40px;
-  box-sizing: border-box;
-  border-top: 1px solid var(--line);
-  padding: 0.3rem 0.5rem;
-  overflow: hidden;
-  font-size: 11px;
-  color: var(--warn);
-  line-height: 1.3;
+/* artifact更新(2026-10-17): 修正不可の注意書きは、モックアップの`.lock`
+   (鍵マーク、クリックで開閉するツールチップ)に出し分ける。 */
+.match-card-lock {
+  all: unset;
+  cursor: pointer;
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  margin-top: -4px;
+  margin-bottom: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.match-card-lock:hover {
+  color: var(--ink);
+  background: #f0f0f0;
+}
+
+.match-card-lock:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 0;
+}
+
+/* モックアップの`.tip`。カードの列幅(BracketBoard.tsxのCOLUMN_WIDTH)に
+   揃えて、カード本体の直下・右端合わせで表示する。 */
+.match-card-lock-tip {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  width: 220px;
+  background: var(--paper);
+  color: #3d3d3d;
+  border: 1px solid #8c8c8c;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 8px 10px;
+  z-index: 6;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.08);
+}
+
+.match-card-lock-tip::before {
+  content: "";
+  position: absolute;
+  right: 9px;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  background: var(--paper);
+  border-left: 1px solid #8c8c8c;
+  border-top: 1px solid #8c8c8c;
+  transform: rotate(45deg);
 }
 
 /* 対戦カード下部のメタ行(対戦台・状態)。モックアップの`.meta`。 */
@@ -878,43 +920,81 @@ label {
 
 .score-entry-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 6px;
   border: none;
   padding: 0;
   min-width: 0;
 }
 
-.score-entry-row .score-entry-name {
-  float: none;
-  width: auto;
-  padding: 0;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.score-entry-options {
+.score-entry-name-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
-.score-entry-option {
-  min-width: 48px;
-  min-height: 44px;
-  padding: 0 10px;
-  font-size: 13px;
-  border: 1.5px solid var(--ink);
-  background: var(--paper);
+.score-entry-seed {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--tint);
+  padding: 1px 6px;
 }
 
-.score-entry-option-selected {
-  color: var(--paper);
-  background: var(--ink);
-  border-color: var(--ink);
+.score-entry-name {
+  font-size: 17px;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* モックアップの`.scores`(DQ/0/1/2/3/Wの6列グリッド)。 */
+.scores {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border: 1.5px solid var(--ink);
+}
+
+.scores button {
+  all: unset;
+  cursor: pointer;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.scores button + button {
+  border-left: 1.5px solid var(--ink);
+}
+
+.scores button:hover {
+  background: #f0f0f0;
+}
+
+.scores button.sp {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.scores button.on {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.scores button.on.dq {
+  background: var(--warn);
+}
+
+.scores button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  position: relative;
+  z-index: 1;
 }
 
 .score-entry-error {
@@ -963,11 +1043,73 @@ label {
   color: var(--muted);
 }
 
-.match-card-table-select {
+/* モックアップの`.msec`(モーダル内の1項目分の縦積みブロック)。 */
+.msec {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* モックアップの`.tchips`+`.tchip`(対戦台選択の大きめボタングリッド)。 */
+.tchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tchip {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  min-width: 48px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1.5px solid var(--ink);
+  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 14px;
+  justify-content: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.tchip.unset {
+  font-family: "IBM Plex Sans JP", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.tchip small {
+  font-family: "IBM Plex Sans JP", sans-serif;
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.tchip:hover {
+  background: #f0f0f0;
+}
+
+.tchip.on {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.tchip:disabled {
+  border-style: dashed;
+  border-color: #bdbdbd;
+  color: #8c8c8c;
+  cursor: not-allowed;
+  background: var(--paper);
+}
+
+.tchip:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  position: relative;
+  z-index: 1;
 }
 
 /* --- モーダル(.sheet + .overlayに相当) --- */

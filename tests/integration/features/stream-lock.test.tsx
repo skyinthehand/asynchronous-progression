@@ -331,6 +331,14 @@ describe("Stream lock (005-stream-match-lock)", () => {
         within(lockedCard).queryByText("配信予定"),
       ).not.toBeInTheDocument();
       expect(within(lockedCard).queryByText("配信中")).not.toBeInTheDocument();
+
+      // artifact更新(2026-10-17): 修正不可の注意書きは鍵マーク(クリックで
+      // 開閉するツールチップ)で示す。
+      await user.click(
+        within(lockedCard).getByRole("button", {
+          name: "結果は確定済み（修正不可）。理由を表示",
+        }),
+      );
       expect(
         within(lockedCard).getByText(/後続の対戦が進行しているため/),
       ).toBeInTheDocument();

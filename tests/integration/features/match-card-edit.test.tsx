@@ -172,8 +172,16 @@ describe("Match result correction (User Story 6)", () => {
     expect(
       screen.queryByRole("heading", { name: "R1-1の編集" }),
     ).not.toBeInTheDocument();
+
+    // artifact更新(2026-10-17): 修正不可の注意書きは鍵マーク(クリックで
+    // 開閉するツールチップ)で示す。
+    await user.click(
+      within(r1).getByRole("button", {
+        name: "結果は確定済み（修正不可）。理由を表示",
+      }),
+    );
     expect(
-      within(r1).getByText(/後続の対戦が進行しているため/),
+      within(r1).getByText(/後続の対戦（Set R2-1）が終わっているため/),
     ).toBeInTheDocument();
   });
 });

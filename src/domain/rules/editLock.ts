@@ -10,18 +10,47 @@ import type { MatchCard } from "../entities/matchCard.js";
  * 「対象カードの勝者が、より後のラウンドの別カードに参加者として現れており、
  * かつそのカードが未着手でない」ことをもって後続進行済みと判定する。
  */
-export function computeIsLocked(
+/** card.winnerIdを前提にロック判定する、後続の対戦カード一覧(computeIsLockedと同じ述語)。 */
+function findLockingCards(
   card: MatchCard,
   allCardsInPool: MatchCard[],
-): boolean {
+): MatchCard[] {
   if (!card.winnerId) {
-    return false;
+    return [];
   }
-  return allCardsInPool.some((other) => {
+  return allCardsInPool.filter((other) => {
     if (other.id === card.id) return false;
     if (Math.abs(other.round) <= Math.abs(card.round)) return false;
     const involvesWinner =
       other.entrant1Id === card.winnerId || other.entrant2Id === card.winnerId;
     return involvesWinner && other.status !== "NOT_STARTED";
   });
+}
+
+export function computeIsLocked(
+  card: MatchCard,
+  allCardsInPool: MatchCard[],
+): boolean {
+  return findLockingCards(card, allCardsInPool).length > 0;
+}
+
+/**
+ * artifact更新(2026-10-17): ロックの注意書きを鍵マーク(クリックで開閉する
+ * ツールチップ)に出し分けるための文言。どの対戦カードが原因でロックされて
+ * いるか(識別子)・それが進行中か終了済みかを、モックアップと同じ形で
+ * 組み立てる。`card.isLocked`が直接(computeIsLockedを介さず)trueに設定
+ * されている場合等、card.winnerIdからは原因となる対戦カードを再現できない
+ * ことがあるため、その場合は識別子を含まない一般的な文言にフォールバックする。
+ */
+export function lockedTooltipText(
+  card: MatchCard,
+  allCardsInPool: MatchCard[],
+): string {
+  const lockers = findLockingCards(card, allCardsInPool);
+  if (lockers.length === 0) {
+    return "後続の対戦が進行しているため、この結果は修正できません。";
+  }
+  const ids = lockers.map((c) => c.identifier).join("・");
+  const anyLive = lockers.some((c) => c.status === "IN_PROGRESS");
+  return `後続の対戦（Set ${ids}）が${anyLive ? "進行している" : "終わっている"}ため、この結果は修正できません。`;
 }

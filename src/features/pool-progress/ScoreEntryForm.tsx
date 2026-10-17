@@ -121,6 +121,28 @@ export function ScoreEntryForm({
   const entrant1Id = card.entrant1Id;
   const entrant2Id = card.entrant2Id;
 
+  /**
+   * artifact更新(2026-10-17): 保存前でも、現在選択中の内容から勝者が
+   * 一意に決まる場合はモックアップと同じく「勝者」チップをその場で表示する
+   * (未保存であることに変わりはなく、確定ボタンを押すまでは記録されない)。
+   */
+  const entrant1Fields = toResultFields(entrant1Selection);
+  const entrant2Fields = toResultFields(entrant2Selection);
+  const previewOutcome = resolveMatchResult({
+    entrant1Score: entrant1Fields.score,
+    entrant2Score: entrant2Fields.score,
+    entrant1DQ: entrant1Fields.dq,
+    entrant2DQ: entrant2Fields.dq,
+    entrant1W: entrant1Fields.w,
+    entrant2W: entrant2Fields.w,
+  });
+  const previewWinnerId =
+    "winnerSlot" in previewOutcome
+      ? previewOutcome.winnerSlot === "entrant1"
+        ? entrant1Id
+        : entrant2Id
+      : null;
+
   function selectEntrant1(option: Selection) {
     setEntrant1Selection(option);
     setEntrant2Selection((prev) => (prev === null ? "0" : prev));
@@ -169,22 +191,31 @@ export function ScoreEntryForm({
         ] as const
       ).map(([entrantId, selection, select]) => {
         const name = entrantName(entrantById, entrantId);
+        const seed = entrantById.get(entrantId)?.seed;
         return (
           <fieldset
             className="score-entry-row"
             key={entrantId}
             aria-label={`${name}のスコア`}
           >
-            <legend className="score-entry-name">{name}</legend>
-            <div className="score-entry-options">
+            <legend className="score-entry-name-row">
+              {seed !== null && seed !== undefined && (
+                <span className="mono score-entry-seed">{seed}</span>
+              )}
+              <span className="score-entry-name">{name}</span>
+              {previewWinnerId === entrantId && (
+                <span className="chip dark">勝者</span>
+              )}
+            </legend>
+            <div className="scores">
               {OPTIONS.map((option) => (
                 <button
                   key={option}
                   type="button"
                   aria-pressed={selection === option}
                   className={[
-                    "score-entry-option",
-                    selection === option ? "score-entry-option-selected" : "",
+                    selection === option ? "on" : "",
+                    option === "DQ" ? "dq sp" : option === "W" ? "sp" : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}

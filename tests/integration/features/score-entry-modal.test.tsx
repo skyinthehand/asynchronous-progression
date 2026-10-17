@@ -132,9 +132,11 @@ describe("Match cards on the bracket board have no operable elements; tapping th
     });
     const modal = modalHeading.closest(".app-modal") as HTMLElement;
     expect(
-      within(modal).getByRole("button", { name: "進行中にする" }),
+      within(modal).getByRole("button", { name: "進行中" }),
     ).toBeInTheDocument();
-    expect(within(modal).getByLabelText("対戦台:")).toBeInTheDocument();
+    expect(
+      within(modal).getByRole("group", { name: "対戦台" }),
+    ).toBeInTheDocument();
     expect(
       within(modal).getByRole("group", { name: "Aliceのスコア" }),
     ).toBeInTheDocument();
@@ -212,10 +214,9 @@ describe("Match cards on the bracket board have no operable elements; tapping th
       name: "WFの編集",
     });
     const modal = modalHeading.closest(".app-modal") as HTMLElement;
-    await user.click(
-      within(modal).getByRole("button", { name: "進行中にする" }),
-    );
-    await user.selectOptions(within(modal).getByLabelText("対戦台:"), "2");
+    await user.click(within(modal).getByRole("button", { name: "進行中" }));
+    const tableGroup = within(modal).getByRole("group", { name: "対戦台" });
+    await user.click(within(tableGroup).getByRole("button", { name: "卓 2" }));
 
     const db = await getDb();
     const card1 = await db.get("matchCards", "card-1");
@@ -320,8 +321,15 @@ describe("Match cards on the bracket board have no operable elements; tapping th
     if (!r1) throw new Error("R1-1 card not found");
     expect(r1.getAttribute("role")).toBeNull();
     expect(r1).not.toHaveTextContent("✏️");
+
+    // artifact更新(2026-10-17): 修正不可の注意書きは鍵マーク(クリックで
+    // 開閉するツールチップ)で示す。
+    const lockButton = within(r1).getByRole("button", {
+      name: "結果は確定済み（修正不可）。理由を表示",
+    });
+    await user.click(lockButton);
     expect(
-      within(r1).getByText(/後続の対戦が進行しているため/),
+      within(r1).getByText(/後続の対戦（Set R2-1）が終わっているため/),
     ).toBeInTheDocument();
 
     await user.click(r1);

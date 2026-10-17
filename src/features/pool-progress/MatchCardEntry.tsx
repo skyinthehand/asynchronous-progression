@@ -2,6 +2,7 @@ import { type CSSProperties, type KeyboardEvent, useState } from "react";
 import { Modal } from "../../components/index.js";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
+import { lockedTooltipText } from "../../domain/rules/editLock.js";
 import { foldSide } from "../../domain/rules/matchProgression.js";
 import {
   isStreamLocked,
@@ -9,7 +10,7 @@ import {
 } from "../../domain/rules/streamLock.js";
 import type { MatchResultSubmission } from "./ScoreEntryForm.js";
 import { ScoreEntryForm } from "./ScoreEntryForm.js";
-import { TableNumberOptions } from "./TableNumberOptions.js";
+import { TableChips } from "./TableChips.js";
 
 interface MatchCardEntryProps {
   card: MatchCard;
@@ -189,6 +190,9 @@ export function MatchCardEntry({
   readOnly,
 }: MatchCardEntryProps) {
   const [editModalOpen, setEditModalOpen] = useState(false);
+  // artifact更新(2026-10-17): 修正不可の注意書きを鍵マークのツールチップ
+  // (クリックで開閉)に出し分けるための開閉状態。
+  const [lockTipOpen, setLockTipOpen] = useState(false);
   const isEditable = card.status !== "COMPLETED";
   // ユーザーフィードバック(2026-10-13): 出場元の対戦がまだ完了していない
   // ために枠が空(未定)のカードは、どちらの出場者になるか未確定なため
@@ -210,6 +214,10 @@ export function MatchCardEntry({
     !hasPendingSlot;
   const variant = matchCardVariant(card, isNext, Boolean(isBlocked));
   const tableLabel = card.tableNumber ? `卓 ${card.tableNumber}` : "卓 —";
+  // artifact更新(2026-10-17): 修正不可の注意書きは、モックアップの鍵マーク
+  // (クリックで開閉するツールチップ)で示す。表示条件は旧来の静的な
+  // 注意書きと同じ(確定済み・かつ後続の対戦が進行済みのカードのみ)。
+  const isLockedForEdit = !isEditable && card.isLocked;
 
   function openEditModal() {
     if (canEdit) setEditModalOpen(true);
@@ -274,11 +282,6 @@ export function MatchCardEntry({
             );
           })}
         </div>
-        {!isEditable && card.isLocked && (
-          <span className="match-card-edit-locked">
-            後続の対戦が進行しているため、この結果は修正できません。
-          </span>
-        )}
         <div className="match-card-meta-row">
           <span className="mono">{tableLabel}</span>
           <span className="match-card-meta-state">
@@ -297,8 +300,42 @@ export function MatchCardEntry({
               ✏️
             </span>
           )}
+          {isLockedForEdit && (
+            <button
+              type="button"
+              className="match-card-lock"
+              aria-label="結果は確定済み（修正不可）。理由を表示"
+              aria-expanded={lockTipOpen}
+              onClick={() => setLockTipOpen((open) => !open)}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <rect x="5" y="11" width="14" height="10" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+            </button>
+          )}
         </div>
       </span>
+      {isLockedForEdit && lockTipOpen && (
+        // 鍵マーク(操作対象)で既に開閉できるため、ここはタップで閉じる
+        // だけの追加の便宜(モックアップの.tip onClick=closeTipと同じ)。
+        // biome-ignore lint/a11y/useKeyWithClickEvents: 閉じる操作は鍵マーク自体でも可能
+        <div
+          className="match-card-lock-tip"
+          role="tooltip"
+          onClick={() => setLockTipOpen(false)}
+        >
+          {lockedTooltipText(card, matchCards)}
+        </div>
+      )}
       {editModalOpen && (
         // カード全体のonClickへのクリック伝播を止めるためだけのラッパー
         // (それ自体は操作対象ではないためキーボード操作は不要)。
@@ -311,30 +348,35 @@ export function MatchCardEntry({
             {isEditable ? (
               <>
                 {card.status === "NOT_STARTED" && (
-                  <button
-                    type="button"
-                    onClick={() => onSetInProgress(card.id)}
-                  >
-                    進行中にする
-                  </button>
+                  <div className="msec">
+                    <span className="label">状態</span>
+                    <fieldset className="seg" aria-label="状態">
+                      <legend className="sr-only">状態</legend>
+                      <button
+                        type="button"
+                        className="on"
+                        aria-pressed="true"
+                        disabled
+                      >
+                        未着手
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed="false"
+                        onClick={() => onSetInProgress(card.id)}
+                      >
+                        進行中
+                      </button>
+                    </fieldset>
+                  </div>
                 )}
                 {tableNumbers.length > 0 && (
-                  <label className="match-card-table-select">
-                    対戦台:
-                    <select
-                      value={card.tableNumber ?? ""}
-                      onChange={(event) =>
-                        onAssignTable(card.id, event.target.value || null)
-                      }
-                    >
-                      <option value="">未設定</option>
-                      <TableNumberOptions
-                        tableNumbers={tableNumbers}
-                        matchCards={matchCards}
-                        excludeCardId={card.id}
-                      />
-                    </select>
-                  </label>
+                  <TableChips
+                    card={card}
+                    tableNumbers={tableNumbers}
+                    matchCards={matchCards}
+                    onAssignTable={onAssignTable}
+                  />
                 )}
                 {isBye && byeEntrantId ? (
                   <button
