@@ -34,6 +34,9 @@ export function InitLogin({ onInitialized }: InitLoginProps) {
       syncToken: confirmedToken ?? token.trim(),
       tokenUpdatedAt: new Date().toISOString(),
       adminPasswordHash: existing?.adminPasswordHash ?? null,
+      tournamentName: option.tournamentName,
+      eventName: option.eventName,
+      phaseName: option.phaseName,
     });
     await ensurePoolFromOption(option);
     onInitialized();

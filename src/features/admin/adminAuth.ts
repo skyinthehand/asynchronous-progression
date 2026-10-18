@@ -30,6 +30,9 @@ export async function verifyAdminPassword(password: string): Promise<boolean> {
       syncToken: config?.syncToken ?? null,
       tokenUpdatedAt: config?.tokenUpdatedAt ?? null,
       adminPasswordHash: hash,
+      tournamentName: config?.tournamentName ?? null,
+      eventName: config?.eventName ?? null,
+      phaseName: config?.phaseName ?? null,
     });
     return true;
   }

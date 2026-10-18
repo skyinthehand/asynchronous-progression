@@ -45,6 +45,9 @@ export function PoolSelection({ onPoolChanged }: PoolSelectionProps) {
       eventId: option.eventId,
       phaseId: option.phaseId,
       poolId: option.poolId,
+      tournamentName: option.tournamentName,
+      eventName: option.eventName,
+      phaseName: option.phaseName,
     });
     await ensurePoolFromOption(option);
     onPoolChanged?.();

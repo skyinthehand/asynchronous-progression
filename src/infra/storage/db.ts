@@ -7,9 +7,16 @@ import type { Pool } from "../../domain/entities/pool.js";
 import type { StaffAssignmentEntry } from "../../domain/entities/staffAssignment.js";
 import type { StartggIntegrationConfig } from "../../domain/entities/startggConfig.js";
 import type { SyncStatus } from "../../domain/entities/syncStatus.js";
+import type { TournamentHistoryEntry } from "../../domain/entities/tournamentHistory.js";
 
 const DB_NAME = "pool-progression-tracker";
-const DB_VERSION = 1;
+/**
+ * ユーザーフィードバック(2026-10-18): tournamentHistoryストアの追加に伴い
+ * バージョンを上げる(IndexedDBのupgradeコールバックは、既存端末で既に
+ * DB_VERSION=1で開かれている場合、バージョンを上げない限り再実行されず
+ * 新規ストアが作られないため)。
+ */
+const DB_VERSION = 2;
 
 /** Singleton stores (adminSession, startggConfig) always use this key. */
 export const SINGLETON_KEY = "current";
@@ -27,6 +34,7 @@ interface PoolProgressionDB extends DBSchema {
   adminSession: { key: string; value: AdminSession };
   startggConfig: { key: string; value: StartggIntegrationConfig };
   syncStatus: { key: string; value: SyncStatus };
+  tournamentHistory: { key: string; value: TournamentHistoryEntry };
 }
 
 let dbPromise: Promise<IDBPDatabase<PoolProgressionDB>> | undefined;
@@ -64,6 +72,11 @@ export function getDb(): Promise<IDBPDatabase<PoolProgressionDB>> {
         }
         if (!db.objectStoreNames.contains("syncStatus")) {
           db.createObjectStore("syncStatus", { keyPath: "poolId" });
+        }
+        if (!db.objectStoreNames.contains("tournamentHistory")) {
+          db.createObjectStore("tournamentHistory", {
+            keyPath: "tournamentSlug",
+          });
         }
       },
     });

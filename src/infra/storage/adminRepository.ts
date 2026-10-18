@@ -15,6 +15,10 @@ import {
   type SyncStatus,
   SyncStatusSchema,
 } from "../../domain/schemas/syncStatus.js";
+import {
+  type TournamentHistoryEntry,
+  TournamentHistoryEntrySchema,
+} from "../../domain/schemas/tournamentHistory.js";
 import { SINGLETON_KEY, getDb } from "./db.js";
 
 // --- StaffAssignmentEntry ---
@@ -87,6 +91,38 @@ export async function getStartggConfig(): Promise<
   const db = await getDb();
   const value = await db.get("startggConfig", SINGLETON_KEY);
   return value ? StartggIntegrationConfigSchema.parse(value) : undefined;
+}
+
+// --- TournamentHistory ---
+
+/**
+ * ユーザーフィードバック(2026-10-18): 大会選択(TournamentDrillDown.tsx)の
+ * たびに、選択した大会スラッグ/大会名を履歴として記録する(手入力・一覧
+ * からの選択のいずれでも)。同じスラッグを選び直した場合はlastUsedAtだけ
+ * 更新する(重複レコードを作らない)。
+ */
+export async function recordTournamentHistory(
+  tournamentSlug: string,
+  tournamentName: string,
+): Promise<void> {
+  const validated = TournamentHistoryEntrySchema.parse({
+    tournamentSlug,
+    tournamentName,
+    lastUsedAt: new Date().toISOString(),
+  });
+  const db = await getDb();
+  await db.put("tournamentHistory", validated);
+}
+
+/** 直近に使われた順(新しい順)の大会履歴一覧。 */
+export async function getTournamentHistory(): Promise<
+  TournamentHistoryEntry[]
+> {
+  const db = await getDb();
+  const values = await db.getAll("tournamentHistory");
+  return values
+    .map((value) => TournamentHistoryEntrySchema.parse(value))
+    .sort((a, b) => b.lastUsedAt.localeCompare(a.lastUsedAt));
 }
 
 // --- SyncStatus ---

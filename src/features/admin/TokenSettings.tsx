@@ -23,6 +23,9 @@ export function TokenSettings() {
       syncToken: token.trim(),
       tokenUpdatedAt: new Date().toISOString(),
       adminPasswordHash: config?.adminPasswordHash ?? null,
+      tournamentName: config?.tournamentName ?? null,
+      eventName: config?.eventName ?? null,
+      phaseName: config?.phaseName ?? null,
     });
     setToken("");
     setSaved(true);
