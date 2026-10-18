@@ -1403,6 +1403,27 @@ label {
   font-size: 12px;
 }
 
+/* ユーザーフィードバック(2026-10-18): 同期済み表示の横の手動同期ボタン。 */
+.header-sync-refresh:disabled {
+  opacity: 1;
+  cursor: wait;
+}
+
+.header-sync-refresh:disabled svg {
+  animation: header-sync-refresh-spin 0.8s linear infinite;
+}
+
+@keyframes header-sync-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.header-sync-message {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .header-spacer {
   flex: 1;
 }

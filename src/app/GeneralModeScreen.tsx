@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { formatAwayStartedAt as formatJstTime } from "../domain/rules/awayPeriodFormat.js";
 import { NoticeViewer } from "../features/notice/NoticeViewer.js";
 import { PoolProgressScreen } from "../features/pool-progress/PoolProgressScreen.js";
+import { runSync } from "../features/sync/syncRunner.js";
 import { useSyncStatus } from "../features/sync/useSyncStatus.js";
 import { useAppMode } from "./router.js";
 
@@ -25,6 +27,55 @@ function syncChip(status: ReturnType<typeof useSyncStatus>) {
     };
   }
   return { dotCls: "dot ok", label: "同期済み", sub };
+}
+
+/**
+ * ユーザーフィードバック(2026-10-18): 管理画面に入らなくても、同期済み
+ * 表示の横からその場でstart.ggへ手動で同期できるようにする
+ * (既存のAdminModeScreen.tsxの「データを再取得」と同じrunSync()を使う)。
+ */
+function ManualSyncButton() {
+  const [syncing, setSyncing] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function handleClick() {
+    setSyncing(true);
+    setMessage(null);
+    const result = await runSync();
+    setSyncing(false);
+    setMessage(
+      result.success ? "同期しました" : `同期に失敗しました: ${result.error}`,
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="header-sync-refresh no-print"
+        onClick={handleClick}
+        disabled={syncing}
+        aria-label={syncing ? "同期中…" : "今すぐ同期"}
+        title={syncing ? "同期中…" : "今すぐ同期"}
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
+        >
+          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+          <path d="M21 3v6h-6" />
+        </svg>
+      </button>
+      {message && (
+        <output className="mono header-sync-message no-print">{message}</output>
+      )}
+    </>
+  );
 }
 
 /**
@@ -53,6 +104,7 @@ export function GeneralModeScreen() {
           <span className="header-sync-label">{sync.label}</span>
           <span className="mono header-sync-sub no-print">{sync.sub}</span>
         </div>
+        <ManualSyncButton />
         <div className="header-spacer" />
         <nav aria-label="メニュー" className="header-nav no-print">
           <NoticeViewer />
