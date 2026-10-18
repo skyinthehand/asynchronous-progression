@@ -229,6 +229,78 @@ describe("Match cards on the bracket board have no operable elements; tapping th
     expect(within(card).getByText("進行中")).toBeInTheDocument();
     expect(within(card).getByText("卓 2")).toBeInTheDocument();
     expect(within(card).queryAllByRole("button")).toHaveLength(0);
+
+    // ユーザーフィードバック(2026-10-17): 進行中の対戦を開いたときにも
+    // 「状態」区画が表示され、現在「進行中」であることが分かる
+    // (以前は未着手の対戦でしか表示されず、進行中にした後にモーダルを
+    // 開き直すと状態の表示自体が消えてしまっていた)。
+    await user.click(card);
+    const reopened = await screen.findByRole("heading", { name: "WFの編集" });
+    const reopenedModal = reopened.closest(".app-modal") as HTMLElement;
+    const stateGroup = within(reopenedModal).getByRole("group", {
+      name: "状態",
+    });
+    expect(
+      within(stateGroup).getByRole("button", { name: "進行中" }),
+    ).toHaveClass("on");
+    expect(
+      within(stateGroup).getByRole("button", { name: "未着手" }),
+    ).not.toHaveClass("on");
+
+    // ユーザーフィードバック(2026-10-17): start.ggへまだ反映されていない
+    // (statusLocalOnly)間は、「未着手」を押して取り消せる。
+    await user.click(
+      within(stateGroup).getByRole("button", { name: "未着手" }),
+    );
+    const card2 = await db.get("matchCards", "card-1");
+    expect(card2?.status).toBe("NOT_STARTED");
+    expect(card2?.statusLocalOnly).toBe(false);
+  });
+
+  it("does not revert an in-progress card to not-started once already reflected to start.gg", async () => {
+    await seedBracketPool(["1"]);
+    const db = await getDb();
+    await db.put("matchCards", {
+      id: "card-1",
+      poolId: "pool-1",
+      identifier: "WF",
+      round: 1,
+      bracketSide: "WINNERS",
+      tableNumber: null,
+      entrant1Id: "e1",
+      entrant2Id: "e2",
+      winnerId: null,
+      score: null,
+      status: "IN_PROGRESS",
+      // start.ggへの反映(markSetInProgress)が完了済みで、取り消すAPIが
+      // 無いため「未着手」を押しても何も起きないはずのケース。
+      statusLocalOnly: false,
+      isLocked: false,
+      editHistory: [],
+      localOnly: false,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
+    });
+
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const card = (await screen.findByText("WF")).closest("li");
+    if (!card) throw new Error("card not found");
+    await user.click(card);
+
+    const modalHeading = await screen.findByRole("heading", {
+      name: "WFの編集",
+    });
+    const modal = modalHeading.closest(".app-modal") as HTMLElement;
+    const stateGroup = within(modal).getByRole("group", { name: "状態" });
+    await user.click(
+      within(stateGroup).getByRole("button", { name: "未着手" }),
+    );
+
+    const card1 = await db.get("matchCards", "card-1");
+    expect(card1?.status).toBe("IN_PROGRESS");
   });
 
   it("does not make a locked completed card clickable (nothing left to edit)", async () => {

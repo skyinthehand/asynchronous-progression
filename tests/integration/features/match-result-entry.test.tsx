@@ -213,7 +213,9 @@ describe("Score/DQ based result entry (User Story 1)", () => {
 
     await selectScore(user, document.body, "Alice", "W");
     await selectScore(user, document.body, "Bob", "W");
-    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+    // artifact更新(2026-10-17): 両者のスコアが揃って結果が一意に決まる
+    // までは「保存」と表示される(無効な組合せのため確定前のまま)。
+    await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(
       await screen.findByText(/両方の出場者を同時に勝者\(W\)にはできません/),
@@ -230,7 +232,7 @@ describe("Score/DQ based result entry (User Story 1)", () => {
 
     await selectScore(user, document.body, "Alice", "2");
     await selectScore(user, document.body, "Bob", "2");
-    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+    await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(
       await screen.findByText(/同点のため結果を確定できません/),
@@ -247,7 +249,7 @@ describe("Score/DQ based result entry (User Story 1)", () => {
 
     await selectScore(user, document.body, "Alice", "DQ");
     await selectScore(user, document.body, "Bob", "DQ");
-    await user.click(screen.getByRole("button", { name: "結果を確定" }));
+    await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(
       await screen.findByText(/両方の出場者を同時に失格にはできません/),

@@ -373,6 +373,19 @@ label {
   color: var(--ink);
 }
 
+/* artifact更新(2026-10-17): 枠いっぱいに広がる場面(セット編集モーダルの
+   「状態」)向けに、2等分グリッドで均等に分割する.segの亜種。 */
+.seg2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.seg2 button {
+  justify-content: center;
+  min-height: 48px;
+  font-size: 15px;
+}
+
 .stepper {
   display: flex;
   align-items: center;

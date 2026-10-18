@@ -29,6 +29,8 @@ interface MatchCardEntryProps {
   ) => Promise<boolean>;
   /** FR-009/FR-010: 未着手の対戦を任意で「進行中」に設定する。 */
   onSetInProgress: (matchCardId: string) => void;
+  /** artifact更新(2026-10-17): 「進行中にする」操作の取り消し。 */
+  onSetNotStarted: (matchCardId: string) => void;
   /** FR-023: ブラケット木の中でツリー状に配置するための位置指定。 */
   style?: CSSProperties;
   /**
@@ -186,6 +188,7 @@ export function MatchCardEntry({
   matchCards,
   onAssignTable,
   onSetInProgress,
+  onSetNotStarted,
   style,
   readOnly,
 }: MatchCardEntryProps) {
@@ -347,37 +350,52 @@ export function MatchCardEntry({
           >
             {isEditable ? (
               <>
-                {card.status === "NOT_STARTED" && (
-                  <div className="msec">
-                    <span className="label">状態</span>
-                    <fieldset className="seg" aria-label="状態">
-                      <legend className="sr-only">状態</legend>
-                      <button
-                        type="button"
-                        className="on"
-                        aria-pressed="true"
-                        disabled
-                      >
-                        未着手
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed="false"
-                        onClick={() => onSetInProgress(card.id)}
-                      >
-                        進行中
-                      </button>
-                    </fieldset>
-                  </div>
-                )}
-                {tableNumbers.length > 0 && (
-                  <TableChips
-                    card={card}
-                    tableNumbers={tableNumbers}
-                    matchCards={matchCards}
-                    onAssignTable={onAssignTable}
-                  />
-                )}
+                {/* ユーザーフィードバック(2026-10-17): 進行中にした後も
+                    「未着手」へ押し戻せるようにする(start.ggへまだ反映
+                    されていない間はsetNotStartedが取り消せる。反映済みの
+                    場合は内部で何もしない)。あわせて、進行中の対戦を
+                    開いたときにも現在の状態が分かるよう、未着手・進行中の
+                    いずれでもこの区画自体は表示する(artifactのshowState:
+                    canScore && stt !== 'done'と同じ条件)。横幅いっぱいに
+                    広がった枠の中で左右均等に分かれるよう、2等分グリッドの
+                    .seg2をartifactに合わせて追加する。 */}
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 18 }}
+                >
+                  {(card.status === "NOT_STARTED" ||
+                    card.status === "IN_PROGRESS") && (
+                    <div className="msec">
+                      <span className="label">状態</span>
+                      <fieldset className="seg seg2" aria-label="状態">
+                        <legend className="sr-only">状態</legend>
+                        <button
+                          type="button"
+                          className={card.status === "NOT_STARTED" ? "on" : ""}
+                          aria-pressed={card.status === "NOT_STARTED"}
+                          onClick={() => onSetNotStarted(card.id)}
+                        >
+                          未着手
+                        </button>
+                        <button
+                          type="button"
+                          className={card.status === "IN_PROGRESS" ? "on" : ""}
+                          aria-pressed={card.status === "IN_PROGRESS"}
+                          onClick={() => onSetInProgress(card.id)}
+                        >
+                          進行中
+                        </button>
+                      </fieldset>
+                    </div>
+                  )}
+                  {tableNumbers.length > 0 && (
+                    <TableChips
+                      card={card}
+                      tableNumbers={tableNumbers}
+                      matchCards={matchCards}
+                      onAssignTable={onAssignTable}
+                    />
+                  )}
+                </div>
                 {isBye && byeEntrantId ? (
                   <button
                     type="button"

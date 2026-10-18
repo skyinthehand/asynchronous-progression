@@ -19,6 +19,12 @@ interface MatchCardListProps {
     tableNumber: string | null,
   ) => Promise<boolean>;
   onSetInProgress: (matchCardId: string) => void;
+  /**
+   * artifact更新(2026-10-17): 「進行中にする」操作の取り消し。ブラケット
+   * 表示(組合せ図)でのみ使う(総当り表(MatchTable)は到達不能パスのため
+   * 対象外)。
+   */
+  onSetNotStarted: (matchCardId: string) => void;
   readOnly?: boolean;
 }
 
@@ -37,6 +43,7 @@ export function MatchCardList({
   onRecordResult,
   onAssignTable,
   onSetInProgress,
+  onSetNotStarted,
   readOnly,
 }: MatchCardListProps) {
   const entrantById = new Map(entrants.map((entrant) => [entrant.id, entrant]));
@@ -71,6 +78,7 @@ export function MatchCardList({
       tableNumbers={tableNumbers}
       onAssignTable={onAssignTable}
       onSetInProgress={onSetInProgress}
+      onSetNotStarted={onSetNotStarted}
       readOnly={readOnly}
     />
   ) : (

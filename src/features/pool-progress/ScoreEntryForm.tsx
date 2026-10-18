@@ -230,7 +230,9 @@ export function ScoreEntryForm({
       })}
       {error && <p className="score-entry-error">{ERROR_MESSAGES[error]}</p>}
       <button type="button" onClick={handleSubmit}>
-        {submitLabel}
+        {/* ユーザーフィードバック(2026-10-17): 両者のスコアが揃って結果が
+            一意に決まるまでは、確定ボタンではなく「保存」と表示する。 */}
+        {"winnerSlot" in previewOutcome ? submitLabel : "保存"}
       </button>
     </div>
   );

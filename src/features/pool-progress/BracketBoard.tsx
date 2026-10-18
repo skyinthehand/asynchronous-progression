@@ -22,6 +22,8 @@ interface BracketBoardProps {
     tableNumber: string | null,
   ) => Promise<boolean>;
   onSetInProgress: (matchCardId: string) => void;
+  /** artifact更新(2026-10-17): 「進行中にする」操作の取り消し。 */
+  onSetNotStarted: (matchCardId: string) => void;
   /** プレビューモード中はカードをタップしても編集モーダルを開かない。 */
   readOnly?: boolean;
 }
@@ -124,6 +126,7 @@ function BracketSidePanel({
   matchCards,
   onAssignTable,
   onSetInProgress,
+  onSetNotStarted,
   readOnly,
 }: BracketSidePanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -222,6 +225,7 @@ function BracketSidePanel({
                     matchCards={matchCards}
                     onAssignTable={onAssignTable}
                     onSetInProgress={onSetInProgress}
+                    onSetNotStarted={onSetNotStarted}
                     readOnly={readOnly}
                     style={{
                       position: "absolute",

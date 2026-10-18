@@ -65,6 +65,7 @@ export function PoolProgressScreen() {
     callSuggestedMatch,
     dismissSuggestion,
     setInProgress,
+    setNotStarted,
     isPreviewMode,
   } = usePoolProgress();
   const [printing, setPrinting] = useState(false);
@@ -362,6 +363,7 @@ export function PoolProgressScreen() {
           onRecordResult={recordResult}
           onAssignTable={assignTable}
           onSetInProgress={setInProgress}
+          onSetNotStarted={setNotStarted}
           readOnly={isPreviewMode}
         />
       )}

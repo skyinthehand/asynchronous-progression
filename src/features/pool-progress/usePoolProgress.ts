@@ -88,6 +88,14 @@ interface UsePoolProgressResult {
   dismissSuggestion: () => void;
   setInProgress: (matchCardId: string) => Promise<void>;
   /**
+   * artifact更新(2026-10-17): 「進行中にする」操作の取り消し。start.ggへ
+   * まだ反映されていない(statusLocalOnly)間に限って「未着手」へ戻せる
+   * (既に反映済みの場合は、start.gg側に取り消すAPIが無いため、戻すと
+   * 次回同期でstart.gg側の値に上書きされ元に戻ってしまう。そのため
+   * 反映済みの場合は何もしない)。
+   */
+  setNotStarted: (matchCardId: string) => Promise<void>;
+  /**
    * ユーザーフィードバック(2026-08-13): start.gg側でブラケットが未開始
    * (対戦カードのIDがpreview形式)の間は結果入力・対戦台変更・進行中
    * 設定を一切できないようにする(開始後にIDが実IDへ切り替わった際の
@@ -410,6 +418,28 @@ export function usePoolProgress(): UsePoolProgressResult {
     [matchCards, isPreviewMode],
   );
 
+  const setNotStarted = useCallback(
+    async (matchCardId: string) => {
+      if (isPreviewMode) return;
+      const target = matchCards.find((card) => card.id === matchCardId);
+      if (!target || target.status !== "IN_PROGRESS") return;
+      // start.ggへ既に反映済み(statusLocalOnlyがfalse)の場合は、取り消す
+      // APIが無いため何もしない(次回同期でstart.gg側の値に上書きされ、
+      // 元に戻ってしまうのを防ぐ)。
+      if (!target.statusLocalOnly) return;
+      const updated: MatchCard = {
+        ...target,
+        status: "NOT_STARTED",
+        statusLocalOnly: false,
+      };
+      await saveMatchCard(updated);
+      setMatchCards((prev) =>
+        prev.map((card) => (card.id === matchCardId ? updated : card)),
+      );
+    },
+    [matchCards, isPreviewMode],
+  );
+
   const completeOnboarding = useCallback(async () => {
     if (!pool) return;
     const updatedPool: Pool = {
@@ -439,6 +469,7 @@ export function usePoolProgress(): UsePoolProgressResult {
     callSuggestedMatch,
     dismissSuggestion,
     setInProgress,
+    setNotStarted,
     isPreviewMode,
   };
 }
