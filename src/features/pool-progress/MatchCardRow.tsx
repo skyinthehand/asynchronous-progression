@@ -120,6 +120,7 @@ export function MatchCardRow({
               tableNumbers={tableNumbers}
               matchCards={matchCards}
               excludeCardId={card.id}
+              enforceOccupancy={card.status === "IN_PROGRESS"}
             />
           </select>
         )}

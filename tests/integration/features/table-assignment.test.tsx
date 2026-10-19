@@ -203,7 +203,14 @@ describe("Table count setting and assignment (User Story 2)", () => {
     expect(pool?.tableNumbers).toEqual(["101", "102"]);
   });
 
-  it("rejects assigning a table already occupied by another incomplete card (FR-014)", async () => {
+  /**
+   * ユーザーフィードバック(2026-10-19): 対戦台はプールに割り当てられた
+   * 全ての対戦台から選べるようにし、実際に進行中(IN_PROGRESS)の対戦との
+   * 重複だけをブロックする(対戦者未確定でも事前に対戦台を割り当てられる
+   * ようになり、プールの対戦カード数が対戦台数を上回るのが通常のため、
+   * 未着手の対戦カード同士が同じ対戦台番号を仮に共有していても構わない)。
+   */
+  it("allows two not-started cards to share the same table number (2026-10-19)", async () => {
     await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();
     render(<App />);
@@ -220,11 +227,10 @@ describe("Table count setting and assignment (User Story 2)", () => {
     const card1 = await db.get("matchCards", "card-1");
     const card2 = await db.get("matchCards", "card-2");
     expect(card1?.tableNumber).toBe("2");
-    // 占有中の対戦台への割り当ては拒否され、card-2の対戦台番号は変わらない。
-    expect(card2?.tableNumber).toBeNull();
+    expect(card2?.tableNumber).toBe("2");
   });
 
-  it("greys out (disables) a table option already in use and shows which match is using it, without affecting the assigning card's own table", async () => {
+  it("lets a not-started card pick a table already used by an in-progress card, without disabling it (2026-10-19)", async () => {
     await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();
     render(<App />);
@@ -233,6 +239,73 @@ describe("Table count setting and assignment (User Story 2)", () => {
 
     const select1 = screen.getByLabelText("R1-1の対戦台");
     await user.selectOptions(select1, "2");
+    const row1 = screen.getByText("R1-1").closest("tr") as HTMLElement;
+    await user.click(
+      within(row1).getByRole("button", { name: "進行中にする" }),
+    );
+
+    // card-2は未着手のままなので、card-1(進行中)が使っている対戦台"2"も
+    // 含め、どの対戦台も占有中扱いにならず自由に選べる。
+    const select2 = await screen.findByLabelText("R1-2の対戦台");
+    const option2 = within(select2).getByRole("option", {
+      name: "2",
+    }) as HTMLOptionElement;
+    expect(option2.disabled).toBe(false);
+    await user.selectOptions(select2, "2");
+
+    const db = await getDb();
+    const card2 = await db.get("matchCards", "card-2");
+    expect(card2?.tableNumber).toBe("2");
+  });
+
+  it("rejects assigning a table already in use by another in-progress card (FR-014)", async () => {
+    await seedPool(["1", "2", "3"]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("R1-1");
+
+    const select1 = screen.getByLabelText("R1-1の対戦台");
+    await user.selectOptions(select1, "2");
+    const row1 = screen.getByText("R1-1").closest("tr") as HTMLElement;
+    await user.click(
+      within(row1).getByRole("button", { name: "進行中にする" }),
+    );
+    const row2 = screen.getByText("R1-2").closest("tr") as HTMLElement;
+    await user.click(
+      within(row2).getByRole("button", { name: "進行中にする" }),
+    );
+
+    const select2 = screen.getByLabelText("R1-2の対戦台");
+    await user.selectOptions(select2, "2");
+
+    const db = await getDb();
+    const card1 = await db.get("matchCards", "card-1");
+    const card2 = await db.get("matchCards", "card-2");
+    expect(card1?.tableNumber).toBe("2");
+    expect(card1?.status).toBe("IN_PROGRESS");
+    expect(card2?.status).toBe("IN_PROGRESS");
+    // 進行中同士で対戦台が重複するため、card-2の対戦台番号は変わらない。
+    expect(card2?.tableNumber).toBeNull();
+  });
+
+  it("greys out (disables) a table option in use by another in-progress match once this card is also in-progress, and shows which match is using it", async () => {
+    await seedPool(["1", "2", "3"]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("R1-1");
+
+    const select1 = screen.getByLabelText("R1-1の対戦台");
+    await user.selectOptions(select1, "2");
+    const row1 = screen.getByText("R1-1").closest("tr") as HTMLElement;
+    await user.click(
+      within(row1).getByRole("button", { name: "進行中にする" }),
+    );
+    const row2 = screen.getByText("R1-2").closest("tr") as HTMLElement;
+    await user.click(
+      within(row2).getByRole("button", { name: "進行中にする" }),
+    );
 
     const select2 = await screen.findByLabelText("R1-2の対戦台");
     const occupiedOption = within(select2).getByRole("option", {
@@ -247,7 +320,8 @@ describe("Table count setting and assignment (User Story 2)", () => {
 
     // 自分自身が使用中の対戦台("2")は、select1自身の選択肢としては
     // 占有中扱いにならない(選び直しができる)。
-    const ownOption = within(select1).getByRole("option", {
+    const ownSelect1 = screen.getByLabelText("R1-1の対戦台");
+    const ownOption = within(ownSelect1).getByRole("option", {
       name: "2",
     }) as HTMLOptionElement;
     expect(ownOption.disabled).toBe(false);

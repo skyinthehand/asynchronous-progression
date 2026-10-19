@@ -41,7 +41,14 @@ export function TableChips({
           未設定
         </button>
         {tableNumbers.map((n) => {
-          const occupyingCard = findOccupyingMatchCard(n, matchCards, card.id);
+          // ユーザーフィードバック(2026-10-19): 占有中判定(進行中の対戦との
+          // 対戦台の重複)は、このカード自身が進行中の場合のみ適用する。
+          // 未着手のカードは、他の対戦が使用中の対戦台も含め全ての対戦台
+          // から自由に選べる(すぐにその卓を使い始めるわけではないため)。
+          const occupyingCard =
+            card.status === "IN_PROGRESS"
+              ? findOccupyingMatchCard(n, matchCards, card.id)
+              : null;
           return (
             <button
               key={n}

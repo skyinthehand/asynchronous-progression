@@ -108,6 +108,9 @@ export function NextMatchModal({
               tableNumbers={tableNumbers}
               matchCards={matchCards}
               excludeCardId={card.id}
+              // ここでの選択は「対戦開始」と同時に進行中へ変更されるため、
+              // 対戦者が未確定でも占有中判定は常に適用する。
+              enforceOccupancy
             />
           </select>
         </label>

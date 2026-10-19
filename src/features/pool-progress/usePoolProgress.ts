@@ -331,8 +331,12 @@ export function usePoolProgress(): UsePoolProgressResult {
       // 005-stream-match-lock FR-003: 配信台が設定されている対戦カードは
       // 対戦台の割り当て・変更を不可にする。
       if (isStreamLocked(target)) return false;
+      // ユーザーフィードバック(2026-10-19): 占有中判定は、このカード自身が
+      // 進行中の場合のみ適用する(進行中同士で同じ対戦台を選んだ場合のみ
+      // ブロックする。未着手のカードは全ての対戦台から自由に選べる)。
       if (
         tableNumber !== null &&
+        target.status === "IN_PROGRESS" &&
         isTableOccupied(tableNumber, matchCards, matchCardId)
       ) {
         return false;
