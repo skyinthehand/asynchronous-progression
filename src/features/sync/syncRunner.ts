@@ -97,6 +97,11 @@ export function mergeMatchCard(
     // ローカル優先で判定する。
     status: local.statusLocalOnly ? local.status : remote.status,
     statusLocalOnly: local.statusLocalOnly,
+    // ユーザーフィードバック(2026-10-19): 対戦台の送信待ちフラグも、
+    // statusLocalOnlyと同様に常にローカル優先で維持する(remoteにこの
+    // フィールドの概念は無く、ここで保護しないと送信が完了する前に
+    // マージでfalseへ巻き戻ってしまう)。
+    tableLocalOnly: local.tableLocalOnly,
   };
 }
 
@@ -186,28 +191,45 @@ export async function runSync(): Promise<SyncResult> {
         }
       }
 
-      if (card.statusLocalOnly) {
-        // ユーザーフィードバック(2026-08-13): 対戦を「進行中にする」際、
-        // ステータス(M2: markSetInProgress)と対戦台番号(M3:
-        // assignStation)をstartgg側にも反映する。対戦台番号が
-        // ローカル独自の値でstart.gg側に対応するstationが存在しない
-        // 場合は、そのカードのstation割り当てだけを諦める(エラーには
-        // しない。markSetInProgress自体は送信済みなのでstatusLocalOnly
-        // はクリアする)。
+      // ユーザーフィードバック(2026-10-19): 状態(M2: markSetInProgress)と
+      // 対戦台(M3: assignStation)の送信は、互いに独立して試行・成否判定
+      // する(以前は1つのtry/catchにまとめていたため、既にstart.gg側でも
+      // 進行中になっている対戦カードに対戦台だけを変更した場合でも、
+      // 不要なmarkSetInProgressが「Set is already started」で失敗し、
+      // そのエラーで対戦台の送信(assignStationToSet)まで一切実行され
+      // なくなる不具合があった)。両方が保留中の場合に片方の保存で
+      // もう片方のクリア結果を巻き戻さないよう、保存のたびに最新の
+      // カードを保持し直す。
+      let latestCard = card;
+      if (latestCard.statusLocalOnly) {
         try {
-          if (card.status === "IN_PROGRESS") {
-            await markSetInProgress(client, card.id);
+          if (latestCard.status === "IN_PROGRESS") {
+            await markSetInProgress(client, latestCard.id);
           }
-          if (card.tableNumber !== null) {
-            const stationId = await resolveStationId(card.tableNumber);
-            if (stationId) {
-              await assignStationToSet(client, card.id, stationId);
-            }
-          }
-          await saveMatchCard({ ...card, statusLocalOnly: false });
+          latestCard = { ...latestCard, statusLocalOnly: false };
+          await saveMatchCard(latestCard);
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
-          pushErrors.push(`${card.identifier}: ${reason}`);
+          pushErrors.push(`${latestCard.identifier}: ${reason}`);
+        }
+      }
+
+      if (latestCard.tableLocalOnly) {
+        // 対戦台番号がローカル独自の値でstart.gg側に対応するstationが
+        // 存在しない場合は、そのカードのstation割り当てだけを諦める
+        // (エラーにはしない)。
+        try {
+          if (latestCard.tableNumber !== null) {
+            const stationId = await resolveStationId(latestCard.tableNumber);
+            if (stationId) {
+              await assignStationToSet(client, latestCard.id, stationId);
+            }
+          }
+          latestCard = { ...latestCard, tableLocalOnly: false };
+          await saveMatchCard(latestCard);
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          pushErrors.push(`${latestCard.identifier}: ${reason}`);
         }
       }
     }

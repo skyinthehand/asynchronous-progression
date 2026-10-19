@@ -40,7 +40,9 @@ export async function getPendingMatchCards(
   poolId: string,
 ): Promise<MatchCard[]> {
   const all = await getMatchCardsByPool(poolId);
-  return all.filter((card) => card.localOnly || card.statusLocalOnly);
+  return all.filter(
+    (card) => card.localOnly || card.statusLocalOnly || card.tableLocalOnly,
+  );
 }
 
 export async function deleteMatchCards(ids: string[]): Promise<void> {

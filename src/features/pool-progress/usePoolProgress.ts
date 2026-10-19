@@ -344,15 +344,15 @@ export function usePoolProgress(): UsePoolProgressResult {
       // ユーザーフィードバック(2026-10-19): 対戦台番号はローカルに保存する
       // だけでは不十分で、start.gg側のstationにも反映する必要がある
       // (反映しないと「対戦台の情報がstartggに反映されない」)。
-      // statusLocalOnlyはcallSuggestedMatch(次戦候補から呼び出す)と同じ
-      // 「start.ggへ未送信の変更がある」キューで、syncRunner.tsのrunSyncが
-      // このフラグを見てmarkSetInProgress(状態がIN_PROGRESSの場合のみ)・
-      // assignStationToSet(対戦台番号がある場合のみ)を送信しクリアする。
-      // 対戦台だけの変更でもこのフラグを立てて、同じキューに乗せる。
+      // tableLocalOnlyは対戦台の送信待ちだけを示す専用フラグ(statusLocal
+      // Onlyとは独立。既にIN_PROGRESSな対戦カードに対戦台だけ変更する
+      // ケースで、statusLocalOnlyを流用すると不要なmarkSetInProgressが
+      // 「Set is already started」で失敗し、その巻き添えで対戦台の送信
+      // 自体が行われなくなる不具合があったため分離した)。
       const updated: MatchCard = {
         ...target,
         tableNumber,
-        statusLocalOnly: true,
+        tableLocalOnly: true,
       };
       await saveMatchCard(updated);
       setMatchCards((prev) =>
@@ -379,7 +379,9 @@ export function usePoolProgress(): UsePoolProgressResult {
         // ユーザーフィードバック(2026-08-13): 進行中への変更・対戦台番号を
         // startgg側にも反映できるようにする(syncRunner.tsのrunSyncが
         // markSetInProgress/assignStationToSetで送信するまでのキュー)。
+        // この操作は状態と対戦台を同時に変更するため、両方のフラグを立てる。
         statusLocalOnly: true,
+        tableLocalOnly: true,
       };
       const nextCards = matchCards.map((card) =>
         card.id === matchCardId ? updated : card,

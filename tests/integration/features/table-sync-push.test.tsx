@@ -173,8 +173,10 @@ describe("Table assignment is pushed to start.gg (2026-10-19)", () => {
     const beforeSync = await db.get("matchCards", "card-1");
     expect(beforeSync?.tableNumber).toBe("2");
     expect(beforeSync?.status).toBe("NOT_STARTED");
-    // 対戦台だけの変更でも、start.ggへの送信待ちキューに乗る。
-    expect(beforeSync?.statusLocalOnly).toBe(true);
+    // 対戦台だけの変更でも、start.ggへの送信待ちキューに乗る(状態とは
+    // 別の専用フラグ、2026-10-19)。
+    expect(beforeSync?.tableLocalOnly).toBe(true);
+    expect(beforeSync?.statusLocalOnly).toBe(false);
 
     await user.click(within(modal).getByRole("button", { name: "閉じる" }));
     await user.click(await screen.findByRole("button", { name: "今すぐ同期" }));
@@ -189,7 +191,7 @@ describe("Table assignment is pushed to start.gg (2026-10-19)", () => {
     expect(operations.markSetInProgress).not.toHaveBeenCalled();
 
     const afterSync = await db.get("matchCards", "card-1");
-    expect(afterSync?.statusLocalOnly).toBe(false);
+    expect(afterSync?.tableLocalOnly).toBe(false);
     expect(afterSync?.tableNumber).toBe("2");
   });
 });

@@ -639,6 +639,10 @@ describe("Background sync and offline notification (User Story 3)", () => {
       entrant1SourceMatchId: null,
       entrant2SourceMatchId: null,
       statusLocalOnly: true,
+      // ユーザーフィードバック(2026-10-19): 状態と対戦台は別々の送信待ち
+      // フラグになった(callSuggestedMatchはこの対戦のように両方を同時に
+      // 変更するため、両方を立てる)。
+      tableLocalOnly: true,
     });
     vi.mocked(operations.fetchStations).mockResolvedValue([
       { stationId: "900", number: "1" },
@@ -665,9 +669,10 @@ describe("Background sync and offline notification (User Story 3)", () => {
     );
     const card = await db.get("matchCards", "card-2");
     expect(card?.statusLocalOnly).toBe(false);
+    expect(card?.tableLocalOnly).toBe(false);
   });
 
-  it("clears statusLocalOnly (does not retry forever) when the local table number has no matching start.gg station", async () => {
+  it("clears tableLocalOnly (does not retry forever) when the local table number has no matching start.gg station", async () => {
     const db = await getDb();
     await db.put("matchCards", {
       id: "card-2",
@@ -687,6 +692,7 @@ describe("Background sync and offline notification (User Story 3)", () => {
       entrant1SourceMatchId: null,
       entrant2SourceMatchId: null,
       statusLocalOnly: true,
+      tableLocalOnly: true,
     });
     vi.mocked(operations.fetchStations).mockResolvedValue([
       { stationId: "900", number: "1" },
@@ -708,6 +714,63 @@ describe("Background sync and offline notification (User Story 3)", () => {
     expect(operations.assignStationToSet).not.toHaveBeenCalled();
     const card = await db.get("matchCards", "card-2");
     expect(card?.statusLocalOnly).toBe(false);
+    expect(card?.tableLocalOnly).toBe(false);
+  });
+
+  /**
+   * ユーザーフィードバック(2026-10-19): 既にstart.gg側でも進行中になって
+   * いる対戦カード(このアプリのローカルでもstatusLocalOnlyはfalseで
+   * 既に反映済み)に対戦台だけを変更した場合、不要なmarkSetInProgressを
+   * 送らず、対戦台の送信(assignStationToSet)だけが行われる(「Set is
+   * already started」のエラーに巻き込まれて対戦台の送信ごと失敗して
+   * いた不具合の再発防止)。
+   */
+  it("pushes only the table (station) without calling markSetInProgress when only the table changed", async () => {
+    const db = await getDb();
+    await db.put("matchCards", {
+      id: "card-2",
+      poolId: "pool-1",
+      identifier: "R1-2",
+      round: 1,
+      bracketSide: "N/A",
+      tableNumber: "1",
+      entrant1Id: "e3",
+      entrant2Id: "e4",
+      winnerId: null,
+      score: null,
+      status: "IN_PROGRESS",
+      isLocked: false,
+      editHistory: [],
+      localOnly: false,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
+      statusLocalOnly: false,
+      tableLocalOnly: true,
+    });
+    vi.mocked(operations.markSetInProgress).mockRejectedValue(
+      new Error("Set is already started"),
+    );
+    vi.mocked(operations.fetchStations).mockResolvedValue([
+      { stationId: "900", number: "1" },
+    ]);
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+      poolId: "pool-1",
+      displayIdentifier: "Pool 1",
+      bracketType: "ROUND_ROBIN",
+      matchCards: [],
+      entrants: [],
+    });
+
+    await runSync();
+
+    expect(operations.markSetInProgress).not.toHaveBeenCalled();
+    expect(operations.assignStationToSet).toHaveBeenCalledWith(
+      expect.anything(),
+      "card-2",
+      "900",
+    );
+    const card = await db.get("matchCards", "card-2");
+    expect(card?.tableLocalOnly).toBe(false);
   });
 
   it("does not let a stale remote snapshot revert a locally in-progress status before it has been pushed", async () => {

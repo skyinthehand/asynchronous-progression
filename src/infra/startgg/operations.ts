@@ -517,6 +517,7 @@ export async function fetchPoolDetail(
       entrant1W: false,
       entrant2W: false,
       statusLocalOnly: false,
+      tableLocalOnly: false,
       // 005-stream-match-lock FR-001: 配信(ストリーム)が割り当てられて
       // いるかどうか。読み取り専用で、常にstart.gg側の最新値で上書きする。
       isStreamed: Boolean(set.stream),

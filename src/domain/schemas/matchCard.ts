@@ -75,6 +75,18 @@ export const MatchCardSchema = z.object({
    */
   statusLocalOnly: z.boolean().default(false),
   /**
+   * ユーザーフィードバック(2026-10-19): 対戦台番号だけを変更した場合の
+   * start.gg送信待ちキュー。statusLocalOnlyを対戦台の変更にも流用した
+   * ところ、既にstart.gg側でも進行中になっている対戦(このアプリの
+   * ローカルでは「進行中」のまま、過去に別途反映済み)に対して対戦台だけ
+   * 変更しても、同期のたびに不要なmarkSetInProgress(「Set is already
+   * started」で失敗する)が再送され、そのエラーで対戦台の送信
+   * (assignStationToSet)まで巻き込まれて一切実行されない不具合になって
+   * いた。対戦台の送信要否は、状態の送信要否(statusLocalOnly)とは独立に
+   * 判定する(syncRunner.ts参照)。
+   */
+  tableLocalOnly: z.boolean().default(false),
+  /**
    * 005-stream-match-lock FR-001: start.gg上でこの対戦に配信(ストリーム)が
    * 割り当てられているか。読み取り専用で、本ツール内から直接変更する
    * 手段は提供しない。定期同期のたびにstart.gg側の最新値で上書きする。
