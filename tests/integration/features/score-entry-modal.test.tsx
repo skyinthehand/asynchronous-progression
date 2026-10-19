@@ -257,6 +257,49 @@ describe("Match cards on the bracket board have no operable elements; tapping th
     expect(card2?.statusLocalOnly).toBe(false);
   });
 
+  it("does not throw a tie error when only the table is assigned and no score has been touched (2026-10-19)", async () => {
+    await seedBracketPool(["1", "2"]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const card = (await screen.findByText("WF")).closest("li");
+    if (!card) throw new Error("card not found");
+    await user.click(card);
+
+    const modalHeading = await screen.findByRole("heading", {
+      name: "WFの編集",
+    });
+    const modal = modalHeading.closest(".app-modal") as HTMLElement;
+
+    // ユーザーフィードバック(2026-10-19): UIデザインだけでは状態・対戦台が
+    // 保存ボタンを押さなくても即座に保存されることが分からなかったため、
+    // 明示する注記と、スコア区画を区切る見出しを表示する。
+    expect(
+      within(modal).getByText("状態・対戦台は選ぶとすぐ保存されます。"),
+    ).toBeInTheDocument();
+    expect(
+      within(modal).getByText("スコア", { selector: ".score-entry-heading" }),
+    ).toBeInTheDocument();
+
+    const tableGroup = within(modal).getByRole("group", { name: "対戦台" });
+    await user.click(within(tableGroup).getByRole("button", { name: "卓 2" }));
+
+    // ユーザーフィードバック(2026-10-19): 対戦台を変えただけでスコアには
+    // 何も触れていないので、スコアの確定ボタン(保存)は押せない
+    // (押せてしまうと、両者未入力=0-0の同点とみなされて紛らわしい
+    // エラーになっていた)。
+    expect(within(modal).getByRole("button", { name: "保存" })).toBeDisabled();
+    expect(
+      screen.queryByText(/同点のため結果を確定できません/),
+    ).not.toBeInTheDocument();
+
+    const db = await getDb();
+    const card1 = await db.get("matchCards", "card-1");
+    expect(card1?.tableNumber).toBe("2");
+    expect(card1?.status).toBe("NOT_STARTED");
+  });
+
   it("does not revert an in-progress card to not-started once already reflected to start.gg", async () => {
     await seedBracketPool(["1"]);
     const db = await getDb();
@@ -532,6 +575,11 @@ describe("Assigning a table before both entrants are decided (2026-10-19)", () =
     expect(
       within(modal).queryByRole("group", { name: "Carolのスコア" }),
     ).not.toBeInTheDocument();
+    // ユーザーフィードバック(2026-10-19): 状態区画が無い(対戦者未確定)
+    // 場合は、注記の文言も「対戦台」だけを指すようにする。
+    expect(
+      within(modal).getByText("対戦台は選ぶとすぐ保存されます。"),
+    ).toBeInTheDocument();
 
     const tableGroup = within(modal).getByRole("group", { name: "対戦台" });
     await user.click(within(tableGroup).getByRole("button", { name: "卓 2" }));

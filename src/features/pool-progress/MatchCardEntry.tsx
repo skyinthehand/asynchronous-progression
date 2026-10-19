@@ -223,6 +223,13 @@ export function MatchCardEntry({
   // (クリックで開閉するツールチップ)で示す。表示条件は旧来の静的な
   // 注意書きと同じ(確定済み・かつ後続の対戦が進行済みのカードのみ)。
   const isLockedForEdit = !isEditable && card.isLocked;
+  // ユーザーフィードバック(2026-10-19): モーダル内で状態・対戦台の各区画が
+  // 実際に表示されるかどうか(下の即時保存の注記をどちらの文言にするか・
+  // そもそも表示するかの判定に使う)。
+  const showStateSection =
+    !hasPendingSlot &&
+    (card.status === "NOT_STARTED" || card.status === "IN_PROGRESS");
+  const showTableChips = tableNumbers.length > 0;
 
   function openEditModal() {
     if (canEdit) setEditModalOpen(true);
@@ -372,43 +379,50 @@ export function MatchCardEntry({
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 18 }}
                 >
-                  {!hasPendingSlot &&
-                    (card.status === "NOT_STARTED" ||
-                      card.status === "IN_PROGRESS") && (
-                      <div className="msec">
-                        <span className="label">状態</span>
-                        <fieldset className="seg seg2" aria-label="状態">
-                          <legend className="sr-only">状態</legend>
-                          <button
-                            type="button"
-                            className={
-                              card.status === "NOT_STARTED" ? "on" : ""
-                            }
-                            aria-pressed={card.status === "NOT_STARTED"}
-                            onClick={() => onSetNotStarted(card.id)}
-                          >
-                            未着手
-                          </button>
-                          <button
-                            type="button"
-                            className={
-                              card.status === "IN_PROGRESS" ? "on" : ""
-                            }
-                            aria-pressed={card.status === "IN_PROGRESS"}
-                            onClick={() => onSetInProgress(card.id)}
-                          >
-                            進行中
-                          </button>
-                        </fieldset>
-                      </div>
-                    )}
-                  {tableNumbers.length > 0 && (
+                  {showStateSection && (
+                    <div className="msec">
+                      <span className="label">状態</span>
+                      <fieldset className="seg seg2" aria-label="状態">
+                        <legend className="sr-only">状態</legend>
+                        <button
+                          type="button"
+                          className={card.status === "NOT_STARTED" ? "on" : ""}
+                          aria-pressed={card.status === "NOT_STARTED"}
+                          onClick={() => onSetNotStarted(card.id)}
+                        >
+                          未着手
+                        </button>
+                        <button
+                          type="button"
+                          className={card.status === "IN_PROGRESS" ? "on" : ""}
+                          aria-pressed={card.status === "IN_PROGRESS"}
+                          onClick={() => onSetInProgress(card.id)}
+                        >
+                          進行中
+                        </button>
+                      </fieldset>
+                    </div>
+                  )}
+                  {showTableChips && (
                     <TableChips
                       card={card}
                       tableNumbers={tableNumbers}
                       matchCards={matchCards}
                       onAssignTable={onAssignTable}
                     />
+                  )}
+                  {/* ユーザーフィードバック(2026-10-19): 状態・対戦台は
+                      選んだ瞬間に保存される(下の「保存」はスコアのみが
+                      対象)が、見た目だけではそれが伝わらなかったため、
+                      明示する注記を添える。 */}
+                  {(showStateSection || showTableChips) && (
+                    <p className="note-line">
+                      {showStateSection && showTableChips
+                        ? "状態・対戦台は選ぶとすぐ保存されます。"
+                        : showStateSection
+                          ? "状態は選ぶとすぐ保存されます。"
+                          : "対戦台は選ぶとすぐ保存されます。"}
+                    </p>
                   )}
                 </div>
                 {!hasPendingSlot &&

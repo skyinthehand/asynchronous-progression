@@ -924,11 +924,31 @@ label {
   line-height: 16px;
 }
 
-/* 002-match-scoring-and-flow: スコア/DQ入力フォーム。 */
+/* 002-match-scoring-and-flow: スコア/DQ入力フォーム。
+   ユーザーフィードバック(2026-10-19): 状態・対戦台(即時保存)とスコア
+   (ボタンで確定するまで保存されない)の違いが分かりにくかったため、
+   artifactの`.msec`(スコア、gap:14px・border-top付き)に合わせて上に
+   区切り線を入れ、別の操作であることを視覚的に示す。 */
 .score-entry-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.score-entry-heading {
+  margin: 0;
+}
+
+/* artifactの`.note-line`。状態・対戦台が即時保存であることの案内に使う。 */
+.note-line {
+  margin: 0;
+  font-size: 13px;
+  color: #3d3d3d;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
 }
 
 .score-entry-row {

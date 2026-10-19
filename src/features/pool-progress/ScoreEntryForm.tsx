@@ -184,6 +184,11 @@ export function ScoreEntryForm({
 
   return (
     <div className="score-entry-form">
+      {/* ユーザーフィードバック(2026-10-19): 状態・対戦台は選んだ瞬間に
+          保存されるが、スコアだけはこの区画の「保存」を押すまで保存
+          されない。見出し+区切り線(CSS側)で、ここだけが別の操作である
+          ことを示す。 */}
+      <span className="label score-entry-heading">スコア</span>
       {(
         [
           [entrant1Id, entrant1Selection, selectEntrant1],
@@ -229,7 +234,17 @@ export function ScoreEntryForm({
         );
       })}
       {error && <p className="score-entry-error">{ERROR_MESSAGES[error]}</p>}
-      <button type="button" onClick={handleSubmit}>
+      <button
+        type="button"
+        onClick={handleSubmit}
+        // ユーザーフィードバック(2026-10-19): 対戦台の変更だけが目的で、
+        // スコアを何も選んでいない状態でこのボタンを押すと、未入力同士が
+        // 同点(0-0)とみなされ「同点のため結果を確定できません」という
+        // 紛らわしいエラーになっていた。どちらのスコアも未選択の間は
+        // そもそも押せないようにする(対戦台・状態の変更はこのボタンとは
+        // 無関係に、それぞれのボタンで即時反映される)。
+        disabled={entrant1Selection === null && entrant2Selection === null}
+      >
         {/* ユーザーフィードバック(2026-10-17): 両者のスコアが揃って結果が
             一意に決まるまでは、確定ボタンではなく「保存」と表示する。 */}
         {"winnerSlot" in previewOutcome ? submitLabel : "保存"}
