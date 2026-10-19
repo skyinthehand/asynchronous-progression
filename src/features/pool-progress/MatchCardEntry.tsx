@@ -210,11 +210,13 @@ export function MatchCardEntry({
   // カードは、状態(未着手・進行中・確定済み)を問わず一切編集できない
   // (新規入力・修正のどちらのモーダルもこのcanEditで一括して開閉を
   // 制御しているため、ここ1箇所のガードで両方をブロックできる)。
+  // ユーザーフィードバック(2026-10-19): 対戦者が未確定(hasPendingSlot)
+  // でも、対戦台の割り当てだけは先に行いたいことがあるため、カード自体の
+  // タップ(モーダルを開く)はhasPendingSlotで止めない。スコア入力・
+  // 「進行中にする」等、対戦者を前提とする操作だけをモーダル内で個別に
+  // 制限する(下のcanScore参照)。
   const canEdit =
-    !readOnly &&
-    (isEditable || !card.isLocked) &&
-    !isStreamLocked(card) &&
-    !hasPendingSlot;
+    !readOnly && (isEditable || !card.isLocked) && !isStreamLocked(card);
   const variant = matchCardVariant(card, isNext, Boolean(isBlocked));
   const tableLabel = card.tableNumber ? `卓 ${card.tableNumber}` : "卓 —";
   // artifact更新(2026-10-17): 修正不可の注意書きは、モックアップの鍵マーク
@@ -350,6 +352,14 @@ export function MatchCardEntry({
           >
             {isEditable ? (
               <>
+                {/* ユーザーフィードバック(2026-10-19): 対戦者が未確定の
+                    間は、対戦台の割り当てだけ先にできるようにする(進行中
+                    への変更・スコア入力は対戦者が決まってから)。 */}
+                {hasPendingSlot && (
+                  <p>
+                    対戦者がまだ確定していません。前の対戦の結果入力を待っています。
+                  </p>
+                )}
                 {/* ユーザーフィードバック(2026-10-17): 進行中にした後も
                     「未着手」へ押し戻せるようにする(start.ggへまだ反映
                     されていない間はsetNotStartedが取り消せる。反映済みの
@@ -362,31 +372,36 @@ export function MatchCardEntry({
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 18 }}
                 >
-                  {(card.status === "NOT_STARTED" ||
-                    card.status === "IN_PROGRESS") && (
-                    <div className="msec">
-                      <span className="label">状態</span>
-                      <fieldset className="seg seg2" aria-label="状態">
-                        <legend className="sr-only">状態</legend>
-                        <button
-                          type="button"
-                          className={card.status === "NOT_STARTED" ? "on" : ""}
-                          aria-pressed={card.status === "NOT_STARTED"}
-                          onClick={() => onSetNotStarted(card.id)}
-                        >
-                          未着手
-                        </button>
-                        <button
-                          type="button"
-                          className={card.status === "IN_PROGRESS" ? "on" : ""}
-                          aria-pressed={card.status === "IN_PROGRESS"}
-                          onClick={() => onSetInProgress(card.id)}
-                        >
-                          進行中
-                        </button>
-                      </fieldset>
-                    </div>
-                  )}
+                  {!hasPendingSlot &&
+                    (card.status === "NOT_STARTED" ||
+                      card.status === "IN_PROGRESS") && (
+                      <div className="msec">
+                        <span className="label">状態</span>
+                        <fieldset className="seg seg2" aria-label="状態">
+                          <legend className="sr-only">状態</legend>
+                          <button
+                            type="button"
+                            className={
+                              card.status === "NOT_STARTED" ? "on" : ""
+                            }
+                            aria-pressed={card.status === "NOT_STARTED"}
+                            onClick={() => onSetNotStarted(card.id)}
+                          >
+                            未着手
+                          </button>
+                          <button
+                            type="button"
+                            className={
+                              card.status === "IN_PROGRESS" ? "on" : ""
+                            }
+                            aria-pressed={card.status === "IN_PROGRESS"}
+                            onClick={() => onSetInProgress(card.id)}
+                          >
+                            進行中
+                          </button>
+                        </fieldset>
+                      </div>
+                    )}
                   {tableNumbers.length > 0 && (
                     <TableChips
                       card={card}
@@ -396,26 +411,27 @@ export function MatchCardEntry({
                     />
                   )}
                 </div>
-                {isBye && byeEntrantId ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onRecordResult(card.id, byeResult(byeEntrantId));
-                      setEditModalOpen(false);
-                    }}
-                  >
-                    {entrantName(entrantById, byeEntrantId)} の不戦勝で確定
-                  </button>
-                ) : (
-                  <ScoreEntryForm
-                    card={card}
-                    entrantById={entrantById}
-                    onSubmit={(result) => {
-                      onRecordResult(card.id, result);
-                      setEditModalOpen(false);
-                    }}
-                  />
-                )}
+                {!hasPendingSlot &&
+                  (isBye && byeEntrantId ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRecordResult(card.id, byeResult(byeEntrantId));
+                        setEditModalOpen(false);
+                      }}
+                    >
+                      {entrantName(entrantById, byeEntrantId)} の不戦勝で確定
+                    </button>
+                  ) : (
+                    <ScoreEntryForm
+                      card={card}
+                      entrantById={entrantById}
+                      onSubmit={(result) => {
+                        onRecordResult(card.id, result);
+                        setEditModalOpen(false);
+                      }}
+                    />
+                  ))}
               </>
             ) : (
               <ScoreEntryForm

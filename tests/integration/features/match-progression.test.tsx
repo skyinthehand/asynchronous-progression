@@ -131,14 +131,30 @@ describe("Winner advancement to the next round (FR-023)", () => {
 
     // ユーザーフィードバック(2026-10-13): まだ出場元の対戦(R1-1)が完了
     // していない間は、空の枠を「BYE」ではなく「R1-1の勝者」のように
-    // 出場元を示す表示にし(本当の不戦勝と誤解させない)、カード自体も
-    // クリックできない(編集不可)。
+    // 出場元を示す表示にする(本当の不戦勝と誤解させない)。
+    // ユーザーフィードバック(2026-10-19): ただし対戦台の割り当ては対戦者が
+    // 未確定でも先に行えるよう、カード自体はクリックできる(編集不可
+    // ではない)。
     const r2Before = (await screen.findByText("R2-1")).closest("li");
     if (!r2Before) throw new Error("round 2 card not found");
     expect(r2Before.textContent).toContain("R1-1の勝者");
     expect(r2Before.textContent).not.toContain("BYE");
-    expect(r2Before).not.toHaveAttribute("role", "button");
-    expect(r2Before).not.toHaveClass("match-card-clickable");
+    expect(r2Before).toHaveAttribute("role", "button");
+    expect(r2Before).toHaveClass("match-card-clickable");
+
+    // 対戦者未確定の間にタップすると、確定待ちの案内のみが表示され、
+    // スコア入力・状態変更はできない(対戦台はpool.tableNumbersが
+    // 空のためここでは表示されない。別テストで確認する)。
+    await user.click(r2Before);
+    expect(
+      await screen.findByText(
+        "対戦者がまだ確定していません。前の対戦の結果入力を待っています。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "進行中" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "閉じる" }));
 
     const r1Card = (await screen.findByText("R1-1")).closest("li");
     if (!r1Card) throw new Error("R1-1 card not found");

@@ -410,3 +410,158 @@ describe("Match cards on the bracket board have no operable elements; tapping th
     ).not.toBeInTheDocument();
   });
 });
+
+/**
+ * ユーザーフィードバック(2026-10-19): 対戦者(出場元の対戦の勝者)が
+ * まだ確定していないカードでも、対戦台の割り当てだけは先にできるように
+ * する(スコア入力・「進行中にする」は対戦者が決まってから)。
+ */
+describe("Assigning a table before both entrants are decided (2026-10-19)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  async function seedPendingSlotPool(tableNumbers: string[]) {
+    const db = await getDb();
+    await db.put(
+      "startggConfig",
+      {
+        tournamentSlug: "impact-major-4",
+        eventId: "1",
+        phaseId: "1",
+        poolId: "pool-1",
+        syncToken: "test-token",
+        tokenUpdatedAt: null,
+      },
+      SINGLETON_KEY,
+    );
+    await db.put("pools", {
+      id: "pool-1",
+      displayIdentifier: "Pool 1",
+      tournamentSlug: "impact-major-4",
+      eventId: "1",
+      phaseId: "1",
+      className: null,
+      bracketType: "SINGLE_ELIMINATION",
+      staffName: null,
+      lastSyncedAt: null,
+      onboardingCompletedAt: new Date().toISOString(),
+      tableNumbers,
+    });
+    for (const [id, name] of [
+      ["e1", "Alice"],
+      ["e2", "Bob"],
+      ["e3", "Carol"],
+    ]) {
+      await db.put("entrants", {
+        id,
+        poolId: "pool-1",
+        name,
+        attendance: "PRESENT",
+        attendanceRecordedAt: null,
+        poolFinished: false,
+        seed: null,
+        nextMatch: null,
+        awayPeriods: [],
+      });
+    }
+    await db.put("matchCards", {
+      id: "card-1",
+      poolId: "pool-1",
+      identifier: "R1-1",
+      round: 1,
+      bracketSide: "WINNERS",
+      tableNumber: null,
+      entrant1Id: "e1",
+      entrant2Id: "e2",
+      winnerId: null,
+      score: null,
+      status: "NOT_STARTED",
+      isLocked: false,
+      editHistory: [],
+      localOnly: false,
+      entrant1SourceMatchId: null,
+      entrant2SourceMatchId: null,
+    });
+    // card-2の片方(entrant1)はcard-1の勝者待ちでまだ未確定、もう片方
+    // (entrant2)は確定済み、という組合せ。
+    await db.put("matchCards", {
+      id: "card-2",
+      poolId: "pool-1",
+      identifier: "R2-1",
+      round: 2,
+      bracketSide: "WINNERS",
+      tableNumber: null,
+      entrant1Id: null,
+      entrant2Id: "e3",
+      winnerId: null,
+      score: null,
+      status: "NOT_STARTED",
+      isLocked: false,
+      editHistory: [],
+      localOnly: false,
+      entrant1SourceMatchId: "card-1",
+      entrant2SourceMatchId: null,
+    });
+  }
+
+  it("opens the card and lets the table be assigned, without showing the state toggle or score entry", async () => {
+    await seedPendingSlotPool(["1", "2"]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const card = (await screen.findByText("R2-1")).closest("li");
+    if (!card) throw new Error("card not found");
+    expect(card.getAttribute("role")).toBe("button");
+    expect(card).toHaveTextContent("✏️");
+    await user.click(card);
+
+    const modalHeading = await screen.findByRole("heading", {
+      name: "R2-1の編集",
+    });
+    const modal = modalHeading.closest(".app-modal") as HTMLElement;
+    expect(
+      within(modal).getByText(
+        "対戦者がまだ確定していません。前の対戦の結果入力を待っています。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(modal).queryByRole("group", { name: "状態" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(modal).queryByRole("group", { name: "Carolのスコア" }),
+    ).not.toBeInTheDocument();
+
+    const tableGroup = within(modal).getByRole("group", { name: "対戦台" });
+    await user.click(within(tableGroup).getByRole("button", { name: "卓 2" }));
+
+    const db = await getDb();
+    const card2 = await db.get("matchCards", "card-2");
+    expect(card2?.tableNumber).toBe("2");
+    expect(card2?.entrant1Id).toBeNull();
+    expect(card2?.status).toBe("NOT_STARTED");
+  });
+
+  it("shows only the waiting message when the pool has no table numbers configured", async () => {
+    await seedPendingSlotPool([]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const card = (await screen.findByText("R2-1")).closest("li");
+    if (!card) throw new Error("card not found");
+    await user.click(card);
+
+    const modalHeading = await screen.findByRole("heading", {
+      name: "R2-1の編集",
+    });
+    const modal = modalHeading.closest(".app-modal") as HTMLElement;
+    expect(
+      within(modal).getByText(
+        "対戦者がまだ確定していません。前の対戦の結果入力を待っています。",
+      ),
+    ).toBeInTheDocument();
+    expect(within(modal).queryByRole("group")).not.toBeInTheDocument();
+  });
+});
