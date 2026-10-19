@@ -337,12 +337,19 @@ export function usePoolProgress(): UsePoolProgressResult {
       ) {
         return false;
       }
-      // 002-match-scoring-and-flow FR-016: 対戦台番号のローカル入力保護は
-      // syncRunner.tsのmergeMatchCardが常にtableNumberをローカル優先で
-      // マージするため、ここでlocalOnlyを立てる必要はない(結果確定と違い
-      // startgg側に送信するものがなく、localOnlyを立てても永久にクリア
-      // されない問題を避けるため意図的にそうしている)。
-      const updated: MatchCard = { ...target, tableNumber };
+      // ユーザーフィードバック(2026-10-19): 対戦台番号はローカルに保存する
+      // だけでは不十分で、start.gg側のstationにも反映する必要がある
+      // (反映しないと「対戦台の情報がstartggに反映されない」)。
+      // statusLocalOnlyはcallSuggestedMatch(次戦候補から呼び出す)と同じ
+      // 「start.ggへ未送信の変更がある」キューで、syncRunner.tsのrunSyncが
+      // このフラグを見てmarkSetInProgress(状態がIN_PROGRESSの場合のみ)・
+      // assignStationToSet(対戦台番号がある場合のみ)を送信しクリアする。
+      // 対戦台だけの変更でもこのフラグを立てて、同じキューに乗せる。
+      const updated: MatchCard = {
+        ...target,
+        tableNumber,
+        statusLocalOnly: true,
+      };
       await saveMatchCard(updated);
       setMatchCards((prev) =>
         prev.map((card) => (card.id === matchCardId ? updated : card)),
