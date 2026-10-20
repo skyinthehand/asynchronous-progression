@@ -1255,27 +1255,10 @@ label {
 }
 
 /* 002-match-scoring-and-flow: 次戦候補モーダル(NextMatchModal)。 */
-.next-match-modal-table {
-  font-weight: 700;
-  font-family: "IBM Plex Mono", monospace;
-}
-
-.next-match-modal-table-select {
-  display: block;
-  margin: 0.5rem 0;
-}
-
-.next-match-modal-actions {
-  display: flex;
-  gap: 0.6rem;
-  margin-top: 0.75rem;
-}
-
 .next-match-modal-away-warning {
   background: var(--accent);
   border: 1.5px solid var(--ink);
   padding: 0.5rem 0.8rem;
-  margin: 0.5rem 0;
 }
 
 .next-match-modal-away-warning p {
@@ -2023,4 +2006,12 @@ label {
   .tabs {
     gap: 16px;
   }
+}
+
+/* ユーザーフィードバック(2026-10-20): 次戦候補モーダルの区画の並びを、
+   セットの編集モーダル(MatchCardEntry.tsx)と同じ間隔に揃える。 */
+.next-match-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }

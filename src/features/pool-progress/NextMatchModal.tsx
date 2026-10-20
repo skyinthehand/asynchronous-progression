@@ -4,7 +4,7 @@ import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import { formatAwayStartedAt } from "../../domain/rules/awayPeriodFormat.js";
 import { currentAwayPeriod } from "../../domain/rules/awayStatus.js";
-import { TableNumberOptions } from "./TableNumberOptions.js";
+import { TableChips } from "./TableChips.js";
 
 interface NextMatchModalProps {
   card: MatchCard;
@@ -74,52 +74,68 @@ export function NextMatchModal({
   // 内の入力欄は「未入力」を既定値とする(入力しないまま「対戦開始」を選ぶと
   // 対戦台番号を割り当てずに進行中へ変更される、という挙動をspec.mdが明示
   // しているため、サジェスト対象の対戦台であっても事前入力はしない)。
-  const [tableNumber, setTableNumber] = useState("");
+  const [tableNumber, setTableNumber] = useState<string | null>(null);
   const awayNotes = awayEntrantNotes(entrantById, card);
 
   return (
     <Modal title="次戦候補" onClose={onClose}>
-      <p className="next-match-modal-identifier">{card.identifier}</p>
-      {table && <p className="next-match-modal-table">対戦台{table}へ</p>}
-      <p className="next-match-modal-entrants">
-        {entrantName(entrantById, card.entrant1Id)} vs{" "}
-        {entrantName(entrantById, card.entrant2Id)}
-      </p>
-      {awayNotes.length > 0 && (
-        <div className="next-match-modal-away-warning" role="alert">
-          {awayNotes.map((note) => (
-            <p key={note.name}>
-              {note.name}が離席中です({formatAwayStartedAt(note.startedAt)}〜
-              {note.reason && `・${note.reason}`})
-            </p>
-          ))}
+      {/* ユーザーフィードバック(2026-10-20): セットの編集モーダル
+          (MatchCardEntry.tsx)と同じ区画(.msec)・対戦台のボタン
+          (TableChips)・注記(.note-line)の構成に揃える。 */}
+      <div className="next-match-modal-body">
+        <div className="msec">
+          <span className="label">
+            対戦 <span className="mono">{card.identifier}</span>
+          </span>
+          {[card.entrant1Id, card.entrant2Id].map((id, index) => {
+            const seed = id ? entrantById.get(id)?.seed : null;
+            return (
+              <div
+                // 両枠ともBYE(null)の場合もあるため枠の位置をkeyにする。
+                // biome-ignore lint/suspicious/noArrayIndexKey: 枠は常に2つで順序固定
+                key={index}
+                className="score-entry-name-row"
+              >
+                {seed !== null && seed !== undefined && (
+                  <span className="mono score-entry-seed">{seed}</span>
+                )}
+                <span className="score-entry-name">
+                  {entrantName(entrantById, id)}
+                </span>
+              </div>
+            );
+          })}
         </div>
-      )}
-      {tableNumbers.length > 0 && (
-        <label className="next-match-modal-table-select">
-          対戦台(任意):
-          <select
-            aria-label="次戦の対戦台"
+        {awayNotes.length > 0 && (
+          <div className="next-match-modal-away-warning" role="alert">
+            {awayNotes.map((note) => (
+              <p key={note.name}>
+                {note.name}が離席中です({formatAwayStartedAt(note.startedAt)}〜
+                {note.reason && `・${note.reason}`})
+              </p>
+            ))}
+          </div>
+        )}
+        {tableNumbers.length > 0 && (
+          <TableChips
+            card={card}
+            tableNumbers={tableNumbers}
+            matchCards={matchCards}
             value={tableNumber}
-            onChange={(event) => setTableNumber(event.target.value)}
-          >
-            <option value="">未設定</option>
-            <TableNumberOptions
-              tableNumbers={tableNumbers}
-              matchCards={matchCards}
-              excludeCardId={card.id}
-              // ここでの選択は「対戦開始」と同時に進行中へ変更されるため、
-              // 対戦者が未確定でも占有中判定は常に適用する。
-              enforceOccupancy
-            />
-          </select>
-        </label>
-      )}
-      <div className="next-match-modal-actions">
-        <button
-          type="button"
-          onClick={() => onStart(tableNumber.trim() || null)}
-        >
+            onSelect={setTableNumber}
+            // ここでの選択は「対戦開始」と同時に進行中へ変更されるため、
+            // 対戦者が未確定でも占有中判定は常に適用する。
+            enforceOccupancy
+            label="次戦の対戦台"
+          />
+        )}
+        <p className="note-line">
+          {table ? `空いている対戦台: 卓 ${table}。` : ""}
+          {tableNumbers.length > 0
+            ? "「対戦開始」を押すと進行中になり、選んだ対戦台とあわせて保存されます。"
+            : "「対戦開始」を押すと進行中になります。"}
+        </p>
+        <button type="button" onClick={() => onStart(tableNumber)}>
           対戦開始
         </button>
       </div>

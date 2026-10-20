@@ -408,7 +408,10 @@ export function MatchCardEntry({
                       card={card}
                       tableNumbers={tableNumbers}
                       matchCards={matchCards}
-                      onAssignTable={onAssignTable}
+                      value={card.tableNumber}
+                      onSelect={(tableNumber) =>
+                        onAssignTable(card.id, tableNumber)
+                      }
                     />
                   )}
                   {/* ユーザーフィードバック(2026-10-19): 状態・対戦台は

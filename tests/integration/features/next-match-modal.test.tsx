@@ -325,15 +325,11 @@ describe("Next-match suggestion modal (User Story 3)", () => {
       name: "次戦候補",
     });
     const modal = modalHeading.closest(".app-modal") as HTMLElement;
-    const select = within(modal).getByLabelText("次戦の対戦台");
-    const occupiedOption = within(select).getByRole("option", {
-      name: "3(進行中: R1-3)",
-    }) as HTMLOptionElement;
-    expect(occupiedOption.disabled).toBe(true);
-    const freeOption = within(select).getByRole("option", {
-      name: "2",
-    }) as HTMLOptionElement;
-    expect(freeOption.disabled).toBe(false);
+    const chips = within(modal).getByRole("group", { name: "次戦の対戦台" });
+    expect(
+      within(chips).getByRole("button", { name: "卓 3（R1-3 が使用中）" }),
+    ).toBeDisabled();
+    expect(within(chips).getByRole("button", { name: "卓 2" })).toBeEnabled();
   });
 
   it("leaves the match unchanged when the modal is closed without a selection (FR-025)", async () => {
@@ -371,7 +367,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     const modal = modalHeading.closest(".app-modal") as HTMLElement;
     // tableNumbers未設定なので対戦台選択は表示されない。
     expect(
-      within(modal).queryByLabelText("次戦の対戦台"),
+      within(modal).queryByRole("group", { name: "次戦の対戦台" }),
     ).not.toBeInTheDocument();
     expect(within(modal).getByText("R1-2")).toBeInTheDocument();
   });
@@ -505,11 +501,13 @@ describe("Next-match suggestion modal (User Story 3)", () => {
       name: "次戦候補",
     });
     let modal = modalHeading.closest(".app-modal") as HTMLElement;
-    const firstSelect = within(modal).getByLabelText(
-      "次戦の対戦台",
-    ) as HTMLSelectElement;
-    await user.selectOptions(firstSelect, "2");
-    expect(firstSelect.value).toBe("2");
+    const firstChips = within(modal).getByRole("group", {
+      name: "次戦の対戦台",
+    });
+    await user.click(within(firstChips).getByRole("button", { name: "卓 2" }));
+    expect(
+      within(firstChips).getByRole("button", { name: "卓 2" }),
+    ).toHaveAttribute("aria-pressed", "true");
 
     await user.click(within(modal).getByRole("button", { name: "対戦開始" }));
 
@@ -518,10 +516,12 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     // 選んだ対戦台が選択されたままになってはならない)。
     modalHeading = await screen.findByRole("heading", { name: "次戦候補" });
     modal = modalHeading.closest(".app-modal") as HTMLElement;
-    const secondSelect = within(modal).getByLabelText(
-      "次戦の対戦台",
-    ) as HTMLSelectElement;
-    expect(secondSelect.value).toBe("");
+    const secondChips = within(modal).getByRole("group", {
+      name: "次戦の対戦台",
+    });
+    expect(
+      within(secondChips).getByRole("button", { name: "未設定" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("does not auto-chain to the remaining suggestion when the modal is closed instead of started", async () => {

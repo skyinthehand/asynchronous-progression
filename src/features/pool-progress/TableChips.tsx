@@ -6,10 +6,17 @@ interface TableChipsProps {
   tableNumbers: string[];
   /** 対戦台選択肢の占有判定に使う、プール全体の対戦カード一覧。 */
   matchCards: MatchCard[];
-  onAssignTable: (
-    matchCardId: string,
-    tableNumber: string | null,
-  ) => Promise<boolean>;
+  /** 選択中の対戦台番号(未設定はnull)。 */
+  value: string | null;
+  onSelect: (tableNumber: string | null) => void;
+  /**
+   * 占有中判定(進行中の対戦との対戦台の重複)を、このカードの状態に
+   * 関わらず常に適用する。次戦候補モーダル(NextMatchModal)のように、
+   * 選択と同時に進行中へ変更する場合に使う。
+   */
+  enforceOccupancy?: boolean;
+  /** 区画の見出し・支援技術向けの名前(既定は「対戦台」)。 */
+  label?: string;
 }
 
 /**
@@ -17,26 +24,30 @@ interface TableChipsProps {
  * `<select>`(TableNumberOptions)からモックアップの`.tchips`(大きめ
  * ボタンのグリッド)に合わせる。総当り表(MatchCardRow.tsx)は従来の
  * `<select>`のままとする(到達不能パスのため構造は変更しない)。
+ * ユーザーフィードバック(2026-10-20): 次戦候補モーダルでも同じ見た目で
+ * 選べるよう、選択値と選択時の処理を呼び出し側から渡す形にした。
  */
 export function TableChips({
   card,
   tableNumbers,
   matchCards,
-  onAssignTable,
+  value: current,
+  onSelect,
+  enforceOccupancy = false,
+  label = "対戦台",
 }: TableChipsProps) {
-  const current = card.tableNumber;
   return (
     <div className="msec">
       <span className="label">対戦台</span>
-      <fieldset className="tchips" aria-label="対戦台">
-        <legend className="sr-only">対戦台</legend>
+      <fieldset className="tchips" aria-label={label}>
+        <legend className="sr-only">{label}</legend>
         <button
           type="button"
           aria-pressed={current === null}
           className={["tchip", "unset", current === null ? "on" : ""]
             .filter(Boolean)
             .join(" ")}
-          onClick={() => onAssignTable(card.id, null)}
+          onClick={() => onSelect(null)}
         >
           未設定
         </button>
@@ -46,7 +57,7 @@ export function TableChips({
           // 未着手のカードは、他の対戦が使用中の対戦台も含め全ての対戦台
           // から自由に選べる(すぐにその卓を使い始めるわけではないため)。
           const occupyingCard =
-            card.status === "IN_PROGRESS"
+            enforceOccupancy || card.status === "IN_PROGRESS"
               ? findOccupyingMatchCard(n, matchCards, card.id)
               : null;
           return (
@@ -63,7 +74,7 @@ export function TableChips({
               className={["tchip", current === n ? "on" : ""]
                 .filter(Boolean)
                 .join(" ")}
-              onClick={() => onAssignTable(card.id, n)}
+              onClick={() => onSelect(n)}
             >
               {n}
               {occupyingCard && <small>{occupyingCard.identifier}</small>}
