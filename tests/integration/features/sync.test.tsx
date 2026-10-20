@@ -90,6 +90,29 @@ describe("Background sync and offline notification (User Story 3)", () => {
     vi.mocked(operations.fetchStations).mockClear();
   });
 
+  it("runs only one sync at a time, coalescing calls made during a sync into a single follow-up (manual sync pressed during a background sync)", async () => {
+    vi.mocked(operations.reportMatchResult).mockResolvedValue({
+      winnerId: "e1",
+      score: null,
+      status: "COMPLETED",
+    });
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+      poolId: "pool-1",
+      displayIdentifier: "Pool 1",
+      bracketType: "ROUND_ROBIN",
+      matchCards: [],
+      entrants: [],
+    });
+
+    const results = await Promise.all([runSync(), runSync(), runSync()]);
+
+    expect(results.every((result) => result.success)).toBe(true);
+    // 並行して走っていれば、どれも未送信の結果を読んで二重に送信してしまう。
+    expect(operations.reportMatchResult).toHaveBeenCalledTimes(1);
+    // 1回目(送信前の状態確認+取得)と、まとめられた後続の1回(取得のみ)。
+    expect(operations.fetchPoolDetail).toHaveBeenCalledTimes(3);
+  });
+
   it("marks pending results as reflected after a successful sync", async () => {
     vi.mocked(operations.reportMatchResult).mockResolvedValue({
       winnerId: "e1",

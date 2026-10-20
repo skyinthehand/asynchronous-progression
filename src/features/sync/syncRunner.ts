@@ -175,14 +175,44 @@ export interface SyncResult {
   error?: string;
 }
 
+let inFlightSync: Promise<SyncResult> | null = null;
+let queuedSync: Promise<SyncResult> | null = null;
+
 /**
  * FR-015/FR-017: 未反映のローカル結果をstartggへ送信し(M1)、対象プールの
  * 最新状態(Q2)と注意書き(Q4)を取得してローカルへ反映する。失敗しても
  * ローカルデータは一切変更せず、SyncStatusに失敗を記録するのみ(例外は
  * 投げない。バックグラウンドスケジューラからの呼び出しでも安全なように、
  * 成否は戻り値で判定できるようにする)。
+ *
+ * ユーザーフィードバック(2026-10-20): 同時に1回しか実行しない。自動同期
+ * (syncScheduler.ts)の最中に手動同期(ヘッダーの同期ボタン・管理画面の
+ * 「データを再取得」)を押す等で同期が並行して走ると、同じ結果・状態を
+ * 二重に送信して2回目が「Set is already started」等で失敗したり(手動
+ * 同期だけ「同期に失敗しました」と表示される)、別々の時点で読んだ
+ * ローカルデータで互いの保存結果を上書きしたりしていた。実行中に呼ばれた
+ * 場合は、実行中の同期の後にもう1回だけ続けて実行し(呼ばれた時点の
+ * ローカル変更も確実に送信するため)、その間に何度呼ばれても同じ
+ * 後続の1回にまとめる。
  */
-export async function runSync(): Promise<SyncResult> {
+export function runSync(): Promise<SyncResult> {
+  if (!inFlightSync) {
+    inFlightSync = runSyncOnce().finally(() => {
+      inFlightSync = null;
+    });
+    return inFlightSync;
+  }
+  if (!queuedSync) {
+    const runQueued = () => {
+      queuedSync = null;
+      return runSync();
+    };
+    queuedSync = inFlightSync.then(runQueued, runQueued);
+  }
+  return queuedSync;
+}
+
+async function runSyncOnce(): Promise<SyncResult> {
   const config = await getStartggConfig();
   if (!config?.poolId || !config.syncToken) {
     return { success: false, error: "対象プールまたはトークンが未設定です" };
