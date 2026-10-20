@@ -362,6 +362,50 @@ describe("Q2: fetchPoolDetail", () => {
     expect(detail.matchCards[0].isStreamed).toBe(true);
   });
 
+  it("maps per-slot standing scores (and -1 as DQ) entered on start.gg", async () => {
+    function slot(id: number, value: number | null) {
+      return {
+        entrant: { id, name: `P${id}` },
+        standing: { stats: { score: { value } } },
+      };
+    }
+    function set(id: number, slots: ReturnType<typeof slot>[]) {
+      return {
+        id,
+        identifier: String(id),
+        round: 1,
+        station: null,
+        stream: null,
+        slots,
+        winnerId: 44,
+        displayScore: null,
+        state: 3,
+      };
+    }
+    const client = fakeClient({
+      phaseGroup: {
+        id: 1000,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            set(1, [slot(44, 2), slot(53, 1)]),
+            set(2, [slot(44, 0), slot(53, -1)]),
+            set(3, [slot(44, 5), slot(53, null)]),
+          ],
+        },
+      },
+    });
+
+    const [scored, dq, outOfRange] = (await fetchPoolDetail(client, "1000"))
+      .matchCards;
+    expect([scored.entrant1Score, scored.entrant2Score]).toEqual([2, 1]);
+    expect(dq.entrant2DQ).toBe(true);
+    expect(dq.entrant2Score).toBeNull();
+    // スキーマの範囲(0〜3)外の値は、同期全体を失敗させないよう不明扱い。
+    expect(outOfRange.entrant1Score).toBeNull();
+  });
+
   it("maps a null stream field to isStreamed: false", async () => {
     const client = fakeClient({
       phaseGroup: {

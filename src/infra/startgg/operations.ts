@@ -247,6 +247,24 @@ const SetSlotSchema = z.object({
       name: z.string(),
     })
     .nullable(),
+  /**
+   * ユーザーフィードバック(2026-10-20): start.gg側で入力された結果の、
+   * 出場者枠ごとの得点(-1はDQ)。旧形式のfixture互換のためoptional。
+   */
+  standing: z
+    .object({
+      stats: z
+        .object({
+          score: z
+            .object({ value: z.number().nullable().optional() })
+            .nullable()
+            .optional(),
+        })
+        .nullable()
+        .optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 const SetNodeSchema = z.object({
@@ -320,6 +338,13 @@ const POOL_DETAIL_QUERY = /* GraphQL */ `
               id
               name
             }
+            standing {
+              stats {
+                score {
+                  value
+                }
+              }
+            }
           }
           winnerId
           displayScore
@@ -340,6 +365,30 @@ const POOL_DETAIL_QUERY = /* GraphQL */ `
 
 const SET_STATE_COMPLETED = 3;
 const SET_STATE_IN_PROGRESS = 2;
+
+const SLOT_SCORE_DQ = -1;
+/** MatchCardSchemaのentrant1Score/entrant2Scoreの許容範囲(0〜3)。 */
+const SLOT_SCORE_MAX = 3;
+
+/**
+ * ユーザーフィードバック(2026-10-20): start.gg側で入力された結果の得点を、
+ * アプリで入力した場合と同じローカル専用フィールド(entrant1Score等)の
+ * 形に写す。以前はここを既定値(null)にしていたため、start.ggで2-1と
+ * 入力しても、アプリには勝者(「W」)しか表示されなかった。範囲外の値は
+ * 保存時の検証で同期全体が失敗しないよう、不明(null)として扱う。
+ */
+function toSlotScore(slot: z.infer<typeof SetSlotSchema> | undefined): {
+  score: number | null;
+  dq: boolean;
+} {
+  const value = slot?.standing?.stats?.score?.value ?? null;
+  if (value === SLOT_SCORE_DQ) return { score: null, dq: true };
+  if (value === null || !Number.isInteger(value)) {
+    return { score: null, dq: false };
+  }
+  if (value < 0 || value > SLOT_SCORE_MAX) return { score: null, dq: false };
+  return { score: value, dq: false };
+}
 
 function toMatchCardStatus(state: number | null): MatchCard["status"] {
   if (state === SET_STATE_COMPLETED) return "COMPLETED";
@@ -484,6 +533,8 @@ export async function fetchPoolDetail(
       }
     }
     const round = set.round;
+    const slot1Score = toSlotScore(slot1);
+    const slot2Score = toSlotScore(slot2);
     return {
       id: set.id,
       poolId,
@@ -506,14 +557,13 @@ export async function fetchPoolDetail(
       localOnly: false,
       entrant1SourceMatchId,
       entrant2SourceMatchId,
-      // 002-match-scoring-and-flow: スコア/DQ/対戦台数はローカル入力専用で
-      // start.gg側に対応する概念がないため、ここでは既定値のみを設定する。
-      // 既存カードとのマージ時は常にローカル値を優先する
-      // (syncRunner.tsのmergeMatchCard参照)。
-      entrant1Score: null,
-      entrant2Score: null,
-      entrant1DQ: false,
-      entrant2DQ: false,
+      // start.gg側で入力された得点・DQ(toSlotScore参照)。W(スコア不明の
+      // 勝ち)はstart.gg側に対応する概念がないため既定値のみを設定する。
+      // 既存カードとのマージ規則はsyncRunner.tsのmergeMatchCard参照。
+      entrant1Score: slot1Score.score,
+      entrant2Score: slot2Score.score,
+      entrant1DQ: slot1Score.dq,
+      entrant2DQ: slot2Score.dq,
       entrant1W: false,
       entrant2W: false,
       statusLocalOnly: false,

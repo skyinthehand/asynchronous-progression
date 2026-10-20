@@ -273,6 +273,55 @@ describe("Sync with results/status entered outside the app (start.gg)", () => {
     expect(card?.entrant2Score).toBeNull();
   });
 
+  it("shows the per-slot score of a result entered on start.gg (reported: 'Player44 2-1 Player53' showed only W)", async () => {
+    await seed([makeCard({ id: "s1" })]);
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue(
+      remoteDetail([
+        makeCard({
+          id: "s1",
+          status: "COMPLETED",
+          winnerId: "e1",
+          entrant1Score: 2,
+          entrant2Score: 1,
+        }),
+      ]),
+    );
+
+    await runSync();
+
+    const card = await (await getDb()).get("matchCards", "s1");
+    expect(card?.entrant1Score).toBe(2);
+    expect(card?.entrant2Score).toBe(1);
+  });
+
+  it("adopts a score corrected on start.gg even when the winner is unchanged", async () => {
+    await seed([
+      makeCard({
+        id: "s1",
+        status: "COMPLETED",
+        winnerId: "e1",
+        entrant1Score: 2,
+        entrant2Score: 0,
+      }),
+    ]);
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue(
+      remoteDetail([
+        makeCard({
+          id: "s1",
+          status: "COMPLETED",
+          winnerId: "e1",
+          entrant1Score: 2,
+          entrant2Score: 1,
+        }),
+      ]),
+    );
+
+    await runSync();
+
+    const card = await (await getDb()).get("matchCards", "s1");
+    expect(card?.entrant2Score).toBe(1);
+  });
+
   it("locks and unlocks a completed card as its successor progresses or is reset on start.gg", async () => {
     const completed = makeCard({
       id: "s1",

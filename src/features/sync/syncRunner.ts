@@ -41,6 +41,15 @@ import { deriveIsStale } from "./syncStatusRules.js";
  * 使うが、マージ規則自体はtests/integration/features/table-assignment.test.tsx
  * から直接検証できるようexportする。
  */
+function remoteHasScore(remote: MatchCard): boolean {
+  return (
+    remote.entrant1Score !== null ||
+    remote.entrant2Score !== null ||
+    remote.entrant1DQ ||
+    remote.entrant2DQ
+  );
+}
+
 export function mergeMatchCard(
   local: MatchCard | undefined,
   remote: MatchCard,
@@ -114,16 +123,20 @@ export function mergeMatchCard(
     // ユーザーフィードバック(2026-10-20): start.gg側で結果が修正・リセット
     // され勝者がローカルと変わった場合は、その記録は別の結果のものなので
     // 破棄する(残すと新しい勝者と食い違ったスコアが表示される)。
-    ...(local.winnerId === remote.winnerId
-      ? {
-          entrant1Score: local.entrant1Score,
-          entrant2Score: local.entrant2Score,
-          entrant1DQ: local.entrant1DQ,
-          entrant2DQ: local.entrant2DQ,
-          entrant1W: local.entrant1W,
-          entrant2W: local.entrant2W,
-        }
-      : {}),
+    // ユーザーフィードバック(2026-10-20): start.gg側に得点・DQがあれば
+    // (start.ggで入力・修正された結果)、そちらを採用する。
+    ...(remoteHasScore(remote)
+      ? {}
+      : local.winnerId === remote.winnerId
+        ? {
+            entrant1Score: local.entrant1Score,
+            entrant2Score: local.entrant2Score,
+            entrant1DQ: local.entrant1DQ,
+            entrant2DQ: local.entrant2DQ,
+            entrant1W: local.entrant1W,
+            entrant2W: local.entrant2W,
+          }
+        : {}),
     // ユーザーフィードバック(2026-08-13): 「進行中にする」操作で設定した
     // ステータスも、送信(M2/M3)が完了するまではstartgg側の古い値
     // (NOT_STARTED)で上書きされないよう、ローカル優先で判定する。
