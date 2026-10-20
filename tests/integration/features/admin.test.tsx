@@ -2,7 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
+import { createActiveSession } from "../../../src/features/admin/sessionExpiry.js";
+import { saveAdminSession } from "../../../src/infra/storage/adminRepository.js";
 import { getDb } from "../../../src/infra/storage/db.js";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -76,13 +80,8 @@ describe("Admin mode (User Story 5)", () => {
   it("rejects an incorrect password and accepts the bootstrapped one", async () => {
     const user = userEvent.setup();
     render(<App />);
+    // 初回に入力したパスワードがそのままブートストラップされる。
     await loginAndEnterAdmin(user, "correct-horse");
-  });
-
-  it("rejects a different password once one has been bootstrapped", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-    await loginAndEnterAdmin(user, "first-password");
 
     // ログアウトして再度ゲートに戻り、別のパスワードでは入れないことを
     // 確認する(ブートストラップ済みのパスワードのみが有効)。
@@ -91,6 +90,10 @@ describe("Admin mode (User Story 5)", () => {
     expect(
       await screen.findByText("パスワードが正しくありません。"),
     ).toBeInTheDocument();
+    expect(screen.getByText("管理画面ログイン")).toBeInTheDocument();
+
+    await user.clear(screen.getByPlaceholderText("パスワード"));
+    await loginAndEnterAdmin(user, "correct-horse");
   });
 
   it("completes initialization and allows independent pool/token reselection", async () => {
@@ -158,19 +161,8 @@ describe("Admin mode (User Story 5)", () => {
   });
 
   it("shows the login screen with the auto-logout notice on startup after the 24h session expired", async () => {
-    const db = await getDb();
-    const loggedInAt = new Date(Date.now() - 25 * 60 * 60 * 1000);
-    await db.put(
-      "adminSession",
-      {
-        loggedInAt: loggedInAt.toISOString(),
-        expiresAt: new Date(
-          loggedInAt.getTime() + 24 * 60 * 60 * 1000,
-        ).toISOString(),
-        status: "ACTIVE",
-        autoLogoutNotifiedAt: null,
-      },
-      "current",
+    await saveAdminSession(
+      createActiveSession(new Date(Date.now() - 25 * 60 * 60 * 1000)),
     );
     render(<App />);
 
@@ -179,6 +171,36 @@ describe("Admin mode (User Story 5)", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("管理画面ログイン")).toBeInTheDocument();
     expect(screen.queryByText("予選プール進行")).not.toBeInTheDocument();
+  });
+
+  it("warns before the 24h auto-logout, and returns to general mode (not the admin screen) after logging back in (2026-10-20)", async () => {
+    // 約1.5秒後に24時間の期限を迎えるセッション。
+    await saveAdminSession(
+      createActiveSession(new Date(Date.now() - DAY_MS + 1500)),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    expect(
+      screen.getByText(/あと約\d+分で自動的にログアウトします。/),
+    ).toBeInTheDocument();
+    await goToAdminMode(user);
+    await screen.findByText("初期化(ログイン〜対象プール指定〜トークン設定)");
+
+    // 期限ちょうどに(定期確認の60秒を待たずに)ログイン画面へ切り替わる。
+    expect(
+      await screen.findByText("管理画面ログイン", {}, { timeout: 4000 }),
+    ).toBeInTheDocument();
+
+    await login(user, "pw");
+    await acknowledgeNotice(user);
+    expect(await screen.findByText("予選プール進行")).toBeInTheDocument();
+    expect(
+      screen.queryByText("初期化(ログイン〜対象プール指定〜トークン設定)"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/自動的にログアウトします。/),
+    ).not.toBeInTheDocument();
   });
 
   describe("Reset (2026-08-19)", () => {

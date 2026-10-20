@@ -97,7 +97,12 @@ function AdminSection({ number, title, children, danger }: AdminSectionProps) {
   );
 }
 
-function AdminModeContent() {
+/**
+ * US5: 管理画面(認証・初期化・トークン管理・ログアウト・注意書き連携)。
+ * パスワード認証(AdminPasswordGate)はアプリ全体(App.tsx)で行うため、
+ * ここに来る時点で常にログイン済み。
+ */
+export function AdminModeScreen() {
   const { exitAdminMode } = useAppMode();
   const { logout, expiresAt } = useAdminSession();
   const remaining = useRemainingSessionTime(expiresAt);
@@ -134,14 +139,9 @@ function AdminModeContent() {
           <button type="button" className="btn inv" onClick={exitAdminMode}>
             進行画面に戻る
           </button>
-          <button
-            type="button"
-            className="btn inv"
-            onClick={async () => {
-              await logout();
-              exitAdminMode();
-            }}
-          >
+          {/* 一般モードへの切り替えはApp.tsx(ReturnToGeneralOnLogout)が
+              手動・自動ログアウトのいずれでも行う。 */}
+          <button type="button" className="btn inv" onClick={logout}>
             ログアウト
           </button>
         </div>
@@ -172,13 +172,4 @@ function AdminModeContent() {
       </div>
     </div>
   );
-}
-
-/**
- * US5: 管理画面(認証・初期化・トークン管理・ログアウト・注意書き連携)。
- * パスワード認証(AdminPasswordGate)はアプリ全体(App.tsx)で行うため、
- * ここに来る時点で常にログイン済み。
- */
-export function AdminModeScreen() {
-  return <AdminModeContent />;
 }

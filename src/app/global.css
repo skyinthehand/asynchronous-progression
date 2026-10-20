@@ -2015,3 +2015,22 @@ label {
   flex-direction: column;
   gap: 18px;
 }
+
+/* ユーザーフィードバック(2026-10-20): 自動ログアウトが近いことの警告
+   (SessionExpiryWarning)。自動ログアウトの通知(.auto-logout-notice)と
+   同じ見た目にする。 */
+.session-expiry-warning {
+  border: 1.5px solid var(--ink);
+  background: var(--accent);
+  padding: 12px 14px;
+  font-size: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.session-expiry-warning p {
+  margin: 0;
+  flex: 1 1 320px;
+}

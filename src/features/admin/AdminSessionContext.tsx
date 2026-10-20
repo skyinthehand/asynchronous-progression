@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import type { AdminSession } from "../../domain/entities/adminSession.js";
@@ -17,6 +18,7 @@ import {
 } from "./sessionExpiry.js";
 
 const RECHECK_INTERVAL_MS = 60_000;
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 interface AdminSessionContextValue {
   /**
@@ -47,17 +49,34 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AdminSession | null>(null);
   const [autoLogoutNotice, setAutoLogoutNotice] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // ログイン・ログアウトのたびに進める世代番号。定期確認(refresh)が
+  // 読み込みを始めた後にログイン等が行われた場合、その古い読み込み結果で
+  // 新しいセッションを上書きしないようにするため(ログイン直後に、直前に
+  // 始まっていた定期確認の「ログアウト中」の結果でログイン画面へ戻されて
+  // しまう)。
+  const generationRef = useRef(0);
 
   const refresh = useCallback(async () => {
-    const { justAutoLoggedOut, session: current } =
-      await checkAndApplyAutoLogout();
-    setSession(current ?? null);
-    setLoaded(true);
-    if (
-      (justAutoLoggedOut || current?.status === "LOGGED_OUT_AUTO") &&
-      !current?.autoLogoutNotifiedAt
-    ) {
-      setAutoLogoutNotice(true);
+    const generation = generationRef.current;
+    try {
+      const { justAutoLoggedOut, session: current } =
+        await checkAndApplyAutoLogout();
+      if (generation !== generationRef.current) return;
+      setSession(current ?? null);
+      if (
+        (justAutoLoggedOut || current?.status === "LOGGED_OUT_AUTO") &&
+        !current?.autoLogoutNotifiedAt
+      ) {
+        setAutoLogoutNotice(true);
+      }
+    } catch {
+      // IndexedDBの読み込みに失敗した場合は未ログインとして扱う(ここで
+      // loadedを立てないと、アプリ全体がゲートの手前で何も描画されない
+      // まま、ログイン画面・初期化ボタンにもたどり着けなくなる)。
+      if (generation !== generationRef.current) return;
+      setSession(null);
+    } finally {
+      setLoaded(true);
     }
   }, []);
 
@@ -67,10 +86,23 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(intervalId);
   }, [refresh]);
 
+  // 定期確認(最大60秒間隔)を待たず、期限ちょうどに自動ログアウトさせる。
+  const expiresAt = session?.status === "ACTIVE" ? session.expiresAt : null;
+  useEffect(() => {
+    if (!expiresAt) return;
+    const delay = Math.max(0, new Date(expiresAt).getTime() - Date.now());
+    // setTimeoutの上限(約24.8日)を超える値は即時実行されてしまうため、
+    // その場合は定期確認に任せる(通常は24時間以内)。
+    if (delay > MAX_TIMEOUT_MS) return;
+    const timeoutId = setTimeout(refresh, delay);
+    return () => clearTimeout(timeoutId);
+  }, [expiresAt, refresh]);
+
   const login = useCallback(async (password: string) => {
     const ok = await verifyAdminPassword(password);
     if (!ok) return false;
     const newSession = createActiveSession();
+    generationRef.current += 1;
     await saveAdminSession(newSession);
     setSession(newSession);
     setAutoLogoutNotice(false);
@@ -78,6 +110,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    generationRef.current += 1;
     await logoutManually();
     await refresh();
   }, [refresh]);
@@ -91,7 +124,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     loaded,
     isActive: session?.status === "ACTIVE",
     autoLogoutNotice,
-    expiresAt: session?.status === "ACTIVE" ? session.expiresAt : null,
+    expiresAt,
     login,
     logout,
     dismissAutoLogoutNotice,
