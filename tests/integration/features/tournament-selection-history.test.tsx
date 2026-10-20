@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { getDb } from "../../../src/infra/storage/db.js";
+import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -109,6 +110,7 @@ async function completeInitLoginViaList(
 describe("Tournament/event history and defaulting (2026-10-18)", () => {
   beforeEach(async () => {
     await resetDb();
+    await seedActiveAdminSession();
   });
 
   it("defaults to the most recently used tournament/event and only asks for the pool, in a later session", async () => {

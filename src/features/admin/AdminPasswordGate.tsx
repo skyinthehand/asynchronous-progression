@@ -6,12 +6,22 @@ interface AdminPasswordGateProps {
   children: ReactNode;
 }
 
-/** FR-026: パスワード認証によってのみ管理画面へ入室できる。 */
+/**
+ * FR-026: パスワード認証によってのみ管理画面へ入室できる。
+ * ユーザーフィードバック(2026-10-20): ログアウト中(手動・自動・未ログイン)
+ * に起動時の進行ルール(対象大会つき)や進行画面が表示されるのはおかしい
+ * ため、管理画面だけでなくアプリ全体(App.tsx)をこのゲートで囲み、
+ * ログアウト中はログイン画面のみを表示する。
+ */
 export function AdminPasswordGate({ children }: AdminPasswordGateProps) {
-  const { isActive, autoLogoutNotice, login, dismissAutoLogoutNotice } =
+  const { loaded, isActive, autoLogoutNotice, login, dismissAutoLogoutNotice } =
     useAdminSession();
   const [password, setPassword] = useState("");
   const [invalid, setInvalid] = useState(false);
+
+  if (!loaded) {
+    return null;
+  }
 
   if (isActive) {
     return <>{children}</>;

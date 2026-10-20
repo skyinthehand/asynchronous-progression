@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
+import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", async (importOriginal) => {
   const actual =
@@ -72,6 +73,7 @@ async function seedConfiguredPool() {
 describe("Manual data refetch button (admin screen)", () => {
   beforeEach(async () => {
     await resetDb();
+    await seedActiveAdminSession();
     await seedConfiguredPool();
     vi.mocked(operations.fetchPoolDetail).mockReset();
     vi.mocked(operations.reportMatchResult).mockReset();
@@ -90,8 +92,6 @@ describe("Manual data refetch button (admin screen)", () => {
     render(<App />);
     await acknowledgeNotice(user);
     await user.click(screen.getByRole("button", { name: "管理画面" }));
-    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
 
     await user.click(
       await screen.findByRole("button", { name: "データを再取得" }),
@@ -116,8 +116,6 @@ describe("Manual data refetch button (admin screen)", () => {
     render(<App />);
     await acknowledgeNotice(user);
     await user.click(screen.getByRole("button", { name: "管理画面" }));
-    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
 
     await user.click(
       await screen.findByRole("button", { name: "データを再取得" }),

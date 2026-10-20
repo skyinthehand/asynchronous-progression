@@ -7,6 +7,7 @@ import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
 import { getEntrantsByPool } from "../../../src/infra/storage/entrantRepository.js";
 import { getMatchCardsByPool } from "../../../src/infra/storage/matchCardRepository.js";
 import { getPool } from "../../../src/infra/storage/poolRepository.js";
+import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -90,6 +91,7 @@ async function renderPrintPage() {
 describe("Print page (User Story 7)", () => {
   beforeEach(async () => {
     await resetDb();
+    await seedActiveAdminSession();
     await seedConfig();
   });
 

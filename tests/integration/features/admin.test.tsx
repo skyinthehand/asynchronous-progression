@@ -45,6 +45,29 @@ async function goToAdminMode(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "管理画面" }));
 }
 
+/**
+ * ユーザーフィードバック(2026-10-20): アプリ全体が管理画面ログインで
+ * 囲まれているため、ログアウト中は起動直後にログイン画面が表示される。
+ */
+async function login(
+  user: ReturnType<typeof userEvent.setup>,
+  password: string,
+) {
+  await user.type(await screen.findByPlaceholderText("パスワード"), password);
+  await user.click(screen.getByRole("button", { name: "ログイン" }));
+}
+
+/** ログインし、進行ルールを確認して管理画面へ入る。 */
+async function loginAndEnterAdmin(
+  user: ReturnType<typeof userEvent.setup>,
+  password = "pw",
+) {
+  await login(user, password);
+  await acknowledgeNotice(user);
+  await goToAdminMode(user);
+  await screen.findByText("初期化(ログイン〜対象プール指定〜トークン設定)");
+}
+
 describe("Admin mode (User Story 5)", () => {
   beforeEach(async () => {
     await resetDb();
@@ -53,37 +76,18 @@ describe("Admin mode (User Story 5)", () => {
   it("rejects an incorrect password and accepts the bootstrapped one", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await acknowledgeNotice(user);
-    await goToAdminMode(user);
-
-    await user.type(screen.getByPlaceholderText("パスワード"), "correct-horse");
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
-    expect(
-      await screen.findByText("初期化(ログイン〜対象プール指定〜トークン設定)"),
-    ).toBeInTheDocument();
+    await loginAndEnterAdmin(user, "correct-horse");
   });
 
   it("rejects a different password once one has been bootstrapped", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await acknowledgeNotice(user);
-    await goToAdminMode(user);
-    await user.type(
-      screen.getByPlaceholderText("パスワード"),
-      "first-password",
-    );
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
-    await screen.findByText("初期化(ログイン〜対象プール指定〜トークン設定)");
+    await loginAndEnterAdmin(user, "first-password");
 
     // ログアウトして再度ゲートに戻り、別のパスワードでは入れないことを
     // 確認する(ブートストラップ済みのパスワードのみが有効)。
     await user.click(screen.getByRole("button", { name: "ログアウト" }));
-    await goToAdminMode(user);
-    await user.type(
-      screen.getByPlaceholderText("パスワード"),
-      "wrong-password",
-    );
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
+    await login(user, "wrong-password");
     expect(
       await screen.findByText("パスワードが正しくありません。"),
     ).toBeInTheDocument();
@@ -92,10 +96,7 @@ describe("Admin mode (User Story 5)", () => {
   it("completes initialization and allows independent pool/token reselection", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await acknowledgeNotice(user);
-    await goToAdminMode(user);
-    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
+    await loginAndEnterAdmin(user);
 
     await user.type(
       screen.getByPlaceholderText("Personal Access Token"),
@@ -134,28 +135,57 @@ describe("Admin mode (User Story 5)", () => {
     expect(updatedConfig?.poolId).toBe("pool-1"); // 対象プールは維持される
   });
 
-  it("returns to general mode after manual logout", async () => {
+  it("shows only the login screen (no notice/target tournament, no progress screen) while logged out (2026-10-20)", async () => {
+    render(<App />);
+
+    expect(await screen.findByText("管理画面ログイン")).toBeInTheDocument();
+    expect(screen.queryByText("進行ルール")).not.toBeInTheDocument();
+    expect(screen.queryByText("予選プール進行")).not.toBeInTheDocument();
+  });
+
+  it("shows the login screen after manual logout, and restarts from the notice after logging back in (2026-10-20)", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await acknowledgeNotice(user);
-    await goToAdminMode(user);
-    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
-    await screen.findByText("初期化(ログイン〜対象プール指定〜トークン設定)");
+    await loginAndEnterAdmin(user);
 
     await user.click(screen.getByRole("button", { name: "ログアウト" }));
+    expect(await screen.findByText("管理画面ログイン")).toBeInTheDocument();
+    expect(screen.queryByText("予選プール進行")).not.toBeInTheDocument();
+
+    await login(user, "pw");
+    await acknowledgeNotice(user);
     expect(await screen.findByText("予選プール進行")).toBeInTheDocument();
+  });
+
+  it("shows the login screen with the auto-logout notice on startup after the 24h session expired", async () => {
+    const db = await getDb();
+    const loggedInAt = new Date(Date.now() - 25 * 60 * 60 * 1000);
+    await db.put(
+      "adminSession",
+      {
+        loggedInAt: loggedInAt.toISOString(),
+        expiresAt: new Date(
+          loggedInAt.getTime() + 24 * 60 * 60 * 1000,
+        ).toISOString(),
+        status: "ACTIVE",
+        autoLogoutNotifiedAt: null,
+      },
+      "current",
+    );
+    render(<App />);
+
+    expect(
+      await screen.findByText("自動的にログアウトしました。"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("管理画面ログイン")).toBeInTheDocument();
+    expect(screen.queryByText("予選プール進行")).not.toBeInTheDocument();
   });
 
   describe("Reset (2026-08-19)", () => {
     it("clears every object store, including the admin login, once confirmed", async () => {
       const user = userEvent.setup();
       render(<App />);
-      await acknowledgeNotice(user);
-      await goToAdminMode(user);
-      await user.type(screen.getByPlaceholderText("パスワード"), "pw");
-      await user.click(screen.getByRole("button", { name: "ログイン" }));
-      await screen.findByText("初期化(ログイン〜対象プール指定〜トークン設定)");
+      await loginAndEnterAdmin(user);
 
       const db = await getDb();
       expect(await db.get("adminSession", "current")).toBeDefined();
@@ -188,11 +218,7 @@ describe("Admin mode (User Story 5)", () => {
     it("does nothing when the confirmation dialog is dismissed", async () => {
       const user = userEvent.setup();
       render(<App />);
-      await acknowledgeNotice(user);
-      await goToAdminMode(user);
-      await user.type(screen.getByPlaceholderText("パスワード"), "pw");
-      await user.click(screen.getByRole("button", { name: "ログイン" }));
-      await screen.findByText("初期化(ログイン〜対象プール指定〜トークン設定)");
+      await loginAndEnterAdmin(user);
 
       // confirmがfalseを返す限りwindow.location.reload()は呼ばれない
       // パスのため、reload自体のモックは不要(実際のjsdomのreloadは
@@ -214,8 +240,6 @@ describe("Admin mode (User Story 5)", () => {
     it("is also offered on the login gate, for when the password itself is forgotten", async () => {
       const user = userEvent.setup();
       render(<App />);
-      await acknowledgeNotice(user);
-      await goToAdminMode(user);
 
       // ログイン前(パスワードを忘れて入れない状況を想定)でも、ゲート画面に
       // 同じ初期化ボタンがあることを確認する。

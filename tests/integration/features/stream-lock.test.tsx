@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import type { MatchCard } from "../../../src/domain/entities/matchCard.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
+import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", async (importOriginal) => {
   const actual =
@@ -121,6 +122,7 @@ async function seedPool(
 describe("Stream lock (005-stream-match-lock)", () => {
   beforeEach(async () => {
     await resetDb();
+    await seedActiveAdminSession();
     vi.mocked(operations.fetchPoolDetail).mockReset();
   });
 

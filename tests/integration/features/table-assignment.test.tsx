@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
+import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -148,9 +149,8 @@ async function seedPool(tableNumbers: string[]) {
 }
 
 /**
- * FR-011: 対戦台の設定は管理画面で行う。管理画面はパスワード認証が必要
- * (初回入力したパスワードがそのままブートストラップされる、
- * admin.test.tsxと同じ規約)。対戦台は手入力ではなく、startggのstation
+ * FR-011: 対戦台の設定は管理画面で行う(ログイン済みのセッションは
+ * beforeEachのseedActiveAdminSessionで用意する)。対戦台は手入力ではなく、startggのstation
  * 一覧(fetchStationsのモック参照)からこのプールで使うものをチェック
  * ボックスで選択する。
  */
@@ -169,6 +169,7 @@ async function addTableFromAdminScreen(
 describe("Table count setting and assignment (User Story 2)", () => {
   beforeEach(async () => {
     await resetDb();
+    await seedActiveAdminSession();
   });
 
   it("sets the pool's table numbers from the admin screen, one at a time, and assigns one to a card", async () => {
@@ -179,8 +180,6 @@ describe("Table count setting and assignment (User Story 2)", () => {
     await screen.findByText("R1-1");
 
     await user.click(screen.getByRole("button", { name: "管理画面" }));
-    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
 
     const section = (
       await screen.findByRole("heading", { name: "対戦台" })
@@ -426,8 +425,6 @@ describe("Table count setting and assignment (User Story 2)", () => {
     await acknowledgeNotice(user);
 
     await user.click(screen.getByRole("button", { name: "管理画面" }));
-    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
 
     const tableSection = (
       await screen.findByRole("heading", { name: "対戦台" })
@@ -474,8 +471,6 @@ describe("Table count setting and assignment (User Story 2)", () => {
     await screen.findByText("R1-1");
 
     await user.click(screen.getByRole("button", { name: "管理画面" }));
-    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
 
     const section = (
       await screen.findByRole("heading", { name: "対戦台" })
@@ -507,8 +502,6 @@ describe("Table count setting and assignment (User Story 2)", () => {
     await screen.findByText("R1-1");
 
     await user.click(screen.getByRole("button", { name: "管理画面" }));
-    await user.type(screen.getByPlaceholderText("パスワード"), "pw");
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
 
     const section = (
       await screen.findByRole("heading", { name: "対戦台" })

@@ -6,6 +6,7 @@ import type { Entrant } from "../../../src/domain/entities/entrant.js";
 import type { MatchCard } from "../../../src/domain/entities/matchCard.js";
 import { runSync } from "../../../src/features/sync/syncRunner.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
+import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 /**
  * ユーザーフィードバック(2026-10-20、スマパでの報告): 結果・状態は
@@ -137,6 +138,7 @@ function remoteDetail(cards: MatchCard[], entrants: Entrant[] = ENTRANTS) {
 describe("Sync with results/status entered outside the app (start.gg)", () => {
   beforeEach(async () => {
     await resetDb();
+    await seedActiveAdminSession();
     vi.mocked(operations.fetchPoolDetail).mockReset();
     vi.mocked(operations.reportMatchResult).mockReset();
     vi.mocked(operations.markSetInProgress)

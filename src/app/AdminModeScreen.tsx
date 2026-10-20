@@ -1,5 +1,4 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { AdminPasswordGate } from "../features/admin/AdminPasswordGate.js";
 import { useAdminSession } from "../features/admin/AdminSessionContext.js";
 import { InitLogin } from "../features/admin/InitLogin.js";
 import { NoticeAdminPanel } from "../features/admin/NoticeAdminPanel.js";
@@ -175,11 +174,11 @@ function AdminModeContent() {
   );
 }
 
-/** US5: 管理画面(認証・初期化・トークン管理・ログアウト・注意書き連携)。 */
+/**
+ * US5: 管理画面(認証・初期化・トークン管理・ログアウト・注意書き連携)。
+ * パスワード認証(AdminPasswordGate)はアプリ全体(App.tsx)で行うため、
+ * ここに来る時点で常にログイン済み。
+ */
 export function AdminModeScreen() {
-  return (
-    <AdminPasswordGate>
-      <AdminModeContent />
-    </AdminPasswordGate>
-  );
+  return <AdminModeContent />;
 }

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
+import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -115,6 +116,7 @@ async function selectScore(
 describe("Score/DQ based result entry (User Story 1)", () => {
   beforeEach(async () => {
     await resetDb();
+    await seedActiveAdminSession();
   });
 
   it("declares the higher score the winner (Acceptance Scenario 1)", async () => {
@@ -261,6 +263,7 @@ describe("Score/DQ based result entry (User Story 1)", () => {
 describe('"In Progress" status is optional (User Story 4)', () => {
   beforeEach(async () => {
     await resetDb();
+    await seedActiveAdminSession();
     await seedPool([
       baseCard({ id: "card-1", identifier: "R1-1" }),
       baseCard({

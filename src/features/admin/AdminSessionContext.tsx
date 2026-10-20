@@ -19,6 +19,11 @@ import {
 const RECHECK_INTERVAL_MS = 60_000;
 
 interface AdminSessionContextValue {
+  /**
+   * 保存済みのセッションを最初に読み込み終えたか。読み込み前に未ログイン
+   * 扱いでログイン画面を一瞬表示してしまわないよう、ゲート側で参照する。
+   */
+  loaded: boolean;
   isActive: boolean;
   autoLogoutNotice: boolean;
   /** デザイン刷新(2026-10-09): ヘッダーの「自動ログアウトまで」表示用。 */
@@ -41,11 +46,13 @@ const AdminSessionContext = createContext<AdminSessionContextValue | undefined>(
 export function AdminSessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AdminSession | null>(null);
   const [autoLogoutNotice, setAutoLogoutNotice] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(async () => {
     const { justAutoLoggedOut, session: current } =
       await checkAndApplyAutoLogout();
     setSession(current ?? null);
+    setLoaded(true);
     if (
       (justAutoLoggedOut || current?.status === "LOGGED_OUT_AUTO") &&
       !current?.autoLogoutNotifiedAt
@@ -81,6 +88,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value: AdminSessionContextValue = {
+    loaded,
     isActive: session?.status === "ACTIVE",
     autoLogoutNotice,
     expiresAt: session?.status === "ACTIVE" ? session.expiresAt : null,

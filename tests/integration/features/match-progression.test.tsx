@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
+import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -121,6 +122,7 @@ async function seedPoolAwaitingAdvancement() {
 describe("Winner advancement to the next round (FR-023)", () => {
   beforeEach(async () => {
     await resetDb();
+    await seedActiveAdminSession();
     await seedPoolAwaitingAdvancement();
   });
 
@@ -267,6 +269,7 @@ async function seedPoolAwaitingLoserDrop() {
 describe("Loser drop into the losers bracket (FR-023)", () => {
   beforeEach(async () => {
     await resetDb();
+    await seedActiveAdminSession();
     await seedPoolAwaitingLoserDrop();
   });
 

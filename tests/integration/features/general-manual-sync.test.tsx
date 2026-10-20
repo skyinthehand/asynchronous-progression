@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
+import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", async (importOriginal) => {
   const actual =
@@ -67,6 +68,7 @@ async function seedConfiguredPool() {
 describe("Manual sync button next to the sync chip (general screen)", () => {
   beforeEach(async () => {
     await resetDb();
+    await seedActiveAdminSession();
     await seedConfiguredPool();
     vi.mocked(operations.fetchPoolDetail).mockReset();
     vi.mocked(operations.reportMatchResult).mockReset();
