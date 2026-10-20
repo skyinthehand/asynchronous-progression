@@ -92,6 +92,21 @@ export const MatchCardSchema = z.object({
    * 手段は提供しない。定期同期のたびにstart.gg側の最新値で上書きする。
    */
   isStreamed: z.boolean().default(false),
+  /**
+   * ユーザーフィードバック(2026-10-20): アプリで入力した結果をstart.ggへ
+   * 送信する前に、start.gg側(TOの画面・選手の自己報告等)で別の勝者の
+   * 結果が入力されていた場合、start.ggを正としてローカルの結果を破棄する。
+   * 破棄した内容をここに残し、プール進行画面のモーダルで進行担当者に
+   * 知らせる(確認するとnullに戻す)。
+   */
+  discardedLocalResult: z
+    .object({
+      winnerId: z.string().nullable(),
+      score: z.string().nullable(),
+      discardedAt: z.string().datetime(),
+    })
+    .nullable()
+    .default(null),
 });
 
 export type MatchCard = z.infer<typeof MatchCardSchema>;

@@ -28,3 +28,11 @@ export async function getEntrantsByPool(poolId: string): Promise<Entrant[]> {
   const values = await db.getAllFromIndex("entrants", "poolId", poolId);
   return values.map((value) => EntrantSchema.parse(value));
 }
+
+export async function deleteEntrants(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await getDb();
+  const tx = db.transaction("entrants", "readwrite");
+  await Promise.all(ids.map((id) => tx.store.delete(id)));
+  await tx.done;
+}

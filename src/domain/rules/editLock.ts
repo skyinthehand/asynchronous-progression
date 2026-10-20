@@ -54,3 +54,18 @@ export function lockedTooltipText(
   const anyLive = lockers.some((c) => c.status === "IN_PROGRESS");
   return `後続の対戦（Set ${ids}）が${anyLive ? "進行している" : "終わっている"}ため、この結果は修正できません。`;
 }
+
+/**
+ * ユーザーフィードバック(2026-10-20): `isLocked`は従来、アプリで結果を
+ * 入力したとき(usePoolProgressのrecordResult)にしか再計算されず、後続の
+ * 対戦がstart.gg側で開始・完了・リセットされてもロック状態が追従しな
+ * かった。同期・読み込みのたびにこの関数で全カードを再計算する。
+ * 変化のないカードは同じオブジェクトのまま返す(呼び出し側で変更の有無を
+ * 参照比較で判定できるように)。
+ */
+export function recomputeIsLocked(allCardsInPool: MatchCard[]): MatchCard[] {
+  return allCardsInPool.map((card) => {
+    const isLocked = computeIsLocked(card, allCardsInPool);
+    return isLocked === card.isLocked ? card : { ...card, isLocked };
+  });
+}

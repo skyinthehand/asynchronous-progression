@@ -3,6 +3,7 @@ import type { Pool } from "../../domain/entities/pool.js";
 import { computeBlockedMatches } from "../../domain/rules/nextMatchSuggestion.js";
 import { findOccupyingMatchCard } from "../../domain/rules/tableAssignment.js";
 import { PrintPage } from "../print/PrintPage.js";
+import { DiscardedResultModal } from "./DiscardedResultModal.js";
 import { MatchCardList } from "./MatchCardList.js";
 import { NextMatchGuideTab } from "./NextMatchGuideTab.js";
 import { NextMatchModal } from "./NextMatchModal.js";
@@ -66,6 +67,7 @@ export function PoolProgressScreen() {
     dismissSuggestion,
     setInProgress,
     setNotStarted,
+    acknowledgeDiscardedResults,
     isPreviewMode,
   } = usePoolProgress();
   const [printing, setPrinting] = useState(false);
@@ -406,6 +408,20 @@ export function PoolProgressScreen() {
             />
           );
         })()}
+
+      {(() => {
+        const discardedCards = matchCards.filter(
+          (card) => card.discardedLocalResult !== null,
+        );
+        if (discardedCards.length === 0) return null;
+        return (
+          <DiscardedResultModal
+            cards={discardedCards}
+            entrantById={entrantById}
+            onAcknowledge={() => void acknowledgeDiscardedResults()}
+          />
+        );
+      })()}
 
       {showOnboarding && pool && (
         <PoolOnboardingWizard

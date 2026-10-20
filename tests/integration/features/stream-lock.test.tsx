@@ -307,14 +307,21 @@ describe("Stream lock (005-stream-match-lock)", () => {
     it("shows a '配信予定' badge on a not-started streamed card, distinct from the locked-for-correction note", async () => {
       await seedPool("SINGLE_ELIMINATION", [
         makeCard({ id: "card-1", identifier: "A", isStreamed: true }),
+        // isLockedは同期・読み込みのたびに後続の対戦から再計算される
+        // (editLock.tsのrecomputeIsLocked)ため、実際に後続の対戦(C)が
+        // 進行中である状態を用意してロックさせる。
         makeCard({
           id: "card-2",
           identifier: "B",
-          entrant1Id: null,
-          entrant2Id: null,
           status: "COMPLETED",
-          winnerId: null,
-          isLocked: true,
+          winnerId: "e1",
+        }),
+        makeCard({
+          id: "card-3",
+          identifier: "C",
+          round: 2,
+          entrant2Id: null,
+          status: "IN_PROGRESS",
         }),
       ]);
       const user = userEvent.setup();
@@ -340,7 +347,7 @@ describe("Stream lock (005-stream-match-lock)", () => {
         }),
       );
       expect(
-        within(lockedCard).getByText(/後続の対戦が進行しているため/),
+        within(lockedCard).getByText(/後続の対戦.*が進行しているため/),
       ).toBeInTheDocument();
     });
 

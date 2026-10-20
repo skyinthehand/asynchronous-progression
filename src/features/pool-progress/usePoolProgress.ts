@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import type { Attendance, Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import type { Pool } from "../../domain/entities/pool.js";
-import { computeIsLocked } from "../../domain/rules/editLock.js";
+import {
+  computeIsLocked,
+  recomputeIsLocked,
+} from "../../domain/rules/editLock.js";
 import {
   advanceWinner,
   reconcileAdvancement,
@@ -96,6 +99,12 @@ interface UsePoolProgressResult {
    */
   setNotStarted: (matchCardId: string) => Promise<void>;
   /**
+   * ユーザーフィードバック(2026-10-20): start.gg側の結果を正として破棄した
+   * アプリの結果(discardedLocalResult)を、進行担当者が確認したことを記録
+   * する(全カード分をまとめてnullに戻す)。
+   */
+  acknowledgeDiscardedResults: () => Promise<void>;
+  /**
    * ユーザーフィードバック(2026-08-13): start.gg側でブラケットが未開始
    * (対戦カードのIDがpreview形式)の間は結果入力・対戦台変更・進行中
    * 設定を一切できないようにする(開始後にIDが実IDへ切り替わった際の
@@ -133,7 +142,8 @@ export function usePoolProgress(): UsePoolProgressResult {
     ]);
     // 過去(FR-023のlocalOnly対応より前)に記録された結果が、その後の同期で
     // 後続カードへの反映を上書きされてしまっているケースを自己修復する。
-    const loadedCards = reconcileAdvancement(rawCards);
+    // 後続の対戦がstart.gg側で進行・リセットされた場合のロック状態も追従させる。
+    const loadedCards = recomputeIsLocked(reconcileAdvancement(rawCards));
     if (loadedCards.some((card, index) => card !== rawCards[index])) {
       await saveMatchCards(loadedCards);
     }
@@ -453,6 +463,16 @@ export function usePoolProgress(): UsePoolProgressResult {
     [matchCards, isPreviewMode],
   );
 
+  const acknowledgeDiscardedResults = useCallback(async () => {
+    const acknowledged = matchCards
+      .filter((card) => card.discardedLocalResult !== null)
+      .map((card) => ({ ...card, discardedLocalResult: null }));
+    if (acknowledged.length === 0) return;
+    await saveMatchCards(acknowledged);
+    const byId = new Map(acknowledged.map((card) => [card.id, card]));
+    setMatchCards((prev) => prev.map((card) => byId.get(card.id) ?? card));
+  }, [matchCards]);
+
   const completeOnboarding = useCallback(async () => {
     if (!pool) return;
     const updatedPool: Pool = {
@@ -483,6 +503,7 @@ export function usePoolProgress(): UsePoolProgressResult {
     dismissSuggestion,
     setInProgress,
     setNotStarted,
+    acknowledgeDiscardedResults,
     isPreviewMode,
   };
 }
