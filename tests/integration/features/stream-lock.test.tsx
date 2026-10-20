@@ -391,7 +391,7 @@ describe("Stream lock (005-stream-match-lock)", () => {
       expect(screen.queryByText("配信予定")).not.toBeInTheDocument();
     });
 
-    it("shows the '配信中' badge on a streamed card regardless of status (bracket board)", async () => {
+    it("hides the stream badge on a completed streamed card (bracket board)", async () => {
       await seedPool("SINGLE_ELIMINATION", [
         makeCard({
           id: "card-1",
@@ -408,10 +408,11 @@ describe("Stream lock (005-stream-match-lock)", () => {
 
       const card = (await screen.findByText("A")).closest("li");
       if (!card) throw new Error("card not found");
-      expect(within(card).getByText("配信中")).toBeInTheDocument();
+      expect(within(card).queryByText("配信中")).not.toBeInTheDocument();
+      expect(within(card).queryByText("配信予定")).not.toBeInTheDocument();
     });
 
-    it("shows the '配信中' badge on a streamed card regardless of status (table/OTHER format)", async () => {
+    it("hides the stream badge on a completed streamed card (table/OTHER format)", async () => {
       await seedPool("OTHER", [
         makeCard({
           id: "card-1",
@@ -427,7 +428,8 @@ describe("Stream lock (005-stream-match-lock)", () => {
       await acknowledgeNotice(user);
 
       await screen.findByText(/勝者: Alice/);
-      expect(screen.getByText("配信中")).toBeInTheDocument();
+      expect(screen.queryByText("配信中")).not.toBeInTheDocument();
+      expect(screen.queryByText("配信予定")).not.toBeInTheDocument();
     });
 
     it("clears the badge and re-enables editing once start.gg reports the stream was unassigned (FR-008)", async () => {

@@ -62,8 +62,8 @@ describe("isStreamLocked", () => {
 /**
  * ユーザーフィードバック(2026-10-16): 配信(stream)が割り当てられていても
  * 対戦自体はまだ始まっていないことがあるため、未着手(NOT_STARTED)の間は
- * 「配信予定」、進行中(IN_PROGRESS)・確定済み(COMPLETED)は「配信中」と
- * 出し分ける。
+ * 「配信予定」、進行中(IN_PROGRESS)は「配信中」と出し分け、確定済み
+ * (COMPLETED)は表示しない(2026-10-20)。
  */
 describe("streamBadgeLabel", () => {
   it("returns null when isStreamed is false, regardless of status", () => {
@@ -86,9 +86,9 @@ describe("streamBadgeLabel", () => {
     ).toBe("配信中");
   });
 
-  it("returns '配信中' when streamed and completed", () => {
+  it("returns null when streamed and completed (start.gg keeps the stream assigned after the result is reported)", () => {
     expect(
       streamBadgeLabel(makeCard({ isStreamed: true, status: "COMPLETED" })),
-    ).toBe("配信中");
+    ).toBe(null);
   });
 });

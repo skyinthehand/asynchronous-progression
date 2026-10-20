@@ -21,9 +21,14 @@ export function isStreamLocked(card: MatchCard): boolean {
  * いても、実際にその対戦が始まっているとは限らない(start.gg上で先に
  * streamだけ割り当てられ、対戦の呼び出し・開始は別タイミングで行われる
  * ことがある)。「配信中」固定ではなく、対戦の状態に応じて「配信予定」
- * (未着手)/「配信中」(進行中・確定済み)を出し分ける。
+ * (未着手)/「配信中」(進行中)を出し分け、確定済みは表示しない。
  */
 export function streamBadgeLabel(card: MatchCard): string | null {
   if (!card.isStreamed) return null;
-  return card.status === "NOT_STARTED" ? "配信予定" : "配信中";
+  if (card.status === "NOT_STARTED") return "配信予定";
+  // ユーザーフィードバック(2026-10-20): start.ggは結果入力後もstreamの
+  // 割り当てを残すため、確定済みも「配信中」としていると、配信台の結果を
+  // 入力した後もずっと「配信中」と表示されていた。確定済みはバッジを
+  // 表示しない(結果修正のロック(isStreamLocked)はそのまま維持する)。
+  return card.status === "COMPLETED" ? null : "配信中";
 }

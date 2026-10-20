@@ -299,9 +299,10 @@ export function MatchCardEntry({
           <span className="match-card-meta-state">
             {VARIANT_LABEL[variant]}
           </span>
-          {/* 005-stream-match-lock FR-007: 対戦カードの状態を問わず表示する。
+          {/* 005-stream-match-lock FR-007: 配信バッジ。
               ユーザーフィードバック(2026-10-16): 未着手なら「配信予定」、
-              進行中・確定済みなら「配信中」を出し分ける(streamLock.ts参照)。 */}
+              進行中なら「配信中」を出し分け、確定済みは
+              表示しない(2026-10-20、streamLock.ts参照)。 */}
           {streamBadgeLabel(card) && (
             <span className="match-card-stream-badge">
               {streamBadgeLabel(card)}
