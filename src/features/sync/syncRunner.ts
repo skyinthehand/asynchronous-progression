@@ -75,12 +75,15 @@ export function mergeMatchCard(
     ...remote,
     editHistory: local.editHistory,
     isLocked: local.isLocked,
-    // 002-match-scoring-and-flow FR-016: 対戦台番号はローカル入力を常に
-    // 優先する(ローカルで未設定(null)の場合のみstartgg側のstation値を
-    // 使う)。localOnlyのクリア後(結果確定の同期完了後)も、対戦台番号
-    // だけが古い値に巻き戻らないようにするため、localOnlyの状態に関わらず
-    // ここで常に判定する。
-    tableNumber: local.tableNumber ?? remote.tableNumber,
+    // ユーザーフィードバック(2026-10-20): 対戦台番号は、送信待ち
+    // (tableLocalOnly)の間だけローカルを優先する(送信中にstartgg側の
+    // 古い値で巻き戻らないようにするため)。送信が完了した後は、以後の
+    // 同期でstartgg側の最新値(他の経路での変更も含む)に追従できるよう
+    // remoteを優先する。送信完了後もローカルを優先し続けると、表示が
+    // 更新されなくなる不具合になっていた(002-match-scoring-and-flow
+    // FR-016は「送信中は巻き戻らない」ことが目的で、「永久にローカルが
+    // 正」という意味ではなかった)。
+    tableNumber: local.tableLocalOnly ? local.tableNumber : remote.tableNumber,
     // entrant1Score/entrant2Score/DQ/Wは本feature独自のローカル入力専用
     // フィールドで、start.gg側に対応する概念がなくfetchPoolDetail()は常に
     // 既定値(null/false)を返す。localOnlyのクリア後にこのデフォルト値で

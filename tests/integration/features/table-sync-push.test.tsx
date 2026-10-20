@@ -118,7 +118,17 @@ describe("Table assignment is pushed to start.gg (2026-10-19)", () => {
   });
 
   it("sends assignStationToSet for a table assigned without changing the match status", async () => {
-    vi.mocked(operations.fetchPoolDetail).mockResolvedValue({
+    // ユーザーフィードバック(2026-10-20): 送信が完了した後は、以後の同期で
+    // start.gg側の最新値に追従するよう変更した(mergeMatchCard参照)ため、
+    // このモックも実際のstart.gg(読み取り一貫性あり)と同様に、
+    // assignStationToSetで送った値をfetchPoolDetailの返り値へ反映する。
+    let remoteTableNumber: string | null = null;
+    vi.mocked(operations.assignStationToSet).mockImplementation(
+      async (_client, _setId, stationId) => {
+        remoteTableNumber = stationId === "station-2" ? "2" : remoteTableNumber;
+      },
+    );
+    vi.mocked(operations.fetchPoolDetail).mockImplementation(async () => ({
       poolId: "pool-1",
       displayIdentifier: "Pool 1",
       bracketType: "SINGLE_ELIMINATION",
@@ -129,7 +139,7 @@ describe("Table assignment is pushed to start.gg (2026-10-19)", () => {
           identifier: "WF",
           round: 1,
           bracketSide: "WINNERS",
-          tableNumber: null,
+          tableNumber: remoteTableNumber,
           entrant1Id: "e1",
           entrant2Id: "e2",
           winnerId: null,
@@ -151,7 +161,7 @@ describe("Table assignment is pushed to start.gg (2026-10-19)", () => {
         },
       ],
       entrants: [],
-    });
+    }));
 
     const user = userEvent.setup();
     render(<App />);

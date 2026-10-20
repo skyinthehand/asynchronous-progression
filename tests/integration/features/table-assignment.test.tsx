@@ -342,9 +342,40 @@ describe("Table count setting and assignment (User Story 2)", () => {
     );
     const db = await getDb();
     const local = await db.get("matchCards", "card-1");
+    // 送信待ち(tableLocalOnly)の間は、startgg側がまだ追いついていない
+    // 古いtableNumberで巻き戻らない。
     const remote = { ...local, tableNumber: null, localOnly: false };
     const merged = mergeMatchCard(local, remote);
     expect(merged.tableNumber).toBe("1");
+  });
+
+  /**
+   * ユーザーフィードバック(2026-10-20): 送信(tableLocalOnly)が完了した
+   * 後も対戦台番号を常にローカル優先にしていたため、start.gg側で対戦台が
+   * 変更されても(別経路での変更・過去の送信失敗など)アプリの表示が
+   * 古いまま更新されない不具合があった。送信完了後は、以後の同期で
+   * start.gg側の最新値に追従する。
+   */
+  it("picks up a changed remote table number once the local push has already completed", async () => {
+    await seedPool(["1", "2", "3"]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+    await screen.findByText("R1-1");
+
+    const select = screen.getByLabelText("R1-1の対戦台");
+    await user.selectOptions(select, "1");
+
+    const { mergeMatchCard } = await import(
+      "../../../src/features/sync/syncRunner.js"
+    );
+    const db = await getDb();
+    const pushed = await db.get("matchCards", "card-1");
+    // 送信が完了した状態(tableLocalOnlyがクリア済み)を再現する。
+    const local = { ...pushed, tableLocalOnly: false };
+    const remote = { ...local, tableNumber: "3", localOnly: false };
+    const merged = mergeMatchCard(local, remote);
+    expect(merged.tableNumber).toBe("3");
   });
 
   it("takes isStreamed from the remote value (005-stream-match-lock)", async () => {
