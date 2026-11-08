@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- ヘッダーのロゴマーク(global.cssの.header-mark)と同じ構成: 黒地に白い四角3つ、右下だけ黄色(--accent)。 -->
+  <rect width="32" height="32" fill="#000"/>
+  <rect x="6" y="6" width="8" height="8" fill="#fff"/>
+  <rect x="18" y="6" width="8" height="8" fill="#fff"/>
+  <rect x="6" y="18" width="8" height="8" fill="#fff"/>
+  <rect x="18" y="18" width="8" height="8" fill="#ffd400"/>
+</svg>
