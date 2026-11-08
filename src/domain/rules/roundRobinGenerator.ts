@@ -52,6 +52,8 @@ export function generateRoundRobinMatchCards(
         localOnly: true,
         entrant1SourceMatchId: null,
         entrant2SourceMatchId: null,
+        entrant1SourcePlacement: null,
+        entrant2SourcePlacement: null,
         entrant1Score: null,
         entrant2Score: null,
         entrant1DQ: false,

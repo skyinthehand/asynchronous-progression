@@ -241,6 +241,8 @@ const SetSlotSchema = z.object({
   /** ブラケット接続線の再現用(FR-023)。旧形式のfixture互換のためoptional。 */
   prereqType: z.string().nullable().optional(),
   prereqId: z.union([z.string(), z.number()]).nullable().optional(),
+  /** 出場元の対戦の何位がこの枠に入るか(1=勝者、2=敗者)。旧形式のfixture互換のためoptional。 */
+  prereqPlacement: z.number().int().nullable().optional(),
   entrant: z
     .object({
       id: z.union([z.string(), z.number()]).transform(String),
@@ -334,6 +336,7 @@ const POOL_DETAIL_QUERY = /* GraphQL */ `
           slots {
             prereqType
             prereqId
+            prereqPlacement
             entrant {
               id
               name
@@ -520,6 +523,10 @@ export async function fetchPoolDetail(
       slot2?.prereqType === "set" && slot2.prereqId != null
         ? String(slot2.prereqId)
         : null;
+    const entrant1SourcePlacement =
+      entrant1SourceMatchId !== null ? (slot1?.prereqPlacement ?? null) : null;
+    const entrant2SourcePlacement =
+      entrant2SourceMatchId !== null ? (slot2?.prereqPlacement ?? null) : null;
     for (const slot of set.slots) {
       if (slot.entrant && !entrantById.has(slot.entrant.id)) {
         entrantById.set(slot.entrant.id, {
@@ -560,6 +567,8 @@ export async function fetchPoolDetail(
       localOnly: false,
       entrant1SourceMatchId,
       entrant2SourceMatchId,
+      entrant1SourcePlacement,
+      entrant2SourcePlacement,
       // start.gg側で入力された得点・DQ(toSlotScore参照)。W(スコア不明の
       // 勝ち)はstart.gg側に対応する概念がないため既定値のみを設定する。
       // 既存カードとのマージ規則はsyncRunner.tsのmergeMatchCard参照。

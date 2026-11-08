@@ -51,6 +51,16 @@ export const MatchCardSchema = z.object({
   entrant1SourceMatchId: z.string().nullable().default(null),
   entrant2SourceMatchId: z.string().nullable().default(null),
   /**
+   * ユーザーフィードバック(2026-11-08): 上の出場元の対戦の「何位」がこの
+   * 枠に入るか(start.ggのSetSlot.prereqPlacement。1=勝者、2=敗者)。
+   * 以前は出場元と同じ側(勝者側/敗者側)かどうかで勝者/敗者を推測して
+   * いたが、グランドファイナル(敗者側決勝の「勝者」が勝者側へ入る)と
+   * そのリセット(同じGFの勝者と敗者が入る)で誤っていた。未取得(古い
+   * データ・start.gg側で未設定)の場合はnullで、従来の推測に戻る。
+   */
+  entrant1SourcePlacement: z.number().int().nullable().default(null),
+  entrant2SourcePlacement: z.number().int().nullable().default(null),
+  /**
    * 002-match-scoring-and-flow FR-001/FR-004: 両出場者のスコア(0〜3)。
    * 未入力側はresolveMatchResult()により結果確定時に0として扱われるが、
    * このフィールド自体は「未入力」をnullのまま保持する(0との違いを

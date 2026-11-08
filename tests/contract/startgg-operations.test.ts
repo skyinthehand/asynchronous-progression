@@ -362,6 +362,61 @@ describe("Q2: fetchPoolDetail", () => {
     expect(detail.matchCards[0].isStreamed).toBe(true);
   });
 
+  it("maps each slot's prereqPlacement (1=winner, 2=loser) to entrant1/2SourcePlacement (grand final reset, 2026-11-08)", async () => {
+    const client = fakeClient({
+      phaseGroup: {
+        id: 1000,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [
+            {
+              id: 7001,
+              identifier: "Z",
+              round: 6,
+              station: null,
+              stream: null,
+              slots: [{ entrant: null }, { entrant: null }],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+            {
+              id: 7002,
+              identifier: "AA",
+              round: 6,
+              station: null,
+              stream: null,
+              slots: [
+                {
+                  prereqType: "set",
+                  prereqId: 7001,
+                  prereqPlacement: 1,
+                  entrant: null,
+                },
+                {
+                  prereqType: "set",
+                  prereqId: 7001,
+                  prereqPlacement: 2,
+                  entrant: null,
+                },
+              ],
+              winnerId: null,
+              displayScore: null,
+              state: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    const [grandFinal, reset] = (await fetchPoolDetail(client, "1000"))
+      .matchCards;
+    expect(grandFinal.entrant1SourcePlacement).toBeNull();
+    expect(reset.entrant1SourcePlacement).toBe(1);
+    expect(reset.entrant2SourcePlacement).toBe(2);
+  });
+
   it("maps set state 6 (ActivityState.CALLED) to CALLED (2026-11-08)", async () => {
     const client = fakeClient({
       phaseGroup: {

@@ -3,7 +3,7 @@ import { Modal } from "../../components/index.js";
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import { lockedTooltipText } from "../../domain/rules/editLock.js";
-import { foldSide } from "../../domain/rules/matchProgression.js";
+import { slotTakesWinner } from "../../domain/rules/matchProgression.js";
 import {
   isStreamLocked,
   streamBadgeLabel,
@@ -70,6 +70,7 @@ function isSlotPending(
 
 function slotDisplayName(
   entrantById: Map<string, Entrant>,
+  slot: "entrant1" | "entrant2",
   entrantId: string | null,
   sourceMatchId: string | null,
   card: MatchCard,
@@ -79,9 +80,7 @@ function slotDisplayName(
   if (!isSlotPending(entrantId, sourceMatchId)) return "BYE";
   const sourceCard = matchCards.find((c) => c.id === sourceMatchId);
   if (!sourceCard) return "未定";
-  const expectsWinner =
-    foldSide(card.bracketSide) === foldSide(sourceCard.bracketSide);
-  return expectsWinner
+  return slotTakesWinner(card, slot, sourceCard)
     ? `${sourceCard.identifier}の勝者`
     : `${sourceCard.identifier}の敗者`;
 }
@@ -286,6 +285,7 @@ export function MatchCardEntry({
                   <span>
                     {slotDisplayName(
                       entrantById,
+                      slotKey,
                       entrantId,
                       sourceMatchId,
                       card,

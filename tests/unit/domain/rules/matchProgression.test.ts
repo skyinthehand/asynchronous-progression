@@ -231,6 +231,102 @@ describe("advanceWinner", () => {
   });
 });
 
+/**
+ * ユーザーフィードバック(2026-11-08、weekly-smash-party-251で報告): start.gg
+ * が返す「出場元の何位がこの枠に入るか」(prereqPlacement、1=勝者・2=敗者)
+ * に従う。同じ側かどうかの推測だけでは、グランドファイナルとそのリセットを
+ * 誤っていた(実データ: GF「Y(WF)の1位 vs AY(LF)の1位」、リセット
+ * 「Zの1位 vs Zの2位」)。
+ */
+describe("advanceWinner with start.gg slot placements (grand final)", () => {
+  const winnersFinal = makeCard({
+    id: "Y",
+    identifier: "Y",
+    round: 5,
+    entrant1Id: "gackt",
+    entrant2Id: "tea",
+    winnerId: "gackt",
+    status: "COMPLETED",
+  });
+  const losersFinal = makeCard({
+    id: "AY",
+    identifier: "AY",
+    round: -10,
+    bracketSide: "LOSERS",
+    entrant1Id: "tea",
+    entrant2Id: "miya",
+    winnerId: "miya",
+    status: "COMPLETED",
+  });
+  const grandFinal = makeCard({
+    id: "Z",
+    identifier: "Z",
+    round: 6,
+    entrant1SourceMatchId: "Y",
+    entrant2SourceMatchId: "AY",
+    entrant1SourcePlacement: 1,
+    entrant2SourcePlacement: 1,
+  });
+  const reset = makeCard({
+    id: "AA",
+    identifier: "AA",
+    round: 6,
+    entrant1SourceMatchId: "Z",
+    entrant2SourceMatchId: "Z",
+    entrant1SourcePlacement: 1,
+    entrant2SourcePlacement: 2,
+  });
+
+  it("sends the losers-final WINNER (not its loser) into the grand final", () => {
+    const cards = advanceWinner(
+      advanceWinner([winnersFinal, losersFinal, grandFinal], winnersFinal),
+      losersFinal,
+    );
+    const gf = cards.find((card) => card.id === "Z");
+    expect([gf?.entrant1Id, gf?.entrant2Id]).toEqual(["gackt", "miya"]);
+  });
+
+  it("sends the grand final winner AND loser into the reset (not 'Miya vs Miya')", () => {
+    const playedGrandFinal = {
+      ...grandFinal,
+      entrant1Id: "gackt",
+      entrant2Id: "miya",
+      winnerId: "miya",
+      status: "COMPLETED" as const,
+    };
+    const [, updatedReset] = advanceWinner(
+      [playedGrandFinal, reset],
+      playedGrandFinal,
+    );
+    expect([updatedReset.entrant1Id, updatedReset.entrant2Id]).toEqual([
+      "miya",
+      "gackt",
+    ]);
+  });
+
+  it("re-derives a wrongly advanced reset ('Miya vs Miya' saved by an older version) on reconcile", () => {
+    const playedGrandFinal = {
+      ...grandFinal,
+      entrant1Id: "gackt",
+      entrant2Id: "miya",
+      winnerId: "miya",
+      status: "COMPLETED" as const,
+    };
+    const staleReset = {
+      ...reset,
+      entrant1Id: "miya",
+      entrant2Id: "miya",
+      localOnly: true,
+    };
+    const healed = reconcileAdvancement([playedGrandFinal, staleReset]);
+    const healedReset = healed.find((card) => card.id === "AA");
+    expect([healedReset?.entrant1Id, healedReset?.entrant2Id]).toEqual([
+      "miya",
+      "gackt",
+    ]);
+  });
+});
+
 describe("reconcileAdvancement", () => {
   it("re-derives a downstream entrant that was left stale by an earlier sync (self-heal)", () => {
     // 報告されたバグの再現: localOnly対応が入る前に記録された結果が、

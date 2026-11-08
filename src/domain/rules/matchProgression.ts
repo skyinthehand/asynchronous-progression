@@ -13,6 +13,32 @@ export function foldSide(
 }
 
 /**
+ * 対戦カードの指定した枠に、出場元の対戦(sourceCard)の勝者と敗者の
+ * どちらが入るか。start.ggが返す順位(entrant1/2SourcePlacement、1=勝者・
+ * 2=敗者)があればそれに従う。無い場合(古いデータ等)は従来どおり、
+ * 出場元と同じ側(勝者側→勝者側、敗者側→敗者側)なら勝者、別の側
+ * (勝者側→敗者側)なら敗者と推測する。
+ *
+ * ユーザーフィードバック(2026-11-08): 推測だけでは、グランドファイナル
+ * (勝者側)の片方の枠に敗者側決勝の「敗者」を、グランドファイナル
+ * リセットの両方の枠にGFの「勝者」を入れてしまっていた(「Miya vs
+ * Miya」)。MatchCardEntry.tsxの「Xの勝者/敗者」表示も同じ判定を使う。
+ */
+export function slotTakesWinner(
+  card: MatchCard,
+  slot: "entrant1" | "entrant2",
+  sourceCard: MatchCard,
+): boolean {
+  const placement =
+    slot === "entrant1"
+      ? card.entrant1SourcePlacement
+      : card.entrant2SourcePlacement;
+  if (placement === 1) return true;
+  if (placement === 2) return false;
+  return foldSide(card.bracketSide) === foldSide(sourceCard.bracketSide);
+}
+
+/**
  * FR-023: 対戦カードの結果が確定した際、その結果を後続の対戦カード
  * (entrant1/entrant2SourceMatchIdでこのカードを出場元として参照している
  * カード)のentrant1Id/entrant2Idへ反映する。startgg同期後はstartgg側の
@@ -20,11 +46,10 @@ export function foldSide(
  * 入力した場合は自分で送り込む必要がある(そうしないとブラケット表示・
  * 次戦案内で後続カードがBYEのまま止まって見える)。
  *
- * 後続カードが「同じ側」(勝者側→勝者側、敗者側→敗者側)を参照している
- * 場合は勝者を送る(通常の勝ち上がり)。「別の側」(勝者側→敗者側)を
- * 参照している場合は敗者を送る(負けたプレイヤーが敗者側トーナメントに
- * 落ちる)。この判定を取り違えると、敗者側の対戦にいつまでも出場者が
- * 反映されない(または勝者側の勝者が誤って敗者側に現れる)。
+ * 勝者と敗者のどちらを送るかはslotTakesWinner(start.ggの順位、無ければ
+ * 同じ側なら勝者・別の側なら敗者)で決める。この判定を取り違えると、
+ * 敗者側の対戦にいつまでも出場者が反映されない(または勝者側の勝者が
+ * 誤って敗者側に現れる)。
  *
  * 反映した後続カードは必ずlocalOnly: trueにする。startggへの結果送信
  * (M1)が現状動いていない間は、start.gg側のこの後続カードのentrantは
@@ -45,19 +70,18 @@ export function advanceWinner(
     sourceCard.entrant1Id === winnerId
       ? sourceCard.entrant2Id
       : sourceCard.entrant1Id;
-  const sourceSide = foldSide(sourceCard.bracketSide);
 
   return matchCards.map((card) => {
-    const advancingId = (referencedSide: "WINNERS" | "LOSERS") =>
-      referencedSide === sourceSide ? winnerId : loserId;
+    const advancingId = (slot: "entrant1" | "entrant2") =>
+      slotTakesWinner(card, slot, sourceCard) ? winnerId : loserId;
 
     const entrant1Id =
       card.entrant1SourceMatchId === sourceCard.id
-        ? advancingId(foldSide(card.bracketSide))
+        ? advancingId("entrant1")
         : card.entrant1Id;
     const entrant2Id =
       card.entrant2SourceMatchId === sourceCard.id
-        ? advancingId(foldSide(card.bracketSide))
+        ? advancingId("entrant2")
         : card.entrant2Id;
 
     if (entrant1Id === card.entrant1Id && entrant2Id === card.entrant2Id) {

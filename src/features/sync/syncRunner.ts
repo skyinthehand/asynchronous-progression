@@ -57,11 +57,21 @@ export function mergeMatchCard(
   remote: MatchCard,
 ): MatchCard {
   if (!local) return remote;
+  // ユーザーフィードバック(2026-11-08): どの対戦の何位がどの枠に入るか
+  // (ブラケットの構造)は、ローカルで入力・先行反映する情報ではなく
+  // start.ggが正。ローカルを優先する場合でも常にremoteの値を使う(古い
+  // データに無いentrant1/2SourcePlacementを、次の同期で取り込むため)。
+  const structure = {
+    entrant1SourceMatchId: remote.entrant1SourceMatchId,
+    entrant2SourceMatchId: remote.entrant2SourceMatchId,
+    entrant1SourcePlacement: remote.entrant1SourcePlacement,
+    entrant2SourcePlacement: remote.entrant2SourcePlacement,
+  };
   if (local.localOnly && local.winnerId) {
     if (remote.status !== "COMPLETED") {
       // ユーザーフィードバック(2026-08-15): 結果(勝者)を保持しているカード
       // (M1未送信のもの)は、送信が成功するまでローカルを正とする。
-      return local;
+      return { ...local, ...structure };
     }
     // ユーザーフィードバック(2026-10-20): 送信前にstart.gg側(TOの画面・
     // 選手の自己報告等)で既に結果が入力されていた場合は、start.ggを正と
@@ -99,7 +109,7 @@ export function mergeMatchCard(
     const stillAheadOfRemote =
       entrant1Id !== remote.entrant1Id || entrant2Id !== remote.entrant2Id;
     if (stillAheadOfRemote) {
-      return { ...local, entrant1Id, entrant2Id };
+      return { ...local, ...structure, entrant1Id, entrant2Id };
     }
     // remoteが全ての枠で追いついた: 以降の通常マージへ進み、localOnlyも解除する。
   }
