@@ -14,6 +14,8 @@ interface MatchTableProps {
     tableNumber: string | null,
   ) => Promise<boolean>;
   onSetInProgress: (matchCardId: string) => void;
+  /** ユーザーフィードバック(2026-11-08): 対戦を「呼び出し中」にする。 */
+  onSetCalled: (matchCardId: string) => void;
   readOnly?: boolean;
 }
 
@@ -26,6 +28,7 @@ export function MatchTable({
   tableNumbers,
   onAssignTable,
   onSetInProgress,
+  onSetCalled,
   readOnly,
 }: MatchTableProps) {
   return (
@@ -50,6 +53,7 @@ export function MatchTable({
             matchCards={matchCards}
             onAssignTable={onAssignTable}
             onSetInProgress={onSetInProgress}
+            onSetCalled={onSetCalled}
             readOnly={readOnly}
           />
         ))}

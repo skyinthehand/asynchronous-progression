@@ -4,6 +4,9 @@ export const BracketSideSchema = z.enum(["WINNERS", "LOSERS", "N/A"]);
 
 export const MatchCardStatusSchema = z.enum([
   "NOT_STARTED",
+  // ユーザーフィードバック(2026-11-08): start.ggの「呼び出し中」(黄色)。
+  // 進行中(緑)とは別の状態として扱う(domain/rules/matchStatus.ts参照)。
+  "CALLED",
   "IN_PROGRESS",
   "COMPLETED",
 ]);

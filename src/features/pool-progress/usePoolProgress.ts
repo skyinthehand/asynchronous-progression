@@ -10,6 +10,7 @@ import {
   advanceWinner,
   reconcileAdvancement,
 } from "../../domain/rules/matchProgression.js";
+import { isTableInUse } from "../../domain/rules/matchStatus.js";
 import {
   type NextMatchSuggestion,
   computeNextMatchSuggestions,
@@ -74,7 +75,7 @@ interface UsePoolProgressResult {
   /**
    * FR-022: 結果確定直後、次戦候補が1件以上あれば自動的にtrueになる。
    * ユーザーフィードバック: 結果確定によって複数の対戦が同時に進行可能に
-   * なった場合、「対戦開始」を押すたびに残りの候補へ自動的に進む(全て
+   * なった場合、「呼び出す」を押すたびに残りの候補へ自動的に進む(全て
    * 表示し終えるか閉じるまでモーダルが開いたまま)。ただしモーダルを
    * 何も選ばずに閉じた場合は、残りの候補があっても自動では再表示しない
    * (「次戦候補」ボタン(openSuggestionModal)から手動で開き直す)。
@@ -98,6 +99,13 @@ interface UsePoolProgressResult {
    * 反映済みの場合は何もしない)。
    */
   setNotStarted: (matchCardId: string) => Promise<void>;
+  /**
+   * ユーザーフィードバック(2026-11-08): 対戦を「呼び出し中」(start.ggの
+   * 黄色)にする。未着手から呼び出せるほか、進行中にしたものの
+   * start.ggへまだ反映されていない(statusLocalOnly)間は呼び出し中へ
+   * 戻せる(反映済みの進行中を戻すAPIはstart.gg側に無いため)。
+   */
+  setCalled: (matchCardId: string) => Promise<void>;
   /**
    * ユーザーフィードバック(2026-10-20): start.gg側の結果を正として破棄した
    * アプリの結果(discardedLocalResult)を、進行担当者が確認したことを記録
@@ -346,7 +354,7 @@ export function usePoolProgress(): UsePoolProgressResult {
       // ブロックする。未着手のカードは全ての対戦台から自由に選べる)。
       if (
         tableNumber !== null &&
-        target.status === "IN_PROGRESS" &&
+        isTableInUse(target.status) &&
         isTableOccupied(tableNumber, matchCards, matchCardId)
       ) {
         return false;
@@ -384,11 +392,15 @@ export function usePoolProgress(): UsePoolProgressResult {
       if (isStreamLocked(target)) return;
       const updated: MatchCard = {
         ...target,
-        status: "IN_PROGRESS",
+        // ユーザーフィードバック(2026-11-08): 次戦候補から呼ぶ操作は、
+        // いきなり進行中(緑)にせず「呼び出し中」(黄色)にする。大会では
+        // 呼び出してから選手がそろったのを確認して進行中にする流れで、
+        // 黄色でないとstart.ggから選手へ通知も届かないため。
+        status: "CALLED",
         tableNumber: tableNumber ?? target.tableNumber,
-        // ユーザーフィードバック(2026-08-13): 進行中への変更・対戦台番号を
+        // ユーザーフィードバック(2026-08-13): 状態の変更・対戦台番号を
         // startgg側にも反映できるようにする(syncRunner.tsのrunSyncが
-        // markSetInProgress/assignStationToSetで送信するまでのキュー)。
+        // markSetCalled/assignStationToSetで送信するまでのキュー)。
         // この操作は状態と対戦台を同時に変更するため、両方のフラグを立てる。
         statusLocalOnly: true,
         tableLocalOnly: true,
@@ -399,7 +411,7 @@ export function usePoolProgress(): UsePoolProgressResult {
       await saveMatchCard(updated);
       setMatchCards(nextCards);
 
-      // ユーザーフィードバック: 「対戦開始」を押した場合のみ、残りの次戦
+      // ユーザーフィードバック: 「呼び出す」を押した場合のみ、残りの次戦
       // 候補があれば続けてモーダルに表示する(閉じた場合は自動再表示
       // しない、dismissSuggestion参照)。
       const remaining = computeNextMatchSuggestions(
@@ -424,7 +436,13 @@ export function usePoolProgress(): UsePoolProgressResult {
     async (matchCardId: string) => {
       if (isPreviewMode) return;
       const target = matchCards.find((card) => card.id === matchCardId);
-      if (!target || target.status !== "NOT_STARTED") return;
+      // ユーザーフィードバック(2026-11-08): 呼び出し中からも進行中にできる。
+      if (
+        !target ||
+        (target.status !== "NOT_STARTED" && target.status !== "CALLED")
+      ) {
+        return;
+      }
       // 005-stream-match-lock FR-002: 配信台が設定されている対戦カードは
       // 「進行中にする」操作を不可にする。
       if (isStreamLocked(target)) return;
@@ -445,7 +463,12 @@ export function usePoolProgress(): UsePoolProgressResult {
     async (matchCardId: string) => {
       if (isPreviewMode) return;
       const target = matchCards.find((card) => card.id === matchCardId);
-      if (!target || target.status !== "IN_PROGRESS") return;
+      if (
+        !target ||
+        (target.status !== "CALLED" && target.status !== "IN_PROGRESS")
+      ) {
+        return;
+      }
       // start.ggへ既に反映済み(statusLocalOnlyがfalse)の場合は、取り消す
       // APIが無いため何もしない(次回同期でstart.gg側の値に上書きされ、
       // 元に戻ってしまうのを防ぐ)。
@@ -454,6 +477,31 @@ export function usePoolProgress(): UsePoolProgressResult {
         ...target,
         status: "NOT_STARTED",
         statusLocalOnly: false,
+      };
+      await saveMatchCard(updated);
+      setMatchCards((prev) =>
+        prev.map((card) => (card.id === matchCardId ? updated : card)),
+      );
+    },
+    [matchCards, isPreviewMode],
+  );
+
+  const setCalled = useCallback(
+    async (matchCardId: string) => {
+      if (isPreviewMode) return;
+      const target = matchCards.find((card) => card.id === matchCardId);
+      if (!target || isStreamLocked(target)) return;
+      // 未着手からは常に呼び出せる。進行中から戻すのは、start.ggへまだ
+      // 反映されていない間だけ(反映済みの進行中を呼び出し中へ戻すAPIは
+      // start.gg側に無く、戻しても次回同期で進行中に上書きされるため)。
+      const canCall =
+        target.status === "NOT_STARTED" ||
+        (target.status === "IN_PROGRESS" && target.statusLocalOnly);
+      if (!canCall) return;
+      const updated: MatchCard = {
+        ...target,
+        status: "CALLED",
+        statusLocalOnly: true,
       };
       await saveMatchCard(updated);
       setMatchCards((prev) =>
@@ -503,6 +551,7 @@ export function usePoolProgress(): UsePoolProgressResult {
     dismissSuggestion,
     setInProgress,
     setNotStarted,
+    setCalled,
     acknowledgeDiscardedResults,
     isPreviewMode,
   };

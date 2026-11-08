@@ -80,6 +80,12 @@ describe("streamBadgeLabel", () => {
     ).toBe("配信予定");
   });
 
+  it("returns '配信予定' when streamed and called (not started yet, 2026-11-08)", () => {
+    expect(
+      streamBadgeLabel(makeCard({ isStreamed: true, status: "CALLED" })),
+    ).toBe("配信予定");
+  });
+
   it("returns '配信中' when streamed and in progress", () => {
     expect(
       streamBadgeLabel(makeCard({ isStreamed: true, status: "IN_PROGRESS" })),

@@ -52,6 +52,14 @@ function computeStatus(
       chipCls: "chip dark",
     };
   }
+  // ユーザーフィードバック(2026-11-08): 呼び出し中(start.ggの黄色)。
+  const called = myCards.find((card) => card.status === "CALLED");
+  if (called) {
+    return {
+      text: `呼び出し中 · 卓 ${called.tableNumber ?? "—"}`,
+      chipCls: "chip yellow",
+    };
+  }
   const next = myCards.find((card) => nextCardIds.has(card.id));
   if (next) {
     return {

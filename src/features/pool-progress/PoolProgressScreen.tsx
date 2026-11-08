@@ -67,6 +67,7 @@ export function PoolProgressScreen() {
     dismissSuggestion,
     setInProgress,
     setNotStarted,
+    setCalled,
     acknowledgeDiscardedResults,
     isPreviewMode,
   } = usePoolProgress();
@@ -313,7 +314,7 @@ export function PoolProgressScreen() {
                     <span className="mono">卓 {n}</span>
                     <span className="table-strip-sub">
                       {occupying
-                        ? `${occupying.identifier} · ${p1} vs ${p2}`
+                        ? `${occupying.status === "CALLED" ? "呼び出し中 · " : ""}${occupying.identifier} · ${p1} vs ${p2}`
                         : topSuggestion
                           ? `空き · ${nextCard?.identifier ?? ""} を呼び出す`
                           : "空き"}
@@ -366,6 +367,7 @@ export function PoolProgressScreen() {
           onAssignTable={assignTable}
           onSetInProgress={setInProgress}
           onSetNotStarted={setNotStarted}
+          onSetCalled={setCalled}
           readOnly={isPreviewMode}
         />
       )}
@@ -393,7 +395,7 @@ export function PoolProgressScreen() {
             <NextMatchModal
               // 対戦ごとに内部の対戦台選択stateをリセットするため、対戦
               // カードIDをkeyにして別インスタンスとして扱う(そうしないと
-              // 「対戦開始」で次の候補に進んだ際、直前の対戦で選んだ対戦台が
+              // 「呼び出す」で次の候補に進んだ際、直前の対戦で選んだ対戦台が
               // 選択されたまま残ってしまう)。
               key={suggestedCard.id}
               card={suggestedCard}

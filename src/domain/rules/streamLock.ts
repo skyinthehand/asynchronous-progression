@@ -25,7 +25,10 @@ export function isStreamLocked(card: MatchCard): boolean {
  */
 export function streamBadgeLabel(card: MatchCard): string | null {
   if (!card.isStreamed) return null;
-  if (card.status === "NOT_STARTED") return "配信予定";
+  // 呼び出し中(CALLED)はまだ対戦が始まっていないため「配信予定」のまま。
+  if (card.status === "NOT_STARTED" || card.status === "CALLED") {
+    return "配信予定";
+  }
   // ユーザーフィードバック(2026-10-20): start.ggは結果入力後もstreamの
   // 割り当てを残すため、確定済みも「配信中」としていると、配信台の結果を
   // 入力した後もずっと「配信中」と表示されていた。確定済みはバッジを

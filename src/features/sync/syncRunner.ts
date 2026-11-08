@@ -2,6 +2,7 @@ import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
 import { recomputeIsLocked } from "../../domain/rules/editLock.js";
 import { reconcileAdvancement } from "../../domain/rules/matchProgression.js";
+import { statusRank } from "../../domain/rules/matchStatus.js";
 import { computePoolFinished } from "../../domain/rules/poolFinished.js";
 import { isPreviewSetId } from "../../domain/rules/previewId.js";
 import { createStartggClient } from "../../infra/startgg/client.js";
@@ -11,6 +12,7 @@ import {
   fetchNextMatch,
   fetchPoolDetail,
   fetchStations,
+  markSetCalled,
   markSetInProgress,
   reportMatchResult,
 } from "../../infra/startgg/operations.js";
@@ -102,7 +104,8 @@ export function mergeMatchCard(
     // remoteが全ての枠で追いついた: 以降の通常マージへ進み、localOnlyも解除する。
   }
   const statusStillPending =
-    local.statusLocalOnly && remote.status === "NOT_STARTED";
+    local.statusLocalOnly &&
+    statusRank(remote.status) < statusRank(local.status);
   return {
     ...remote,
     editHistory: local.editHistory,
@@ -140,9 +143,10 @@ export function mergeMatchCard(
     // ユーザーフィードバック(2026-08-13): 「進行中にする」操作で設定した
     // ステータスも、送信(M2/M3)が完了するまではstartgg側の古い値
     // (NOT_STARTED)で上書きされないよう、ローカル優先で判定する。
-    // ユーザーフィードバック(2026-10-20): ただしstart.gg側が既に
-    // NOT_STARTED以外(他の経路で開始済み・結果入力済み)なら、送信の目的
-    // は達成済みなのでremoteを採用し送信待ちも解除する。以前は常にローカル
+    // ユーザーフィードバック(2026-10-20): ただしstart.gg側が既にローカルと
+    // 同じかそれより先の状態(他の経路で呼び出し・開始済み、結果入力済み。
+    // 2026-11-08以降は呼び出し中(CALLED)も含めた順序で比較する)なら、
+    // 送信の目的は達成済みなのでremoteを採用し送信待ちも解除する。以前は常にローカル
     // 優先だったため、markSetInProgressが「Set is already started」等で
     // 失敗し続けると、start.gg側で結果が入っても「進行中」のまま永久に
     // 「対戦終了」へ切り替わらない不具合になっていた(スマパでの報告)。
@@ -310,10 +314,15 @@ async function runSyncOnce(): Promise<SyncResult> {
       const remoteStatus = remoteStatusById.get(latestCard.id);
       if (
         latestCard.statusLocalOnly &&
-        (remoteStatus === undefined || remoteStatus === "NOT_STARTED")
+        (remoteStatus === undefined ||
+          statusRank(remoteStatus) < statusRank(latestCard.status))
       ) {
         try {
-          if (latestCard.status === "IN_PROGRESS") {
+          // ユーザーフィードバック(2026-11-08): 呼び出し中(黄色)と進行中
+          // (緑)は別々のmutationで送る。
+          if (latestCard.status === "CALLED") {
+            await markSetCalled(client, latestCard.id);
+          } else if (latestCard.status === "IN_PROGRESS") {
             await markSetInProgress(client, latestCard.id);
           }
           latestCard = { ...latestCard, statusLocalOnly: false };

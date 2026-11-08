@@ -365,6 +365,8 @@ const POOL_DETAIL_QUERY = /* GraphQL */ `
 
 const SET_STATE_COMPLETED = 3;
 const SET_STATE_IN_PROGRESS = 2;
+/** ユーザーフィードバック(2026-11-08): ActivityState.CALLED(呼び出し中、黄色)。 */
+const SET_STATE_CALLED = 6;
 
 const SLOT_SCORE_DQ = -1;
 /** MatchCardSchemaのentrant1Score/entrant2Scoreの許容範囲(0〜3)。 */
@@ -393,6 +395,7 @@ function toSlotScore(slot: z.infer<typeof SetSlotSchema> | undefined): {
 function toMatchCardStatus(state: number | null): MatchCard["status"] {
   if (state === SET_STATE_COMPLETED) return "COMPLETED";
   if (state === SET_STATE_IN_PROGRESS) return "IN_PROGRESS";
+  if (state === SET_STATE_CALLED) return "CALLED";
   return "NOT_STARTED";
 }
 
@@ -862,7 +865,7 @@ export async function reportMatchResult(
   };
 }
 
-// --- M2: mark a set as in-progress (called) ---
+// --- M2: mark a set as in-progress ---
 
 const MarkSetInProgressResponseSchema = z.object({
   markSetInProgress: z.object({
@@ -881,8 +884,8 @@ const MARK_SET_IN_PROGRESS_MUTATION = /* GraphQL */ `
 `;
 
 /**
- * M2: 対戦を「進行中にする」際、startgg側にもステータス(呼び出し済み/
- * 進行中)を反映する(ユーザーフィードバック2026-08-13)。
+ * M2: 対戦を「進行中にする」際、startgg側にもステータス(進行中、緑)を
+ * 反映する(ユーザーフィードバック2026-08-13)。
  */
 export async function markSetInProgress(
   client: GraphQLClient,
@@ -890,6 +893,38 @@ export async function markSetInProgress(
 ): Promise<void> {
   const raw = await client.request(MARK_SET_IN_PROGRESS_MUTATION, { setId });
   MarkSetInProgressResponseSchema.parse(raw);
+}
+
+// --- M4: mark a set as called ---
+
+const MarkSetCalledResponseSchema = z.object({
+  markSetCalled: z.object({
+    id: z.union([z.string(), z.number()]).transform(String),
+    state: z.number().nullable(),
+  }),
+});
+
+const MARK_SET_CALLED_MUTATION = /* GraphQL */ `
+  mutation MarkSetCalled($setId: ID!) {
+    markSetCalled(setId: $setId) {
+      id
+      state
+    }
+  }
+`;
+
+/**
+ * M4: 対戦を「呼び出し中にする」際、startgg側にもステータス(呼び出し中、
+ * 黄色)を反映する(ユーザーフィードバック2026-11-08: 黄色でないと選手へ
+ * 通知が届かず、大会では呼び出してから確認して進行中にする流れのため、
+ * いきなり進行中(緑)にされると困る)。
+ */
+export async function markSetCalled(
+  client: GraphQLClient,
+  setId: string,
+): Promise<void> {
+  const raw = await client.request(MARK_SET_CALLED_MUTATION, { setId });
+  MarkSetCalledResponseSchema.parse(raw);
 }
 
 // --- M3: assign a station (table) to a set ---

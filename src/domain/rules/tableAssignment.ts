@@ -1,4 +1,5 @@
 import type { MatchCard } from "../entities/matchCard.js";
+import { isTableInUse } from "./matchStatus.js";
 
 /**
  * FR-014: 指定した対戦台番号に、進行中(`status === "IN_PROGRESS"`)の対戦
@@ -13,6 +14,8 @@ import type { MatchCard } from "../entities/matchCard.js";
  * 使って対戦が進行中でない限り、他のNOT_STARTEDの対戦カードにも同じ
  * 対戦台を仮に割り当てておきたいことがあるため)。実際にその卓を使って
  * 対戦中(IN_PROGRESS)の場合のみ、他のカードからの選択をブロックする。
+ * ユーザーフィードバック(2026-11-08): 呼び出し中(CALLED)の対戦も、選手が
+ * その卓へ向かっているため進行中と同様に占有中とみなす。
  */
 export function findOccupyingMatchCard(
   tableNumber: string,
@@ -24,7 +27,7 @@ export function findOccupyingMatchCard(
       (card) =>
         card.id !== excludeCardId &&
         card.tableNumber === tableNumber &&
-        card.status === "IN_PROGRESS",
+        isTableInUse(card.status),
     ) ?? null
   );
 }

@@ -1,4 +1,5 @@
 import type { MatchCard } from "../../domain/entities/matchCard.js";
+import { isTableInUse } from "../../domain/rules/matchStatus.js";
 import { findOccupyingMatchCard } from "../../domain/rules/tableAssignment.js";
 
 interface TableChipsProps {
@@ -53,11 +54,12 @@ export function TableChips({
         </button>
         {tableNumbers.map((n) => {
           // ユーザーフィードバック(2026-10-19): 占有中判定(進行中の対戦との
-          // 対戦台の重複)は、このカード自身が進行中の場合のみ適用する。
+          // 対戦台の重複)は、このカード自身が進行中の場合のみ適用する
+          // (2026-11-08以降は呼び出し中も含む、matchStatus.ts参照)。
           // 未着手のカードは、他の対戦が使用中の対戦台も含め全ての対戦台
           // から自由に選べる(すぐにその卓を使い始めるわけではないため)。
           const occupyingCard =
-            enforceOccupancy || card.status === "IN_PROGRESS"
+            enforceOccupancy || isTableInUse(card.status)
               ? findOccupyingMatchCard(n, matchCards, card.id)
               : null;
           return (

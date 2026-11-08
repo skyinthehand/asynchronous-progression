@@ -51,7 +51,8 @@ export function lockedTooltipText(
     return "後続の対戦が進行しているため、この結果は修正できません。";
   }
   const ids = lockers.map((c) => c.identifier).join("・");
-  const anyLive = lockers.some((c) => c.status === "IN_PROGRESS");
+  // 呼び出し中(CALLED)も、まだ終わっていない(進行している)側に含める。
+  const anyLive = lockers.some((c) => c.status !== "COMPLETED");
   return `後続の対戦（Set ${ids}）が${anyLive ? "進行している" : "終わっている"}ため、この結果は修正できません。`;
 }
 

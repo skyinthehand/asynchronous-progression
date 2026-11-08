@@ -362,6 +362,39 @@ describe("Q2: fetchPoolDetail", () => {
     expect(detail.matchCards[0].isStreamed).toBe(true);
   });
 
+  it("maps set state 6 (ActivityState.CALLED) to CALLED (2026-11-08)", async () => {
+    const client = fakeClient({
+      phaseGroup: {
+        id: 1000,
+        displayIdentifier: "Pool 1",
+        bracketType: "DOUBLE_ELIMINATION",
+        sets: {
+          nodes: [1, 2, 3, 6].map((state) => ({
+            id: 6000 + state,
+            identifier: String(state),
+            round: 1,
+            station: null,
+            stream: null,
+            slots: [{ entrant: null }, { entrant: null }],
+            winnerId: null,
+            displayScore: null,
+            state,
+          })),
+        },
+      },
+    });
+
+    const statuses = (await fetchPoolDetail(client, "1000")).matchCards.map(
+      (card) => card.status,
+    );
+    expect(statuses).toEqual([
+      "NOT_STARTED",
+      "IN_PROGRESS",
+      "COMPLETED",
+      "CALLED",
+    ]);
+  });
+
   it("maps per-slot standing scores (and -1 as DQ) entered on start.gg", async () => {
     function slot(id: number, value: number | null) {
       return {

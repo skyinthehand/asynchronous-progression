@@ -288,7 +288,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     expect(within(modal).getByText("R1-2")).toBeInTheDocument();
   });
 
-  it("starts the suggested match as IN_PROGRESS without a table number when none is entered (Acceptance Scenario 7)", async () => {
+  it("calls the suggested match (CALLED, start.gg yellow — not IN_PROGRESS) without a table number when none is entered (Acceptance Scenario 7, 2026-11-08)", async () => {
     await seedPool(["1", "2", "3"]);
     const user = userEvent.setup();
     render(<App />);
@@ -299,11 +299,11 @@ describe("Next-match suggestion modal (User Story 3)", () => {
       name: "次戦候補",
     });
     const modal = modalHeading.closest(".app-modal") as HTMLElement;
-    await user.click(within(modal).getByRole("button", { name: "対戦開始" }));
+    await user.click(within(modal).getByRole("button", { name: "呼び出す" }));
 
     const db = await getDb();
     const suggested = await db.get("matchCards", "card-2");
-    expect(suggested?.status).toBe("IN_PROGRESS");
+    expect(suggested?.status).toBe("CALLED");
     expect(suggested?.tableNumber).toBeNull();
   });
 
@@ -441,7 +441,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows every newly-startable match one at a time, advancing only when '対戦開始' is pressed", async () => {
+  it("shows every newly-startable match one at a time, advancing only when '呼び出す' is pressed", async () => {
     await seedChainingPool();
     const user = userEvent.setup();
     render(<App />);
@@ -462,9 +462,9 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     const firstIdentifier = within(modal).getByText(/^(WB|LA)$/).textContent;
     expect(["WB", "LA"]).toContain(firstIdentifier);
 
-    await user.click(within(modal).getByRole("button", { name: "対戦開始" }));
+    await user.click(within(modal).getByRole("button", { name: "呼び出す" }));
 
-    // 「対戦開始」を押した場合のみ、残っているもう一方の候補が続けて
+    // 「呼び出す」を押した場合のみ、残っているもう一方の候補が続けて
     // 表示される。
     modalHeading = await screen.findByRole("heading", { name: "次戦候補" });
     modal = modalHeading.closest(".app-modal") as HTMLElement;
@@ -472,7 +472,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     expect(secondIdentifier).not.toBe(firstIdentifier);
     expect(["WB", "LA"]).toContain(secondIdentifier);
 
-    await user.click(within(modal).getByRole("button", { name: "対戦開始" }));
+    await user.click(within(modal).getByRole("button", { name: "呼び出す" }));
 
     // 2件とも開始済みになったので、もうモーダルは表示されない。
     expect(
@@ -482,8 +482,8 @@ describe("Next-match suggestion modal (User Story 3)", () => {
     const db = await getDb();
     const wb = await db.get("matchCards", "wb");
     const la = await db.get("matchCards", "la");
-    expect(wb?.status).toBe("IN_PROGRESS");
-    expect(la?.status).toBe("IN_PROGRESS");
+    expect(wb?.status).toBe("CALLED");
+    expect(la?.status).toBe("CALLED");
   });
 
   it("resets the table-number select back to 未設定 when chaining to the next suggestion (does not keep the previous match's selection)", async () => {
@@ -511,7 +511,7 @@ describe("Next-match suggestion modal (User Story 3)", () => {
       within(firstChips).getByRole("button", { name: "卓 2" }),
     ).toHaveAttribute("aria-pressed", "true");
 
-    await user.click(within(modal).getByRole("button", { name: "対戦開始" }));
+    await user.click(within(modal).getByRole("button", { name: "呼び出す" }));
 
     // 次の候補のモーダルでは、直前の対戦台選択が残らず「未設定」に
     // リセットされていること(本来選べないはずの、直前の対戦に対して

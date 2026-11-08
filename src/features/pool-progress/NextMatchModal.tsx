@@ -56,8 +56,8 @@ function awayEntrantNotes(
 
 /**
  * FR-022〜FR-025: 対戦結果確定直後に自動表示する、次戦候補のモーダル。
- * 「対戦開始」(対戦台番号は任意)のみを持ち、「別の対戦を選ぶ」ボタンは
- * 設けない(spec.md Clarifications Q3。別の対戦を呼びたい場合はモーダルを
+ * 「呼び出す」(2026-11-08以前は「対戦開始」。対戦台番号は任意)のみを
+ * 持ち、「別の対戦を選ぶ」ボタンは設けない(spec.md Clarifications Q3。別の対戦を呼びたい場合はモーダルを
  * 閉じてから一覧から直接開始する)。選ばずに閉じた場合は対戦の状態を
  * 変更しない(FR-025、onCloseのみ呼ぶ)。
  */
@@ -71,8 +71,8 @@ export function NextMatchModal({
   onClose,
 }: NextMatchModalProps) {
   // FR-023/Acceptance Scenario 7: サジェスト自体は対戦台に紐付くが、モーダル
-  // 内の入力欄は「未入力」を既定値とする(入力しないまま「対戦開始」を選ぶと
-  // 対戦台番号を割り当てずに進行中へ変更される、という挙動をspec.mdが明示
+  // 内の入力欄は「未入力」を既定値とする(入力しないまま「呼び出す」を選ぶと
+  // 対戦台番号を割り当てずに呼び出し中へ変更される、という挙動をspec.mdが明示
   // しているため、サジェスト対象の対戦台であっても事前入力はしない)。
   const [tableNumber, setTableNumber] = useState<string | null>(null);
   const awayNotes = awayEntrantNotes(entrantById, card);
@@ -123,7 +123,7 @@ export function NextMatchModal({
             matchCards={matchCards}
             value={tableNumber}
             onSelect={setTableNumber}
-            // ここでの選択は「対戦開始」と同時に進行中へ変更されるため、
+            // ここでの選択は「呼び出す」と同時に呼び出し中へ変更されるため、
             // 対戦者が未確定でも占有中判定は常に適用する。
             enforceOccupancy
             label="次戦の対戦台"
@@ -131,12 +131,14 @@ export function NextMatchModal({
         )}
         <p className="note-line">
           {table ? `空いている対戦台: 卓 ${table}。` : ""}
+          {/* ユーザーフィードバック(2026-11-08): いきなり進行中(緑)には
+              せず、呼び出し中(start.ggの黄色)にする。 */}
           {tableNumbers.length > 0
-            ? "「対戦開始」を押すと進行中になり、選んだ対戦台とあわせて保存されます。"
-            : "「対戦開始」を押すと進行中になります。"}
+            ? "「呼び出す」を押すと呼び出し中になり、選んだ対戦台とあわせて保存されます。"
+            : "「呼び出す」を押すと呼び出し中になります。"}
         </p>
         <button type="button" onClick={() => onStart(tableNumber)}>
-          対戦開始
+          呼び出す
         </button>
       </div>
     </Modal>

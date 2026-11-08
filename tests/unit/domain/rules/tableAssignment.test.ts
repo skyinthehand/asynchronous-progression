@@ -63,6 +63,11 @@ describe("isTableOccupied", () => {
     expect(isTableOccupied("1", cards)).toBe(true);
   });
 
+  it("treats a table with a called card (CALLED, start.gg yellow) assigned as occupied (2026-11-08)", () => {
+    const cards = [makeCard({ id: "c1", tableNumber: "1", status: "CALLED" })];
+    expect(isTableOccupied("1", cards)).toBe(true);
+  });
+
   it("excludes the card being reassigned itself from the occupancy check", () => {
     const cards = [
       makeCard({ id: "a", tableNumber: "1", status: "IN_PROGRESS" }),

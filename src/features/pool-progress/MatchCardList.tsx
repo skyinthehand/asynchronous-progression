@@ -25,6 +25,8 @@ interface MatchCardListProps {
    * 対象外)。
    */
   onSetNotStarted: (matchCardId: string) => void;
+  /** ユーザーフィードバック(2026-11-08): 対戦を「呼び出し中」にする。 */
+  onSetCalled: (matchCardId: string) => void;
   readOnly?: boolean;
 }
 
@@ -44,6 +46,7 @@ export function MatchCardList({
   onAssignTable,
   onSetInProgress,
   onSetNotStarted,
+  onSetCalled,
   readOnly,
 }: MatchCardListProps) {
   const entrantById = new Map(entrants.map((entrant) => [entrant.id, entrant]));
@@ -79,6 +82,7 @@ export function MatchCardList({
       onAssignTable={onAssignTable}
       onSetInProgress={onSetInProgress}
       onSetNotStarted={onSetNotStarted}
+      onSetCalled={onSetCalled}
       readOnly={readOnly}
     />
   ) : (
@@ -90,6 +94,7 @@ export function MatchCardList({
       tableNumbers={tableNumbers}
       onAssignTable={onAssignTable}
       onSetInProgress={onSetInProgress}
+      onSetCalled={onSetCalled}
       readOnly={readOnly}
     />
   );

@@ -202,6 +202,50 @@ describe("Match cards on the bracket board have no operable elements; tapping th
     expect(card1?.winnerId).toBe("e1");
   });
 
+  it("calls the match (呼び出し中, start.gg yellow) before setting it in progress, as separate states (2026-11-08)", async () => {
+    await seedBracketPool(["1", "2"]);
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const card = (await screen.findByText("WF")).closest("li");
+    if (!card) throw new Error("card not found");
+    await user.click(card);
+
+    const modalHeading = await screen.findByRole("heading", {
+      name: "WFの編集",
+    });
+    const modal = modalHeading.closest(".app-modal") as HTMLElement;
+    const stateGroup = within(modal).getByRole("group", { name: "状態" });
+    await user.click(
+      within(stateGroup).getByRole("button", { name: "呼び出し中" }),
+    );
+
+    const db = await getDb();
+    let saved = await db.get("matchCards", "card-1");
+    expect(saved?.status).toBe("CALLED");
+    expect(saved?.statusLocalOnly).toBe(true);
+    expect(
+      within(stateGroup).getByRole("button", { name: "呼び出し中" }),
+    ).toHaveClass("on");
+
+    // カード上でも「呼び出し中」と分かる。
+    await user.click(within(modal).getByRole("button", { name: "閉じる" }));
+    expect(within(card).getByText("呼び出し中")).toBeInTheDocument();
+
+    // 呼び出し中から進行中にできる。
+    await user.click(card);
+    const reopened = await screen.findByRole("heading", { name: "WFの編集" });
+    const reopenedModal = reopened.closest(".app-modal") as HTMLElement;
+    await user.click(
+      within(
+        within(reopenedModal).getByRole("group", { name: "状態" }),
+      ).getByRole("button", { name: "進行中" }),
+    );
+    saved = await db.get("matchCards", "card-1");
+    expect(saved?.status).toBe("IN_PROGRESS");
+  });
+
   it("sets the match to in-progress and assigns a table from inside the modal", async () => {
     await seedBracketPool(["1", "2"]);
     const user = userEvent.setup();

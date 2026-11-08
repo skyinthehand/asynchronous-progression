@@ -31,6 +31,8 @@ interface MatchCardEntryProps {
   onSetInProgress: (matchCardId: string) => void;
   /** artifact更新(2026-10-17): 「進行中にする」操作の取り消し。 */
   onSetNotStarted: (matchCardId: string) => void;
+  /** ユーザーフィードバック(2026-11-08): 対戦を「呼び出し中」にする。 */
+  onSetCalled: (matchCardId: string) => void;
   /** FR-023: ブラケット木の中でツリー状に配置するための位置指定。 */
   style?: CSSProperties;
   /**
@@ -127,9 +129,10 @@ function matchCardVariant(
   card: MatchCard,
   isNext: boolean,
   isBlocked: boolean,
-): "done" | "live" | "next" | "blocked" | "wait" | "ready" {
+): "done" | "live" | "called" | "next" | "blocked" | "wait" | "ready" {
   if (card.status === "COMPLETED") return "done";
   if (card.status === "IN_PROGRESS") return "live";
+  if (card.status === "CALLED") return "called";
   if (isNext) return "next";
   if (isBlocked) return "blocked";
   if (!card.entrant1Id || !card.entrant2Id) return "wait";
@@ -139,6 +142,7 @@ function matchCardVariant(
 const VARIANT_LABEL: Record<ReturnType<typeof matchCardVariant>, string> = {
   done: "完了",
   live: "進行中",
+  called: "呼び出し中",
   next: "次に進行",
   blocked: "保留",
   wait: "未着手",
@@ -189,6 +193,7 @@ export function MatchCardEntry({
   onAssignTable,
   onSetInProgress,
   onSetNotStarted,
+  onSetCalled,
   style,
   readOnly,
 }: MatchCardEntryProps) {
@@ -226,9 +231,7 @@ export function MatchCardEntry({
   // ユーザーフィードバック(2026-10-19): モーダル内で状態・対戦台の各区画が
   // 実際に表示されるかどうか(下の即時保存の注記をどちらの文言にするか・
   // そもそも表示するかの判定に使う)。
-  const showStateSection =
-    !hasPendingSlot &&
-    (card.status === "NOT_STARTED" || card.status === "IN_PROGRESS");
+  const showStateSection = !hasPendingSlot && card.status !== "COMPLETED";
   const showTableChips = tableNumbers.length > 0;
 
   function openEditModal() {
@@ -251,6 +254,7 @@ export function MatchCardEntry({
         canEdit ? "match-card-clickable" : "",
         isNext ? "match-card-next" : "",
         card.status === "IN_PROGRESS" ? "match-card-in-progress" : "",
+        card.status === "CALLED" ? "match-card-called" : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -383,7 +387,9 @@ export function MatchCardEntry({
                   {showStateSection && (
                     <div className="msec">
                       <span className="label">状態</span>
-                      <fieldset className="seg seg2" aria-label="状態">
+                      {/* ユーザーフィードバック(2026-11-08): start.ggと同じく
+                          未着手・呼び出し中(黄色)・進行中(緑)の3つに分ける。 */}
+                      <fieldset className="seg seg3" aria-label="状態">
                         <legend className="sr-only">状態</legend>
                         <button
                           type="button"
@@ -392,6 +398,16 @@ export function MatchCardEntry({
                           onClick={() => onSetNotStarted(card.id)}
                         >
                           未着手
+                        </button>
+                        <button
+                          type="button"
+                          className={
+                            card.status === "CALLED" ? "called on" : "called"
+                          }
+                          aria-pressed={card.status === "CALLED"}
+                          onClick={() => onSetCalled(card.id)}
+                        >
+                          呼び出し中
                         </button>
                         <button
                           type="button"

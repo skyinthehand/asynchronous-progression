@@ -26,6 +26,7 @@ vi.mock("../../../src/infra/startgg/operations.js", async (importOriginal) => {
     fetchPoolDetail: vi.fn(),
     reportMatchResult: vi.fn(),
     markSetInProgress: vi.fn().mockResolvedValue(undefined),
+    markSetCalled: vi.fn().mockResolvedValue(undefined),
     assignStationToSet: vi.fn().mockResolvedValue(undefined),
     fetchStations: vi.fn().mockResolvedValue([]),
     fetchNextMatch: vi.fn(),
@@ -144,6 +145,9 @@ describe("Sync with results/status entered outside the app (start.gg)", () => {
     vi.mocked(operations.markSetInProgress)
       .mockReset()
       .mockResolvedValue(undefined);
+    vi.mocked(operations.markSetCalled)
+      .mockReset()
+      .mockResolvedValue(undefined);
     vi.mocked(operations.fetchNextMatch).mockReset().mockResolvedValue({
       opponentName: null,
       tableNumber: null,
@@ -172,6 +176,62 @@ describe("Sync with results/status entered outside the app (start.gg)", () => {
     expect(card?.winnerId).toBe("e1");
     expect(card?.statusLocalOnly).toBe(false);
     expect((await db.get("syncStatus", "pool-1"))?.pendingChangeCount).toBe(0);
+  });
+
+  it("pushes a locally called set with markSetCalled (start.gg yellow), not markSetInProgress (2026-11-08)", async () => {
+    await seed([
+      makeCard({ id: "s1", status: "CALLED", statusLocalOnly: true }),
+    ]);
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue(
+      remoteDetail([makeCard({ id: "s1" })]),
+    );
+
+    const result = await runSync();
+
+    expect(result.success).toBe(true);
+    expect(operations.markSetCalled).toHaveBeenCalledWith(
+      expect.anything(),
+      "s1",
+    );
+    expect(operations.markSetInProgress).not.toHaveBeenCalled();
+    const card = await (await getDb()).get("matchCards", "s1");
+    expect(card?.statusLocalOnly).toBe(false);
+  });
+
+  it("still pushes IN_PROGRESS when start.gg is only CALLED (keeps the local, further-ahead status pending)", async () => {
+    await seed([
+      makeCard({ id: "s1", status: "IN_PROGRESS", statusLocalOnly: true }),
+    ]);
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue(
+      remoteDetail([makeCard({ id: "s1", status: "CALLED" })]),
+    );
+    vi.mocked(operations.markSetInProgress).mockRejectedValue(
+      new Error("network"),
+    );
+
+    await runSync();
+
+    expect(operations.markSetInProgress).toHaveBeenCalledTimes(1);
+    const card = await (await getDb()).get("matchCards", "s1");
+    // 送信に失敗しても、start.gg側の(手前の)CALLEDで巻き戻さない。
+    expect(card?.status).toBe("IN_PROGRESS");
+    expect(card?.statusLocalOnly).toBe(true);
+  });
+
+  it("adopts IN_PROGRESS from start.gg over a pending local CALLED, without sending markSetCalled", async () => {
+    await seed([
+      makeCard({ id: "s1", status: "CALLED", statusLocalOnly: true }),
+    ]);
+    vi.mocked(operations.fetchPoolDetail).mockResolvedValue(
+      remoteDetail([makeCard({ id: "s1", status: "IN_PROGRESS" })]),
+    );
+
+    await runSync();
+
+    expect(operations.markSetCalled).not.toHaveBeenCalled();
+    const card = await (await getDb()).get("matchCards", "s1");
+    expect(card?.status).toBe("IN_PROGRESS");
+    expect(card?.statusLocalOnly).toBe(false);
   });
 
   it("stops retrying markSetInProgress once the set was already started on start.gg", async () => {

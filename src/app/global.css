@@ -386,6 +386,25 @@ label {
   font-size: 15px;
 }
 
+/* ユーザーフィードバック(2026-11-08): 「状態」を未着手・呼び出し中・進行中の
+   3つに分けたため、3等分の亜種を用意する。呼び出し中はstart.ggに合わせ
+   黄色で示す。 */
+.seg3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.seg3 button {
+  justify-content: center;
+  min-height: 48px;
+  font-size: 15px;
+}
+
+.seg button.on.called {
+  background: var(--accent);
+  color: var(--ink);
+}
+
 .stepper {
   display: flex;
   align-items: center;
@@ -1050,6 +1069,24 @@ label {
 
 .match-card-in-progress {
   border-color: var(--ink);
+}
+
+/* ユーザーフィードバック(2026-11-08): 呼び出し中(start.ggの黄色)。 */
+.match-card-status-badge-called {
+  color: var(--ink);
+  background: var(--accent);
+  border: 1px solid var(--ink);
+}
+
+.bracket-tree-matches .match-card.match-card-called .match-card-box {
+  border-width: 2px;
+}
+
+.bracket-tree-matches .match-card.match-card-called .match-card-meta-state {
+  background: var(--accent);
+  color: var(--ink);
+  font-weight: 700;
+  border: 1px solid var(--ink);
 }
 
 .match-card-table-badge {

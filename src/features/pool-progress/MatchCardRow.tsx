@@ -1,5 +1,6 @@
 import type { Entrant } from "../../domain/entities/entrant.js";
 import type { MatchCard } from "../../domain/entities/matchCard.js";
+import { isTableInUse } from "../../domain/rules/matchStatus.js";
 import {
   isStreamLocked,
   streamBadgeLabel,
@@ -23,6 +24,8 @@ interface MatchCardRowProps {
   ) => Promise<boolean>;
   /** FR-009/FR-010: 未着手の対戦を任意で「進行中」に設定する。 */
   onSetInProgress: (matchCardId: string) => void;
+  /** ユーザーフィードバック(2026-11-08): 対戦を「呼び出し中」にする。 */
+  onSetCalled: (matchCardId: string) => void;
   /**
    * ユーザーフィードバック(2026-08-13): start.gg側でブラケットが未開始
    * (プレビューモード)の間は編集操作を一切表示・実行できないようにする。
@@ -59,6 +62,7 @@ export function MatchCardRow({
   matchCards,
   onAssignTable,
   onSetInProgress,
+  onSetCalled,
   readOnly,
 }: MatchCardRowProps) {
   // 005-stream-match-lock FR-002〜FR-004: 配信台が設定されている対戦
@@ -77,6 +81,7 @@ export function MatchCardRow({
         "match-card",
         isNext ? "match-card-next" : "",
         card.status === "IN_PROGRESS" ? "match-card-in-progress" : "",
+        card.status === "CALLED" ? "match-card-called" : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -99,7 +104,22 @@ export function MatchCardRow({
         {card.status === "IN_PROGRESS" && (
           <span className="match-card-status-badge">進行中</span>
         )}
+        {card.status === "CALLED" && (
+          <span className="match-card-status-badge match-card-status-badge-called">
+            呼び出し中
+          </span>
+        )}
+        {/* ユーザーフィードバック(2026-11-08): 呼び出し中(start.ggの黄色)を
+            経てから進行中にする流れに合わせ、未着手では「呼び出す」、
+            呼び出し中では「進行中にする」を出す。 */}
         {card.status === "NOT_STARTED" &&
+          !readOnly &&
+          !isStreamLocked(card) && (
+            <button type="button" onClick={() => onSetCalled(card.id)}>
+              呼び出す
+            </button>
+          )}
+        {(card.status === "NOT_STARTED" || card.status === "CALLED") &&
           !readOnly &&
           !isStreamLocked(card) && (
             <button type="button" onClick={() => onSetInProgress(card.id)}>
@@ -121,7 +141,7 @@ export function MatchCardRow({
               tableNumbers={tableNumbers}
               matchCards={matchCards}
               excludeCardId={card.id}
-              enforceOccupancy={card.status === "IN_PROGRESS"}
+              enforceOccupancy={isTableInUse(card.status)}
             />
           </select>
         )}
