@@ -248,6 +248,29 @@ label {
   margin-bottom: 0.5rem;
 }
 
+/* ユーザーフィードバック(2026-11-09): 開発版の一時公開中に、全画面の最上部へ
+   出すβ版の帯(BetaBanner.tsx)。アプリの黒・黄の配色で、警告(赤)とは区別する。 */
+.beta-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 6px max(16px, env(safe-area-inset-left, 0px));
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.beta-banner-badge {
+  background: var(--accent);
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 1px 8px;
+  flex: none;
+}
+
 .emergency-contact-warning {
   background: var(--warn);
   color: var(--paper);

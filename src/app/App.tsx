@@ -11,6 +11,7 @@ import { NoticeGate } from "../features/notice/NoticeGate.js";
 import { SyncStatusSnackbar } from "../features/sync/SyncStatusSnackbar.js";
 import { useSyncScheduler } from "../features/sync/useSyncScheduler.js";
 import { AdminModeScreen } from "./AdminModeScreen.js";
+import { BetaBanner } from "./BetaBanner.js";
 import { GeneralModeScreen } from "./GeneralModeScreen.js";
 import { RouterProvider, useAppMode } from "./router.js";
 
@@ -63,6 +64,10 @@ export function App() {
       <AdminSessionProvider>
         <BackgroundSync />
         <ReturnToGeneralOnLogout />
+        {/* ユーザーフィードバック(2026-11-09): 開発版の一時公開中はβ版で
+            あることを全画面で示す(ログイン画面にも出すため、ゲートの外に
+            置く)。正式版にするときに外す(BetaBanner.tsx参照)。 */}
+        <BetaBanner />
         {/* NoticeGateは注意事項未確認の間は他の子要素を描画しないため、
             最初の画面でも使い方を確認できるようその外側に配置する。 */}
         <HelpButton />

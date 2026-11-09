@@ -146,6 +146,19 @@ describe("Admin mode (User Story 5)", () => {
     expect(screen.queryByText("予選プール進行")).not.toBeInTheDocument();
   });
 
+  it("shows the β banner on every screen, including the login screen (temporary development release, 2026-11-09)", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await screen.findByText("管理画面ログイン");
+    expect(screen.getByText("β版")).toBeInTheDocument();
+
+    await login(user, "pw");
+    await acknowledgeNotice(user);
+    await screen.findByText("予選プール進行");
+    expect(screen.getByText("β版")).toBeInTheDocument();
+  });
+
   it("shows the login screen after manual logout, and restarts from the notice after logging back in (2026-10-20)", async () => {
     const user = userEvent.setup();
     render(<App />);
