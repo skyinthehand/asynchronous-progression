@@ -63,6 +63,7 @@ export function generateRoundRobinMatchCards(
         statusLocalOnly: false,
         tableLocalOnly: false,
         isStreamed: false,
+        correctionOf: null,
         discardedLocalResult: null,
       });
     }

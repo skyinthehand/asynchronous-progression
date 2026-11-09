@@ -15,6 +15,7 @@ import {
   markSetCalled,
   markSetInProgress,
   reportMatchResult,
+  resetSet,
 } from "../../infra/startgg/operations.js";
 import {
   getStartggConfig,
@@ -68,7 +69,15 @@ export function mergeMatchCard(
     entrant2SourcePlacement: remote.entrant2SourcePlacement,
   };
   if (local.localOnly && local.winnerId) {
-    if (remote.status !== "COMPLETED") {
+    // ユーザーフィードバック(2026-11-09): 送信済みの結果の修正(correctionOf)
+    // は、start.gg側がまだ修正前の結果のままなら、送信が終わるまでローカルを
+    // 正とする(修正対象のセットは必ずCOMPLETEDのため、下の「start.gg側で
+    // 先に結果が入った」扱いにすると修正が破棄されてしまう)。
+    const correctionStillApplies =
+      local.correctionOf !== null &&
+      remote.status === "COMPLETED" &&
+      remote.winnerId === local.correctionOf.winnerId;
+    if (remote.status !== "COMPLETED" || correctionStillApplies) {
       // ユーザーフィードバック(2026-08-15): 結果(勝者)を保持しているカード
       // (M1未送信のもの)は、送信が成功するまでローカルを正とする。
       return { ...local, ...structure };
@@ -89,7 +98,10 @@ export function mergeMatchCard(
               discardedAt: new Date().toISOString(),
             },
           };
-    return mergeMatchCard({ ...discarded, localOnly: false }, remote);
+    return mergeMatchCard(
+      { ...discarded, localOnly: false, correctionOf: null },
+      remote,
+    );
   }
   if (local.localOnly) {
     // advanceWinner(matchProgression.ts)による出場者反映のみ(winnerIdを
@@ -271,11 +283,11 @@ async function runSyncOnce(): Promise<SyncResult> {
         !isPreviewSetId(card.id) &&
         ((card.localOnly && card.winnerId) || card.statusLocalOnly),
     );
-    const remoteStatusById = new Map(
+    const remoteCardById = new Map(
       needsRemoteCheck
         ? (await fetchPoolDetail(client, poolId)).matchCards.map((remote) => [
             remote.id,
-            remote.status,
+            remote,
           ])
         : [],
     );
@@ -288,12 +300,27 @@ async function runSyncOnce(): Promise<SyncResult> {
         continue;
       }
 
+      const remoteCard = remoteCardById.get(card.id);
+      // ユーザーフィードバック(2026-11-09): 送信済みの結果の修正は、start.gg
+      // 側がまだ修正前の結果のままなら送る(セットはCOMPLETEDのため、通常の
+      // 「start.gg側で既に結果が入っていれば送らない」判定の例外)。修正後に
+      // start.gg側で別の結果に直されていた場合は送らない(mergeMatchCardが
+      // start.ggを正として扱い、破棄をモーダルで知らせる)。
+      const isCorrection =
+        card.correctionOf !== null &&
+        remoteCard?.status === "COMPLETED" &&
+        remoteCard.winnerId === card.correctionOf.winnerId;
       if (
         card.localOnly &&
         card.winnerId &&
-        remoteStatusById.get(card.id) !== "COMPLETED"
+        (remoteCard?.status !== "COMPLETED" || isCorrection)
       ) {
         try {
+          if (isCorrection) {
+            // 報告済みのセットの勝者は報告し直すだけでは変えられないため、
+            // いったん初期状態へ戻してから新しい結果と同じ手順で報告する。
+            await resetSet(client, card.id);
+          }
           const outcome = await reportMatchResult(
             client,
             buildReportBracketSetInput(card),
@@ -304,6 +331,7 @@ async function runSyncOnce(): Promise<SyncResult> {
             score: outcome.score ?? card.score,
             status: outcome.status,
             localOnly: false,
+            correctionOf: null,
           });
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
@@ -321,7 +349,7 @@ async function runSyncOnce(): Promise<SyncResult> {
       // もう片方のクリア結果を巻き戻さないよう、保存のたびに最新の
       // カードを保持し直す。
       let latestCard = card;
-      const remoteStatus = remoteStatusById.get(latestCard.id);
+      const remoteStatus = remoteCardById.get(latestCard.id)?.status;
       if (
         latestCard.statusLocalOnly &&
         (remoteStatus === undefined ||

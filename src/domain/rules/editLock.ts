@@ -5,10 +5,11 @@ import type { MatchCard } from "../entities/matchCard.js";
  * その結果の修正を禁止する。
  *
  * 「後続の対戦」は、対象カードの勝者が次に対戦するカードとして扱う
- * (Assumptions: 「後続の試合が進行している」の定義)。正確なブラケットの
- * 勝者送り先(progression seed)は現行データモデルでは保持していないため、
- * 「対象カードの勝者が、より後のラウンドの別カードに参加者として現れており、
- * かつそのカードが未着手でない」ことをもって後続進行済みと判定する。
+ * (Assumptions: 「後続の試合が進行している」の定義)。「対象カードの勝者が、
+ * より後のラウンドの別カードに参加者として現れており、かつそのカードが
+ * 未着手でない」ことをもって後続進行済みと判定する。2026-11-09以降は、
+ * 対象カードを出場元として直接参照する後続の対戦(敗者の行き先を含む)が
+ * 未着手でない場合も後続進行済みとする。
  */
 /** card.winnerIdを前提にロック判定する、後続の対戦カード一覧(computeIsLockedと同じ述語)。 */
 function findLockingCards(
@@ -20,10 +21,20 @@ function findLockingCards(
   }
   return allCardsInPool.filter((other) => {
     if (other.id === card.id) return false;
+    if (other.status === "NOT_STARTED") return false;
+    // ユーザーフィードバック(2026-11-09): この対戦の結果(勝者・敗者の
+    // どちらでも)を出場元として直接受け取る後続の対戦(entrant1/2Source
+    // MatchId)が始まっていれば修正不可にする。以前は勝者の後の対戦しか
+    // 見ておらず、敗者が落ちた敗者側の対戦が進んでいても修正できてしまい、
+    // 修正の送信(start.ggのresetSet→報告し直し)と食い違う恐れがあった。
+    const isDirectSuccessor =
+      other.entrant1SourceMatchId === card.id ||
+      other.entrant2SourceMatchId === card.id;
+    if (isDirectSuccessor) return true;
     if (Math.abs(other.round) <= Math.abs(card.round)) return false;
-    const involvesWinner =
-      other.entrant1Id === card.winnerId || other.entrant2Id === card.winnerId;
-    return involvesWinner && other.status !== "NOT_STARTED";
+    return (
+      other.entrant1Id === card.winnerId || other.entrant2Id === card.winnerId
+    );
   });
 }
 

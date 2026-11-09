@@ -112,6 +112,23 @@ export const MatchCardSchema = z.object({
    * 破棄した内容をここに残し、プール進行画面のモーダルで進行担当者に
    * 知らせる(確認するとnullに戻す)。
    */
+  /**
+   * ユーザーフィードバック(2026-11-09): start.ggへ送信済みの結果をアプリで
+   * 修正し、まだ送信していない間だけ、修正前の(start.gg側にある)結果を
+   * 持つ。修正の送信待ちはlocalOnlyで示すが、localOnlyだけでは「新しく
+   * 入力した結果」と区別できず、start.gg側がCOMPLETED(=修正前の結果)の
+   * ため「start.gg側で先に別の結果が入った」とみなされ、修正が送られずに
+   * 破棄されていた(「結果を間違えたときにうまく修正できない」報告)。
+   * start.gg側の結果がまだこの値のままなら修正を送り、違っていれば
+   * (修正後に誰かがstart.ggで直した)start.ggを正とする。
+   */
+  correctionOf: z
+    .object({
+      winnerId: z.string().nullable(),
+      score: z.string().nullable(),
+    })
+    .nullable()
+    .default(null),
   discardedLocalResult: z
     .object({
       winnerId: z.string().nullable(),

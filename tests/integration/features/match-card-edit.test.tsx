@@ -150,6 +150,33 @@ describe("Match result correction (User Story 6)", () => {
     expect(card?.winnerId).toBe("e2");
   });
 
+  it("records a correction of an already-synced result (correctionOf + editHistory) so sync sends it instead of discarding it (2026-11-09)", async () => {
+    const db = await getDb();
+    const synced = await db.get("matchCards", "card-1");
+    // 元の結果(Alice勝ち)は既にstart.ggへ送信済み。
+    await db.put("matchCards", { ...synced, localOnly: false, score: "2-0" });
+    const user = userEvent.setup();
+    render(<App />);
+    await acknowledgeNotice(user);
+
+    const r1 = (await screen.findByText("R1-1")).closest("li");
+    if (!r1) throw new Error("round 1 card not found");
+    await user.click(r1);
+    await screen.findByRole("heading", { name: "R1-1の編集" });
+    await selectScore(user, document.body, "Bob", "1");
+    await user.click(screen.getByRole("button", { name: "修正を確定" }));
+
+    const card = await db.get("matchCards", "card-1");
+    expect(card?.winnerId).toBe("e2");
+    expect(card?.localOnly).toBe(true);
+    expect(card?.correctionOf).toEqual({ winnerId: "e1", score: "2-0" });
+    expect(card?.editHistory).toHaveLength(1);
+    expect(card?.editHistory[0]).toMatchObject({
+      previousWinnerId: "e1",
+      previousScore: "2-0",
+    });
+  });
+
   it("rejects correction once the downstream match has progressed", async () => {
     const user = userEvent.setup();
     render(<App />);

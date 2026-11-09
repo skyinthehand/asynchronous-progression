@@ -27,6 +27,7 @@ vi.mock("../../../src/infra/startgg/operations.js", async (importOriginal) => {
     reportMatchResult: vi.fn(),
     markSetInProgress: vi.fn().mockResolvedValue(undefined),
     markSetCalled: vi.fn().mockResolvedValue(undefined),
+    resetSet: vi.fn().mockResolvedValue(undefined),
     assignStationToSet: vi.fn().mockResolvedValue(undefined),
     fetchStations: vi.fn().mockResolvedValue([]),
     fetchNextMatch: vi.fn(),
@@ -70,6 +71,7 @@ function makeCard(overrides: Partial<MatchCard> & { id: string }): MatchCard {
     statusLocalOnly: false,
     tableLocalOnly: false,
     isStreamed: false,
+    correctionOf: null,
     discardedLocalResult: null,
     ...overrides,
   };
@@ -148,6 +150,7 @@ describe("Sync with results/status entered outside the app (start.gg)", () => {
     vi.mocked(operations.markSetCalled)
       .mockReset()
       .mockResolvedValue(undefined);
+    vi.mocked(operations.resetSet).mockReset().mockResolvedValue(undefined);
     vi.mocked(operations.fetchNextMatch).mockReset().mockResolvedValue({
       opponentName: null,
       tableNumber: null,
@@ -284,6 +287,119 @@ describe("Sync with results/status entered outside the app (start.gg)", () => {
     expect(card?.entrant2Score).toBeNull();
     expect(card?.discardedLocalResult?.winnerId).toBe("e1");
     expect(card?.discardedLocalResult?.score).toBe("2-1");
+  });
+
+  // ユーザーフィードバック(2026-11-09): 「結果を間違えたときにうまく修正
+  // できない」(修正を保存すると「アプリで入力した結果を破棄しました」と
+  // 出て元に戻る)。送信済みの結果の修正は、start.gg側がCOMPLETED(修正前の
+  // 結果)でも送る。
+  describe("correcting an already-synced result", () => {
+    const corrected = makeCard({
+      id: "s1",
+      status: "COMPLETED",
+      winnerId: "e2",
+      score: "1-2",
+      entrant1Score: 1,
+      entrant2Score: 2,
+      localOnly: true,
+      correctionOf: { winnerId: "e1", score: "2-0" },
+    });
+    const originalOnStartgg = makeCard({
+      id: "s1",
+      status: "COMPLETED",
+      winnerId: "e1",
+      entrant1Score: 2,
+      entrant2Score: 0,
+    });
+
+    it("resets the set and reports the corrected result, keeping it (no discard modal)", async () => {
+      await seed([corrected]);
+      vi.mocked(operations.fetchPoolDetail)
+        .mockResolvedValueOnce(remoteDetail([originalOnStartgg]))
+        .mockResolvedValue(
+          remoteDetail([
+            makeCard({
+              id: "s1",
+              status: "COMPLETED",
+              winnerId: "e2",
+              entrant1Score: 1,
+              entrant2Score: 2,
+            }),
+          ]),
+        );
+      vi.mocked(operations.reportMatchResult).mockResolvedValue({
+        winnerId: "e2",
+        score: "1-2",
+        status: "COMPLETED",
+      });
+
+      const result = await runSync();
+
+      expect(result.success).toBe(true);
+      expect(operations.resetSet).toHaveBeenCalledWith(expect.anything(), "s1");
+      expect(operations.reportMatchResult).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ setId: "s1", winnerId: "e2" }),
+      );
+      expect(
+        vi.mocked(operations.resetSet).mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        vi.mocked(operations.reportMatchResult).mock.invocationCallOrder[0],
+      );
+      const card = await (await getDb()).get("matchCards", "s1");
+      expect(card?.winnerId).toBe("e2");
+      expect(card?.localOnly).toBe(false);
+      expect(card?.correctionOf).toBeNull();
+      expect(card?.discardedLocalResult).toBeNull();
+    });
+
+    it("keeps the correction pending (not discarded) when sending it fails, and retries next sync", async () => {
+      await seed([corrected]);
+      vi.mocked(operations.fetchPoolDetail).mockResolvedValue(
+        remoteDetail([originalOnStartgg]),
+      );
+      vi.mocked(operations.resetSet).mockRejectedValue(new Error("network"));
+
+      const result = await runSync();
+
+      expect(result.success).toBe(false);
+      const db = await getDb();
+      const card = await db.get("matchCards", "s1");
+      expect(card?.winnerId).toBe("e2");
+      expect(card?.localOnly).toBe(true);
+      expect(card?.correctionOf).toEqual({ winnerId: "e1", score: "2-0" });
+      expect(card?.discardedLocalResult).toBeNull();
+      expect((await db.get("syncStatus", "pool-1"))?.pendingChangeCount).toBe(
+        1,
+      );
+    });
+
+    it("follows start.gg (does not send) when the result was changed on start.gg after the app's correction", async () => {
+      // アプリで「Bob勝ち」に直した後、送信前にstart.gg側でも誰かが
+      // 直していた(修正前の「Alice勝ち」ではなくなっている)。
+      await seed([corrected]);
+      vi.mocked(operations.fetchPoolDetail).mockResolvedValue(
+        remoteDetail([
+          makeCard({
+            id: "s1",
+            status: "COMPLETED",
+            winnerId: "e2",
+            entrant1Score: 0,
+            entrant2Score: 2,
+          }),
+        ]),
+      );
+
+      await runSync();
+
+      expect(operations.resetSet).not.toHaveBeenCalled();
+      expect(operations.reportMatchResult).not.toHaveBeenCalled();
+      const card = await (await getDb()).get("matchCards", "s1");
+      expect(card?.winnerId).toBe("e2");
+      expect(card?.entrant2Score).toBe(2);
+      expect(card?.localOnly).toBe(false);
+      expect(card?.correctionOf).toBeNull();
+    });
   });
 
   it("does not record a discarded result when start.gg has the same winner (keeps local scores)", async () => {

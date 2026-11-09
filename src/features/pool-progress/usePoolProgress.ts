@@ -289,8 +289,32 @@ export function usePoolProgress(): UsePoolProgressResult {
       // 新規確定・結果修正のいずれも不可(このrecordResultは両方から
       // 共通して呼ばれるため、ここ1箇所のガードで両方をブロックできる)。
       if (isStreamLocked(target)) return;
+      // ユーザーフィードバック(2026-11-09): start.ggへ送信済みの結果の修正
+      // かどうか(未送信の結果を直すだけなら、新しい結果の入力と同じ)。
+      // 修正前の結果をcorrectionOfに残し、同期(syncRunner.ts)でstart.gg側の
+      // 修正前の結果を上書きできるようにする。送信前に重ねて修正した場合は、
+      // start.gg側にある最初の結果を保つ。
+      const isCorrectionOfSyncedResult =
+        target.status === "COMPLETED" && !target.localOnly;
+      const correctionOf = isCorrectionOfSyncedResult
+        ? { winnerId: target.winnerId, score: target.score }
+        : target.correctionOf;
+      const editHistory =
+        target.status === "COMPLETED"
+          ? [
+              ...target.editHistory,
+              {
+                editedAt: new Date().toISOString(),
+                previousWinnerId: target.winnerId,
+                previousScore: target.score,
+                editedBy: pool?.staffName ?? null,
+              },
+            ]
+          : target.editHistory;
       const updated: MatchCard = {
         ...target,
+        correctionOf,
+        editHistory,
         entrant1Score: result.entrant1Score,
         entrant2Score: result.entrant2Score,
         entrant1DQ: result.entrant1DQ,

@@ -5,3 +5,5 @@ misc/
 
 # 実際のstart.ggトークンを含む、動作確認用のローカル専用設定(コミット禁止)。
 .local/
+# Claude Code のセッション記録・メモリの書き出し(コミット禁止)。
+.claude-export/

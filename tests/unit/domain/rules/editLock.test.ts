@@ -71,6 +71,35 @@ describe("computeIsLocked", () => {
     expect(computeIsLocked(c1, [c1, c2])).toBe(true);
   });
 
+  it("is locked once the match the LOSER dropped into has started (direct successor via sourceMatchId, 2026-11-09)", () => {
+    const winnersMatch = makeCard({
+      id: "w1",
+      round: 1,
+      entrant1Id: "e1",
+      entrant2Id: "e2",
+      winnerId: "e1",
+      status: "COMPLETED",
+    });
+    const losersMatch = makeCard({
+      id: "l1",
+      round: -1,
+      bracketSide: "LOSERS",
+      entrant1Id: "e2",
+      entrant2Id: "e5",
+      entrant1SourceMatchId: "w1",
+      status: "CALLED",
+    });
+    expect(computeIsLocked(winnersMatch, [winnersMatch, losersMatch])).toBe(
+      true,
+    );
+    expect(
+      computeIsLocked(winnersMatch, [
+        winnersMatch,
+        { ...losersMatch, status: "NOT_STARTED" },
+      ]),
+    ).toBe(false);
+  });
+
   it("ignores cards at the same or an earlier round", () => {
     const c1 = makeCard({
       id: "c1",

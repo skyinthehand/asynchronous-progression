@@ -583,6 +583,7 @@ export async function fetchPoolDetail(
       // 005-stream-match-lock FR-001: 配信(ストリーム)が割り当てられて
       // いるかどうか。読み取り専用で、常にstart.gg側の最新値で上書きする。
       isStreamed: Boolean(set.stream),
+      correctionOf: null,
       discardedLocalResult: null,
     };
   });
@@ -902,6 +903,42 @@ export async function markSetInProgress(
 ): Promise<void> {
   const raw = await client.request(MARK_SET_IN_PROGRESS_MUTATION, { setId });
   MarkSetInProgressResponseSchema.parse(raw);
+}
+
+// --- M5: reset a set (to correct an already reported result) ---
+
+const ResetSetResponseSchema = z.object({
+  resetSet: z.object({
+    id: z.union([z.string(), z.number()]).transform(String),
+  }),
+});
+
+const RESET_SET_MUTATION = /* GraphQL */ `
+  mutation ResetSet($setId: ID!, $resetDependentSets: Boolean) {
+    resetSet(setId: $setId, resetDependentSets: $resetDependentSets) {
+      id
+    }
+  }
+`;
+
+/**
+ * M5: 報告済みの結果を修正する前に、セットを初期状態へ戻す(ユーザー
+ * フィードバック2026-11-09)。start.ggの資料では、勝者は報告済みのセットに
+ * 対して変更できず(updateBracketSetの説明: 「use the resetSet mutation
+ * instead」)、resetSetで戻してから報告し直す必要がある。後続のセット
+ * (次のフェーズを含む)は巻き込まない(resetDependentSets: false)。プール内の
+ * 後続の対戦が始まっている場合は、そもそも修正自体をロックしている
+ * (editLock.ts)。
+ */
+export async function resetSet(
+  client: GraphQLClient,
+  setId: string,
+): Promise<void> {
+  const raw = await client.request(RESET_SET_MUTATION, {
+    setId,
+    resetDependentSets: false,
+  });
+  ResetSetResponseSchema.parse(raw);
 }
 
 // --- M4: mark a set as called ---
