@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
+import usageGuide from "../../../../docs/usage.md?raw";
 import {
   parseHelpMarkdown,
   slugifyHeading,
 } from "../../../../src/domain/rules/helpMarkdown.js";
 
 describe("slugifyHeading", () => {
-  it("matches the hand-written anchors in docs/usage.md's table of contents", () => {
-    expect(slugifyHeading("全体の流れ")).toBe("全体の流れ");
+  it("follows GitHub's anchor rules (lowercase, drop punctuation, spaces to hyphens)", () => {
     expect(slugifyHeading("注意事項の確認(起動時)")).toBe(
       "注意事項の確認起動時",
     );
@@ -14,9 +14,30 @@ describe("slugifyHeading", () => {
       "事前準備-管理画面での初期化",
     );
     expect(slugifyHeading("start.gg同期について")).toBe("startgg同期について");
-    expect(slugifyHeading("プレビューモード(ブラケット未開始)")).toBe(
-      "プレビューモードブラケット未開始",
+  });
+
+  it("resolves every in-page link in docs/usage.md to a heading (table of contents)", () => {
+    const blocks = parseHelpMarkdown(usageGuide);
+    const headingIds = new Set(
+      blocks.flatMap((block) => (block.type === "heading" ? [block.id] : [])),
     );
+    const anchors = blocks.flatMap((block) => {
+      const inlines =
+        block.type === "list"
+          ? block.items.flat()
+          : block.type === "paragraph"
+            ? block.inline
+            : [];
+      return inlines.flatMap((node) =>
+        node.type === "link" && node.href.startsWith("#")
+          ? [node.href.slice(1)]
+          : [],
+      );
+    });
+    expect(anchors.length).toBeGreaterThan(0);
+    for (const anchor of anchors) {
+      expect(headingIds).toContain(anchor);
+    }
   });
 });
 
@@ -48,6 +69,59 @@ describe("parseHelpMarkdown", () => {
           { type: "link", text: "リンク", href: "https://example.com" },
           { type: "text", text: " です" },
         ],
+      },
+    ]);
+  });
+
+  it("turns <https://...> autolinks and bare URLs into links (2026-11-09: URLs were not clickable)", () => {
+    expect(
+      parseHelpMarkdown(
+        "対象URL: <https://example.com/app/> と https://example.com/a?b=1。",
+      ),
+    ).toEqual([
+      {
+        type: "paragraph",
+        inline: [
+          { type: "text", text: "対象URL: " },
+          {
+            type: "link",
+            text: "https://example.com/app/",
+            href: "https://example.com/app/",
+          },
+          { type: "text", text: " と " },
+          {
+            type: "link",
+            text: "https://example.com/a?b=1",
+            href: "https://example.com/a?b=1",
+          },
+          { type: "text", text: "。" },
+        ],
+      },
+    ]);
+  });
+
+  it("leaves trailing ASCII punctuation outside a bare URL", () => {
+    expect(parseHelpMarkdown("See https://example.com.")).toEqual([
+      {
+        type: "paragraph",
+        inline: [
+          { type: "text", text: "See " },
+          {
+            type: "link",
+            text: "https://example.com",
+            href: "https://example.com",
+          },
+          { type: "text", text: "." },
+        ],
+      },
+    ]);
+  });
+
+  it("joins wrapped Japanese lines without inserting a space (2026-11-09)", () => {
+    expect(parseHelpMarkdown("日本語の文が\n途中で折り返す")).toEqual([
+      {
+        type: "paragraph",
+        inline: [{ type: "text", text: "日本語の文が途中で折り返す" }],
       },
     ]);
   });

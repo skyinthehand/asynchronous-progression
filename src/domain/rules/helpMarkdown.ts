@@ -20,7 +20,14 @@ const UNORDERED_ITEM_PATTERN = /^[-*]\s+(.*)$/;
 const ORDERED_ITEM_PATTERN = /^\d+\.\s+(.*)$/;
 const TABLE_ROW_PATTERN = /^\|(.+)\|$/;
 const TABLE_SEPARATOR_PATTERN = /^[-:|\s]+$/;
-const INLINE_PATTERN = /\*\*(.+?)\*\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\)/g;
+// ユーザーフィードバック(2026-11-09): URLがクリックできなかったため、
+// [テキスト](url)に加えて、自動リンク(<https://...>)と地の文に書いた
+// URL(https://...)もリンクにする。地の文のURLは、日本語の文に続けて
+// 書かれても区切れるよう、URLに使えるASCII文字だけを対象にする。
+const INLINE_PATTERN =
+  /\*\*(.+?)\*\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\)|<(https?:\/\/[^\s<>]+)>|(https?:\/\/[A-Za-z0-9\-._~:/?#@!$&'*+,;=%]+)/g;
+/** 地の文のURLの末尾に付いた句読点は、URLに含めず文の一部として残す。 */
+const URL_TRAILING_PUNCTUATION = /[.,;:!?']+$/;
 
 /**
  * GitHubのMarkdownビューアが見出しから目次アンカーを生成する規則を
@@ -51,6 +58,13 @@ function parseInline(text: string): HelpInline[] {
       inline.push({ type: "code", text: match[2] });
     } else if (match[3] !== undefined && match[4] !== undefined) {
       inline.push({ type: "link", text: match[3], href: match[4] });
+    } else if (match[5] !== undefined) {
+      inline.push({ type: "link", text: match[5], href: match[5] });
+    } else if (match[6] !== undefined) {
+      const url = match[6].replace(URL_TRAILING_PUNCTUATION, "");
+      inline.push({ type: "link", text: url, href: url });
+      lastIndex = match.index + url.length;
+      continue;
     }
     lastIndex = match.index + match[0].length;
   }
@@ -58,6 +72,18 @@ function parseInline(text: string): HelpInline[] {
     inline.push({ type: "text", text: text.slice(lastIndex) });
   }
   return inline;
+}
+
+/**
+ * 折り返した行同士をつなぐ。ユーザーフィードバック(2026-11-09): 常に
+ * 半角スペースでつないでいたため、日本語の文の途中に不自然な空白が
+ * 入っていた。つなぎ目の両側が日本語(全角文字)のときは空白を入れない。
+ */
+function joinWrappedLine(previous: string, next: string): string {
+  const isWide = (char: string | undefined) =>
+    char !== undefined && char.charCodeAt(0) > 0x7f;
+  const separator = isWide(previous.at(-1)) && isWide(next.at(0)) ? "" : " ";
+  return previous + separator + next;
 }
 
 /** 継続行(前の項目の折り返し)としてマージする際、先頭のリスト記号を取り除く。 */
@@ -79,7 +105,7 @@ function isTableStart(lines: string[], index: number): boolean {
 /**
  * docs/usage.md(アプリ内ヘルプ)向けの簡易Markdownパーサー。
  * 見出し・段落・箇条書き(順序あり/なし)・テーブルと、インライン装飾
- * (**太字**・`コード`・[リンク](url))に対応する。CommonMark全体には
+ * (**太字**・`コード`・[リンク](url)・<url>・地の文のURL)に対応する。CommonMark全体には
  * 対応せず、実際にdocs/usage.mdで使う範囲に絞る(HTMLへ変換して
  * `dangerouslySetInnerHTML`するのではなく、構造化したブロックをReact側で
  * エスケープ付きでそのまま描画できるようにするのが目的。noticeMarkdown.ts
@@ -141,7 +167,10 @@ export function parseHelpMarkdown(markdown: string): HelpBlock[] {
         } else if (items.length > 0) {
           // 折り返し行、またはネストした別種の箇条書き(この簡易パーサーは
           // 真のネストに対応しないため、前の項目へ地の文として統合する)。
-          items[items.length - 1] += ` ${stripLeadingMarker(current)}`;
+          items[items.length - 1] = joinWrappedLine(
+            items[items.length - 1],
+            stripLeadingMarker(current),
+          );
           i++;
         } else {
           break;
@@ -172,7 +201,7 @@ export function parseHelpMarkdown(markdown: string): HelpBlock[] {
     }
     blocks.push({
       type: "paragraph",
-      inline: parseInline(paragraphLines.join(" ")),
+      inline: parseInline(paragraphLines.reduce(joinWrappedLine)),
     });
   }
 
