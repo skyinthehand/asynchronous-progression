@@ -2,11 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
-import { createActiveSession } from "../../../src/features/admin/sessionExpiry.js";
-import { saveAdminSession } from "../../../src/infra/storage/adminRepository.js";
-import { getDb } from "../../../src/infra/storage/db.js";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -50,23 +46,10 @@ async function goToAdminMode(user: ReturnType<typeof userEvent.setup>) {
 }
 
 /**
- * ユーザーフィードバック(2026-10-20): アプリ全体が管理画面ログインで
- * 囲まれているため、ログアウト中は起動直後にログイン画面が表示される。
+ * 進行ルールを確認して管理画面へ入る。ユーザーフィードバック(2026-11-09):
+ * パスワードによるログインは廃止したため、そのまま入れる。
  */
-async function login(
-  user: ReturnType<typeof userEvent.setup>,
-  password: string,
-) {
-  await user.type(await screen.findByPlaceholderText("パスワード"), password);
-  await user.click(screen.getByRole("button", { name: "ログイン" }));
-}
-
-/** ログインし、進行ルールを確認して管理画面へ入る。 */
-async function loginAndEnterAdmin(
-  user: ReturnType<typeof userEvent.setup>,
-  password = "pw",
-) {
-  await login(user, password);
+async function enterAdmin(user: ReturnType<typeof userEvent.setup>) {
   await acknowledgeNotice(user);
   await goToAdminMode(user);
   await screen.findByText("初期化(ログイン〜対象プール指定〜トークン設定)");
@@ -75,31 +58,40 @@ async function loginAndEnterAdmin(
 describe("Admin mode (User Story 5)", () => {
   beforeEach(async () => {
     await resetDb();
+    // リセットで消えることを確かめるための、保存済みのstart.gg連携設定。
+    const db = await getDb();
+    await db.put(
+      "startggConfig",
+      {
+        tournamentSlug: null,
+        eventId: null,
+        phaseId: null,
+        poolId: null,
+        syncToken: null,
+        tokenUpdatedAt: null,
+      },
+      SINGLETON_KEY,
+    );
   });
 
-  it("rejects an incorrect password and accepts the bootstrapped one", async () => {
+  it("opens the admin screen without asking for a password, and has no logout (2026-11-09)", async () => {
     const user = userEvent.setup();
     render(<App />);
-    // 初回に入力したパスワードがそのままブートストラップされる。
-    await loginAndEnterAdmin(user, "correct-horse");
+    await enterAdmin(user);
 
-    // ログアウトして再度ゲートに戻り、別のパスワードでは入れないことを
-    // 確認する(ブートストラップ済みのパスワードのみが有効)。
-    await user.click(screen.getByRole("button", { name: "ログアウト" }));
-    await login(user, "wrong-password");
+    expect(screen.queryByPlaceholderText("パスワード")).not.toBeInTheDocument();
     expect(
-      await screen.findByText("パスワードが正しくありません。"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("管理画面ログイン")).toBeInTheDocument();
+      screen.queryByRole("button", { name: "ログアウト" }),
+    ).not.toBeInTheDocument();
 
-    await user.clear(screen.getByPlaceholderText("パスワード"));
-    await loginAndEnterAdmin(user, "correct-horse");
+    await user.click(screen.getByRole("button", { name: "進行画面に戻る" }));
+    expect(await screen.findByText("予選プール進行")).toBeInTheDocument();
   });
 
   it("completes initialization and allows independent pool/token reselection", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await loginAndEnterAdmin(user);
+    await enterAdmin(user);
 
     await user.type(
       screen.getByPlaceholderText("Personal Access Token"),
@@ -138,92 +130,26 @@ describe("Admin mode (User Story 5)", () => {
     expect(updatedConfig?.poolId).toBe("pool-1"); // 対象プールは維持される
   });
 
-  it("shows only the login screen (no notice/target tournament, no progress screen) while logged out (2026-10-20)", async () => {
-    render(<App />);
-
-    expect(await screen.findByText("管理画面ログイン")).toBeInTheDocument();
-    expect(screen.queryByText("進行ルール")).not.toBeInTheDocument();
-    expect(screen.queryByText("予選プール進行")).not.toBeInTheDocument();
-  });
-
-  it("shows the β banner on every screen, including the login screen (temporary development release, 2026-11-09)", async () => {
+  it("shows the β banner on every screen (temporary development release, 2026-11-09)", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await screen.findByText("管理画面ログイン");
+    await screen.findByText(/進行ルールをまだ取得できていません/);
     expect(screen.getByText("β版")).toBeInTheDocument();
 
-    await login(user, "pw");
     await acknowledgeNotice(user);
     await screen.findByText("予選プール進行");
     expect(screen.getByText("β版")).toBeInTheDocument();
   });
 
-  it("shows the login screen after manual logout, and restarts from the notice after logging back in (2026-10-20)", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-    await loginAndEnterAdmin(user);
-
-    await user.click(screen.getByRole("button", { name: "ログアウト" }));
-    expect(await screen.findByText("管理画面ログイン")).toBeInTheDocument();
-    expect(screen.queryByText("予選プール進行")).not.toBeInTheDocument();
-
-    await login(user, "pw");
-    await acknowledgeNotice(user);
-    expect(await screen.findByText("予選プール進行")).toBeInTheDocument();
-  });
-
-  it("shows the login screen with the auto-logout notice on startup after the 24h session expired", async () => {
-    await saveAdminSession(
-      createActiveSession(new Date(Date.now() - 25 * 60 * 60 * 1000)),
-    );
-    render(<App />);
-
-    expect(
-      await screen.findByText("自動的にログアウトしました。"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("管理画面ログイン")).toBeInTheDocument();
-    expect(screen.queryByText("予選プール進行")).not.toBeInTheDocument();
-  });
-
-  it("warns before the 24h auto-logout, and returns to general mode (not the admin screen) after logging back in (2026-10-20)", async () => {
-    // 約1.5秒後に24時間の期限を迎えるセッション。
-    await saveAdminSession(
-      createActiveSession(new Date(Date.now() - DAY_MS + 1500)),
-    );
-    const user = userEvent.setup();
-    render(<App />);
-    await acknowledgeNotice(user);
-    expect(
-      screen.getByText(/あと約\d+分で自動的にログアウトします。/),
-    ).toBeInTheDocument();
-    await goToAdminMode(user);
-    await screen.findByText("初期化(ログイン〜対象プール指定〜トークン設定)");
-
-    // 期限ちょうどに(定期確認の60秒を待たずに)ログイン画面へ切り替わる。
-    expect(
-      await screen.findByText("管理画面ログイン", {}, { timeout: 4000 }),
-    ).toBeInTheDocument();
-
-    await login(user, "pw");
-    await acknowledgeNotice(user);
-    expect(await screen.findByText("予選プール進行")).toBeInTheDocument();
-    expect(
-      screen.queryByText("初期化(ログイン〜対象プール指定〜トークン設定)"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/自動的にログアウトします。/),
-    ).not.toBeInTheDocument();
-  });
-
   describe("Reset (2026-08-19)", () => {
-    it("clears every object store, including the admin login, once confirmed", async () => {
+    it("clears every object store, including the start.gg settings, once confirmed", async () => {
       const user = userEvent.setup();
       render(<App />);
-      await loginAndEnterAdmin(user);
+      await enterAdmin(user);
 
       const db = await getDb();
-      expect(await db.get("adminSession", "current")).toBeDefined();
+      expect(await db.get("startggConfig", SINGLETON_KEY)).toBeDefined();
 
       const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
       const reloadSpy = vi.fn();
@@ -253,7 +179,7 @@ describe("Admin mode (User Story 5)", () => {
     it("does nothing when the confirmation dialog is dismissed", async () => {
       const user = userEvent.setup();
       render(<App />);
-      await loginAndEnterAdmin(user);
+      await enterAdmin(user);
 
       // confirmがfalseを返す限りwindow.location.reload()は呼ばれない
       // パスのため、reload自体のモックは不要(実際のjsdomのreloadは
@@ -267,40 +193,9 @@ describe("Admin mode (User Story 5)", () => {
 
       expect(confirmSpy).toHaveBeenCalled();
       const db = await getDb();
-      expect(await db.get("adminSession", "current")).toBeDefined();
+      expect(await db.get("startggConfig", SINGLETON_KEY)).toBeDefined();
 
       confirmSpy.mockRestore();
-    });
-
-    it("is also offered on the login gate, for when the password itself is forgotten", async () => {
-      const user = userEvent.setup();
-      render(<App />);
-
-      // ログイン前(パスワードを忘れて入れない状況を想定)でも、ゲート画面に
-      // 同じ初期化ボタンがあることを確認する。
-      await screen.findByText("パスワードを忘れた場合");
-
-      const db = await getDb();
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-      const reloadSpy = vi.fn();
-      const originalLocation = window.location;
-      // @ts-expect-error jsdomの型上はwindow.locationの再代入を想定していない
-      // biome-ignore lint/performance/noDelete: window.locationを差し替える唯一の手段(jsdom)
-      delete window.location;
-      window.location = { ...originalLocation, reload: reloadSpy };
-
-      await user.click(
-        screen.getByRole("button", { name: "すべてのデータをリセット" }),
-      );
-
-      expect(confirmSpy).toHaveBeenCalled();
-      for (const name of db.objectStoreNames) {
-        expect(await db.getAll(name)).toEqual([]);
-      }
-      expect(reloadSpy).toHaveBeenCalled();
-
-      confirmSpy.mockRestore();
-      window.location = originalLocation;
     });
   });
 });

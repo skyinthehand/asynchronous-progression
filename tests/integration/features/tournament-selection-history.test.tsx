@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { getDb } from "../../../src/infra/storage/db.js";
-import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -64,21 +63,9 @@ async function findRecentSummary(
   return summary;
 }
 
-/**
- * 「別セッション」を模した2回目のrenderでは、有効な管理セッションが
- * IndexedDBに残っているため、パスワード入力なしで直接管理画面に入る
- * (実際の挙動と同じ)。
- */
 async function goToAdminMode(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "管理画面" }));
-  const passwordInput = screen.queryByPlaceholderText("パスワード");
-  if (passwordInput) {
-    await user.type(passwordInput, "pw");
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
-  }
-  // ログイン判定(verifyAdminPassword)が非同期(crypto.subtle.digest)の
-  // ため、管理画面の内容が実際に描画されるまで待つ。
-  await screen.findByRole("button", { name: "ログアウト" });
+  await screen.findByRole("button", { name: "進行画面に戻る" });
 }
 
 /** InitLoginの「大会一覧から選ぶ」経路で、プール選択まで完了させる。 */
@@ -110,7 +97,6 @@ async function completeInitLoginViaList(
 describe("Tournament/event history and defaulting (2026-10-18)", () => {
   beforeEach(async () => {
     await resetDb();
-    await seedActiveAdminSession();
   });
 
   it("defaults to the most recently used tournament/event and only asks for the pool, in a later session", async () => {

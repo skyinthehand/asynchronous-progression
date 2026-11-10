@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
-import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -21,7 +20,6 @@ async function resetDb() {
 describe("Notice gate (User Story 1)", () => {
   beforeEach(async () => {
     await resetDb();
-    await seedActiveAdminSession();
   });
 
   afterEach(() => {

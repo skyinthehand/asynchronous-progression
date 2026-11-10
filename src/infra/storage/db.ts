@@ -64,6 +64,8 @@ export function getDb(): Promise<IDBPDatabase<PoolProgressionDB>> {
         if (!db.objectStoreNames.contains("notice")) {
           db.createObjectStore("notice", { keyPath: "tournamentSlug" });
         }
+        // 2026-11-09にログイン機能を廃止したが、既存の端末のデータとの互換の
+        // ため保存領域(object store)自体は残す(読み書きはしない)。
         if (!db.objectStoreNames.contains("adminSession")) {
           db.createObjectStore("adminSession");
         }
@@ -85,7 +87,7 @@ export function getDb(): Promise<IDBPDatabase<PoolProgressionDB>> {
 }
 
 /**
- * 管理画面の「リセット」ボタン用: ログイン状態・start.gg連携設定・
+ * 管理画面の「リセット」ボタン用: start.gg連携設定・
  * 同期済みのプールデータを含む、全ストアの内容を消去する。
  * `indexedDB.deleteDatabase()`は、既存の接続がすべて閉じるまで処理が
  * 保留(blocked)される・再度開き直す手順が別途必要、といった扱いにくさが

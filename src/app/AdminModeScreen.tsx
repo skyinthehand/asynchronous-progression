@@ -1,5 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
-import { useAdminSession } from "../features/admin/AdminSessionContext.js";
+import { type ReactNode, useState } from "react";
 import { InitLogin } from "../features/admin/InitLogin.js";
 import { NoticeAdminPanel } from "../features/admin/NoticeAdminPanel.js";
 import { PoolSelection } from "../features/admin/PoolSelection.js";
@@ -46,29 +45,6 @@ function RefetchDataButton() {
   );
 }
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-/** デザイン刷新(2026-10-09): ヘッダーの「自動ログアウトまで」カウントダウン。 */
-function useRemainingSessionTime(expiresAt: string | null): string | null {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!expiresAt) return;
-    const intervalId = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(intervalId);
-  }, [expiresAt]);
-
-  if (!expiresAt) return null;
-  const remainingMs = Math.max(0, new Date(expiresAt).getTime() - now);
-  const totalSeconds = Math.floor(remainingMs / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-}
-
 interface AdminSectionProps {
   number: string;
   title: string;
@@ -98,14 +74,12 @@ function AdminSection({ number, title, children, danger }: AdminSectionProps) {
 }
 
 /**
- * US5: 管理画面(認証・初期化・トークン管理・ログアウト・注意書き連携)。
- * パスワード認証(AdminPasswordGate)はアプリ全体(App.tsx)で行うため、
- * ここに来る時点で常にログイン済み。
+ * US5: 管理画面(初期化・トークン管理・注意書き連携)。ユーザーフィード
+ * バック(2026-11-09): パスワードによるログイン・ログアウトは廃止したため、
+ * 「管理画面」ボタンからそのまま入れる。
  */
 export function AdminModeScreen() {
   const { exitAdminMode } = useAppMode();
-  const { logout, expiresAt } = useAdminSession();
-  const remaining = useRemainingSessionTime(expiresAt);
   // TableSettingsPanelはマウント時に一度だけ対象プールを読み込むため、
   // InitLogin/PoolSelectionで対象プールが変わったらkeyを変えて
   // 強制的に再マウント(再読み込み)させる。これがないと、対戦台設定が
@@ -128,21 +102,8 @@ export function AdminModeScreen() {
         </div>
         <div className="header-spacer" />
         <div className="admin-header-right">
-          {remaining && (
-            <span className="admin-session-countdown">
-              <span className="label admin-session-countdown-label">
-                自動ログアウトまで
-              </span>
-              <span className="mono">{remaining}</span>
-            </span>
-          )}
           <button type="button" className="btn inv" onClick={exitAdminMode}>
             進行画面に戻る
-          </button>
-          {/* 一般モードへの切り替えはApp.tsx(ReturnToGeneralOnLogout)が
-              手動・自動ログアウトのいずれでも行う。 */}
-          <button type="button" className="btn inv" onClick={logout}>
-            ログアウト
           </button>
         </div>
       </header>

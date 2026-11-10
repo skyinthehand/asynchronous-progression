@@ -1,7 +1,3 @@
-import {
-  type AdminSession,
-  AdminSessionSchema,
-} from "../../domain/schemas/adminSession.js";
 import { type Notice, NoticeSchema } from "../../domain/schemas/notice.js";
 import {
   type StaffAssignmentEntry,
@@ -55,23 +51,6 @@ export async function getNotice(
   const db = await getDb();
   const value = await db.get("notice", tournamentSlug);
   return value ? NoticeSchema.parse(value) : undefined;
-}
-
-// --- AdminSession (singleton) ---
-
-export async function saveAdminSession(
-  session: AdminSession,
-): Promise<AdminSession> {
-  const validated = AdminSessionSchema.parse(session);
-  const db = await getDb();
-  await db.put("adminSession", validated, SINGLETON_KEY);
-  return validated;
-}
-
-export async function getAdminSession(): Promise<AdminSession | undefined> {
-  const db = await getDb();
-  const value = await db.get("adminSession", SINGLETON_KEY);
-  return value ? AdminSessionSchema.parse(value) : undefined;
 }
 
 // --- StartggIntegrationConfig (singleton) ---

@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
-import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -100,7 +99,6 @@ async function seedBracketPool(tableNumbers: string[] = ["1"]) {
 describe("Match cards on the bracket board have no operable elements; tapping the card opens an edit modal", () => {
   beforeEach(async () => {
     await resetDb();
-    await seedActiveAdminSession();
   });
 
   it("does not render any button or select directly on the card, only a pencil icon as a tap affordance", async () => {
@@ -508,7 +506,6 @@ describe("Match cards on the bracket board have no operable elements; tapping th
 describe("Assigning a table before both entrants are decided (2026-10-19)", () => {
   beforeEach(async () => {
     await resetDb();
-    await seedActiveAdminSession();
   });
 
   async function seedPendingSlotPool(tableNumbers: string[]) {

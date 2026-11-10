@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
-import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -271,7 +270,6 @@ async function seedEmptyPool() {
 describe("Next-match suggestion modal (User Story 3)", () => {
   beforeEach(async () => {
     await resetDb();
-    await seedActiveAdminSession();
   });
 
   it("shows the next-match suggestion for the freed table immediately after confirming a result (FR-017/FR-022)", async () => {

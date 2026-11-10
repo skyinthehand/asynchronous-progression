@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/app/App.js";
 import { SINGLETON_KEY, getDb } from "../../../src/infra/storage/db.js";
-import { seedActiveAdminSession } from "../helpers/adminSession.js";
 
 vi.mock("../../../src/infra/startgg/operations.js", () => ({
   fetchEventRules: vi.fn().mockRejectedValue(new Error("offline")),
@@ -169,7 +168,6 @@ async function addTableFromAdminScreen(
 describe("Table count setting and assignment (User Story 2)", () => {
   beforeEach(async () => {
     await resetDb();
-    await seedActiveAdminSession();
   });
 
   it("sets the pool's table numbers from the admin screen, one at a time, and assigns one to a card", async () => {
