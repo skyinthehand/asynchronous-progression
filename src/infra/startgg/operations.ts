@@ -308,7 +308,21 @@ const PhaseGroupDetailSchema = z.object({
     id: z.union([z.string(), z.number()]).transform(String),
     displayIdentifier: z.string(),
     bracketType: z.string().nullable(),
-    sets: z.object({ nodes: z.array(SetNodeSchema) }).nullable(),
+    sets: z
+      .object({
+        /** 旧形式のfixture互換のためoptional(無ければ1ページのみとみなす)。 */
+        pageInfo: z
+          .object({ totalPages: z.number().int().nullable() })
+          .nullable()
+          .optional(),
+        nodes: z.array(SetNodeSchema),
+      })
+      .nullable(),
+  }),
+});
+
+const PhaseGroupSeedsSchema = z.object({
+  phaseGroup: z.object({
     seeds: z
       .object({ nodes: z.array(SeedNodeSchema) })
       .nullable()
@@ -316,13 +330,29 @@ const PhaseGroupDetailSchema = z.object({
   }),
 });
 
+/**
+ * ユーザーフィードバック(2026-11-13、スマパ#252で報告): 64人・127セットの
+ * プールで、全セットを1回で取得しようとするとstart.ggの上限(1回に返せる
+ * のは1000件まで)を超えて毎回拒否され、どの端末でも同期に失敗していた
+ * (b6ee004で枠ごとの得点(standing)も取得するようにしてから、1セットあたり
+ * 約14件になったため)。また以前は1回で最大100セットまでしか取得して
+ * いなかったため、それを超えるプールでは残りのセットが抜け落ちていた。
+ * セットはこの件数ずつページに分けて最後まで取得する(1ページ約560件)。
+ */
+const POOL_SETS_PAGE_SIZE = 40;
+/** 想定外の応答で取得が終わらなくなるのを防ぐための上限(40×25=1000セット)。 */
+const POOL_SETS_MAX_PAGES = 25;
+
 const POOL_DETAIL_QUERY = /* GraphQL */ `
-  query PoolDetail($poolId: ID!) {
+  query PoolDetail($poolId: ID!, $page: Int!, $perPage: Int!) {
     phaseGroup(id: $poolId) {
       id
       displayIdentifier
       bracketType
-      sets(page: 1, perPage: 100) {
+      sets(page: $page, perPage: $perPage) {
+        pageInfo {
+          totalPages
+        }
         nodes {
           id
           identifier
@@ -354,6 +384,14 @@ const POOL_DETAIL_QUERY = /* GraphQL */ `
           state
         }
       }
+    }
+  }
+`;
+
+/** シード値はセットとは別の問い合わせで取得する(1回の取得量を上限内に収めるため)。 */
+const POOL_SEEDS_QUERY = /* GraphQL */ `
+  query PoolSeeds($poolId: ID!) {
+    phaseGroup(id: $poolId) {
       seeds(query: { perPage: 128 }) {
         nodes {
           seedNum
@@ -498,20 +536,43 @@ export async function fetchPoolDetail(
   client: GraphQLClient,
   poolId: string,
 ): Promise<PoolDetail> {
-  const raw = await client.request(POOL_DETAIL_QUERY, { poolId });
-  const parsed = PhaseGroupDetailSchema.parse(raw);
-  const group = parsed.phaseGroup;
+  const requestSetsPage = async (page: number) =>
+    PhaseGroupDetailSchema.parse(
+      await client.request(POOL_DETAIL_QUERY, {
+        poolId,
+        page,
+        perPage: POOL_SETS_PAGE_SIZE,
+      }),
+    ).phaseGroup;
+  const group = await requestSetsPage(1);
+  const totalPages = Math.min(
+    group.sets?.pageInfo?.totalPages ?? 1,
+    POOL_SETS_MAX_PAGES,
+  );
+  // ページの取得中にstart.gg側でセットの並びが変わっても重複しないよう、IDで重ねる。
+  const setNodeById = new Map(
+    (group.sets?.nodes ?? []).map((set) => [set.id, set]),
+  );
+  for (let page = 2; page <= totalPages; page++) {
+    for (const set of (await requestSetsPage(page)).sets?.nodes ?? []) {
+      setNodeById.set(set.id, set);
+    }
+  }
+  const setNodes = [...setNodeById.values()];
+  const seeds = PhaseGroupSeedsSchema.parse(
+    await client.request(POOL_SEEDS_QUERY, { poolId }),
+  ).phaseGroup.seeds;
   const bracketType = normalizeBracketType(group.bracketType);
 
   const seedByEntrantId = new Map<string, number>();
-  for (const node of group.seeds?.nodes ?? []) {
+  for (const node of seeds?.nodes ?? []) {
     if (node.entrant && node.seedNum !== null) {
       seedByEntrantId.set(node.entrant.id, node.seedNum);
     }
   }
 
   const entrantById = new Map<string, Entrant>();
-  const matchCards: MatchCard[] = (group.sets?.nodes ?? []).map((set) => {
+  const matchCards: MatchCard[] = setNodes.map((set) => {
     const [slot1, slot2] = set.slots;
     const entrant1Id = slot1?.entrant?.id ?? null;
     const entrant2Id = slot2?.entrant?.id ?? null;

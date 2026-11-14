@@ -417,6 +417,76 @@ describe("Q2: fetchPoolDetail", () => {
     expect(reset.entrant2SourcePlacement).toBe(2);
   });
 
+  // ユーザーフィードバック(2026-11-13、スマパ#252): 64人・127セットのプールを
+  // 1回で取得すると、start.ggの上限(1回1000件)を超えて毎回拒否されていた。
+  // また1回で最大100セットまでしか取得しておらず、残りが抜け落ちていた。
+  it("fetches every page of sets in pages of at most 40 (127-set pool), and seeds in a separate request", async () => {
+    const TOTAL_SETS = 127;
+    const request = vi.fn(
+      async (query: string, variables: Record<string, unknown>) => {
+        if (query.includes("PoolSeeds")) {
+          return {
+            phaseGroup: {
+              seeds: {
+                nodes: [{ seedNum: 1, entrant: { id: 9001 } }],
+              },
+            },
+          };
+        }
+        const page = variables.page as number;
+        const perPage = variables.perPage as number;
+        const start = (page - 1) * perPage;
+        const ids = Array.from(
+          { length: Math.max(0, Math.min(perPage, TOTAL_SETS - start)) },
+          (_, i) => start + i + 1,
+        );
+        return {
+          phaseGroup: {
+            id: 1000,
+            displayIdentifier: "1",
+            bracketType: "DOUBLE_ELIMINATION",
+            sets: {
+              pageInfo: { totalPages: Math.ceil(TOTAL_SETS / perPage) },
+              nodes: ids.map((id) => ({
+                id,
+                identifier: `S${id}`,
+                round: 1,
+                station: null,
+                stream: null,
+                slots: [
+                  { entrant: id === 1 ? { id: 9001, name: "Seed1" } : null },
+                  { entrant: null },
+                ],
+                winnerId: null,
+                displayScore: null,
+                state: 1,
+              })),
+            },
+          },
+        };
+      },
+    );
+    const client = { request } as unknown as GraphQLClient;
+
+    const detail = await fetchPoolDetail(client, "1000");
+
+    expect(detail.matchCards).toHaveLength(TOTAL_SETS);
+    expect(new Set(detail.matchCards.map((card) => card.id)).size).toBe(
+      TOTAL_SETS,
+    );
+    const pageRequests = request.mock.calls.filter(
+      ([query]) => !String(query).includes("PoolSeeds"),
+    );
+    expect(pageRequests.map(([, vars]) => vars.page)).toEqual([1, 2, 3, 4]);
+    for (const [, vars] of pageRequests) {
+      expect(vars.perPage).toBeLessThanOrEqual(40);
+    }
+    // シードはセットとは別の問い合わせで取得し、選手に反映される。
+    expect(detail.entrants.find((entrant) => entrant.id === "9001")?.seed).toBe(
+      1,
+    );
+  });
+
   it("maps set state 6 (ActivityState.CALLED) to CALLED (2026-11-08)", async () => {
     const client = fakeClient({
       phaseGroup: {
